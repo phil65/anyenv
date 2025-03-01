@@ -1,0 +1,22 @@
+# Changes here will be overwritten by Copier
+_commit: v1.8.3
+_src_path: .\copier-phil65\
+author_email: philipptemminghoff@googlemail.com
+author_fullname: Philipp Temminghoff
+author_username: phil65
+copyright_date: '2025'
+copyright_holder: Philipp Temminghoff
+copyright_holder_email: philipptemminghoff@googlemail.com
+libraries_use_pydantic: false
+libraries_use_qt: false
+project_description: Compatibility layer for some basic operations to allow painless
+    operation in PyOdide and Python pre-releases
+project_name: AnyEnv
+python_minimum_version: '3.12'
+python_package_command_line_name: anyenv
+python_package_distribution_name: anyenv
+python_package_import_name: anyenv
+repository_name: anyenv
+repository_namespace: phil65
+repository_provider: github.com
+
