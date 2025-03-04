@@ -21,11 +21,10 @@ from anyenv.download.functional import (
     request_sync,
 )
 from anyenv.threadgroup.threadgroup import ThreadGroup
+from anyenv.package_install.functional import install, install_sync
 
 __all__ = [
-    # ThreadGroup
     "ThreadGroup",
-    # Download functionality
     "download",
     "download_sync",
     "get",
@@ -37,11 +36,12 @@ __all__ = [
     "get_sync",
     "get_text",
     "get_text_sync",
+    "install",
+    "install_sync",
     "post",
     "post_sync",
     "request",
     "request_sync",
-    # Async utilities
     "run_sync",
     "run_sync_in_thread",
 ]
