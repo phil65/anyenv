@@ -1,6 +1,6 @@
 """AnyEnv: A library for environment management and utility functions."""
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 from anyenv.async_run import run_sync, run_sync_in_thread
 from anyenv.download.functional import (
