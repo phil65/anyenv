@@ -45,7 +45,7 @@ class ThreadGroup[R]:
     def __enter__(self) -> ThreadGroup[R]:
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+    def __exit__(self, exc_type, exc_val, exc_tb):
         for future in concurrent.futures.as_completed(self.futures):
             try:
                 result = future.result()
@@ -58,7 +58,7 @@ class ThreadGroup[R]:
 
         self.futures = []
 
-    def shutdown(self) -> None:
+    def shutdown(self):
         """Shutdown the executor when done with the ThreadGroup."""
         self.executor.shutdown()
 

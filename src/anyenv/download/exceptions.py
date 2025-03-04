@@ -12,6 +12,6 @@ if TYPE_CHECKING:
 class HttpError(Exception):
     """Base class for HTTP errors."""
 
-    def __init__(self, message: str, response: HttpResponse | None = None) -> None:
+    def __init__(self, message: str, response: HttpResponse | None = None):
         super().__init__(message)
         self.response = response

@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 class HttpxResponse(HttpResponse):
     """HTTPX implementation of HTTP response."""
 
-    def __init__(self, response: httpx.Response) -> None:
+    def __init__(self, response: httpx.Response):
         self._response = response
 
     @property
@@ -52,7 +52,7 @@ class HttpxSession(Session):
         self,
         client: httpx.AsyncClient,
         base_url: str | None = None,
-    ) -> None:
+    ):
         self._client = client
         self._base_url = base_url
 
@@ -82,7 +82,7 @@ class HttpxSession(Session):
         )
         return HttpxResponse(response)
 
-    async def close(self) -> None:
+    async def close(self):
         await self._client.aclose()
 
 
@@ -153,7 +153,7 @@ class HttpxBackend(HttpBackend):
         headers: dict[str, str] | None = None,
         progress_callback: ProgressCallback | None = None,
         cache: bool = False,
-    ) -> None:
+    ):
         async with self._create_client(cache=cache) as client:  # noqa: SIM117
             async with client.stream("GET", url, headers=headers) as response:
                 response.raise_for_status()

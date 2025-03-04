@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import os
 import pathlib
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import aiohttp
 from aiohttp_client_cache import CachedSession, SQLiteBackend
@@ -18,10 +17,14 @@ from anyenv.download.base import (
 )
 
 
+if TYPE_CHECKING:
+    import os
+
+
 class AiohttpResponse(HttpResponse):
     """aiohttp implementation of HTTP response."""
 
-    def __init__(self, response: aiohttp.ClientResponse) -> None:
+    def __init__(self, response: aiohttp.ClientResponse):
         self._response = response
 
     @property
@@ -49,7 +52,7 @@ class AiohttpSession(Session):
         self,
         session: CachedSession,
         base_url: str | None = None,
-    ) -> None:
+    ):
         self._session = session
         self._base_url = base_url
 
@@ -68,6 +71,7 @@ class AiohttpSession(Session):
         if self._base_url:
             url = f"{self._base_url.rstrip('/')}/{url.lstrip('/')}"
 
+        # The CachedSession from aiohttp_client_cache honors cache_disabled parameter
         response = await self._session.request(
             method,
             url,
@@ -76,11 +80,10 @@ class AiohttpSession(Session):
             json=json,
             data=data,
             timeout=aiohttp.ClientTimeout(total=timeout) if timeout else None,
-            expire_after=0 if not cache else None,  # Don't cache if cache=False
         )
         return AiohttpResponse(response)
 
-    async def close(self) -> None:
+    async def close(self):
         await self._session.close()
 
 
@@ -95,7 +98,7 @@ class AiohttpBackend(HttpBackend):
     ) -> CachedSession:
         if cache:
             cache_backend = SQLiteBackend(
-                cache_name=os.path.join(self.cache_dir, "http_cache.db"),
+                cache_name=str(self.cache_dir / "http_cache.db"),
                 expire_after=self.cache_ttl,
             )
             return CachedSession(
@@ -146,7 +149,7 @@ class AiohttpBackend(HttpBackend):
         headers: dict[str, str] | None = None,
         progress_callback: ProgressCallback | None = None,
         cache: bool = False,
-    ) -> None:
+    ):
         session = await self._create_session(cache=cache)
         try:
             async with session.get(url, headers=headers) as response:

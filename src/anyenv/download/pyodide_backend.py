@@ -19,13 +19,13 @@ from anyenv.download.base import (
 if TYPE_CHECKING:
     import os
 
-    from pyodide.http import FetchResponse
+    from pyodide.http import FetchResponse  # pyright:ignore[reportMissingImports]
 
 
 class PyodideResponse(HttpResponse):
     """Pyodide implementation of HTTP response."""
 
-    def __init__(self, response: FetchResponse) -> None:
+    def __init__(self, response: FetchResponse):
         self._response = response
 
     @property
@@ -57,7 +57,7 @@ class PyodideSession(Session):
         self,
         base_url: str | None = None,
         headers: dict[str, str] | None = None,
-    ) -> None:
+    ):
         self._base_url = base_url
         self._headers = headers or {}
 
@@ -74,7 +74,7 @@ class PyodideSession(Session):
         cache: bool = False,
     ) -> HttpResponse:
         # Merge session headers with request headers
-        from pyodide.http import pyfetch
+        from pyodide.http import pyfetch  # pyright:ignore[reportMissingImports]
 
         request_headers = self._headers.copy()
         if headers:
@@ -107,7 +107,7 @@ class PyodideSession(Session):
         response = await pyfetch(url, **options)
         return PyodideResponse(response)
 
-    async def close(self) -> None:
+    async def close(self):
         """No-op in Pyodide as there's no persistent connection."""
 
 
@@ -146,9 +146,9 @@ class PyodideBackend(HttpBackend):
         headers: dict[str, str] | None = None,
         progress_callback: ProgressCallback | None = None,
         cache: bool = False,
-    ) -> None:
+    ):
         # In browser environment, we need to get the full response first
-        from pyodide.http import pyfetch
+        from pyodide.http import pyfetch  # pyright:ignore[reportMissingImports]
 
         response = await pyfetch(
             url,

@@ -5,6 +5,7 @@ from __future__ import annotations
 import abc
 from collections.abc import Callable
 import inspect
+import pathlib
 from typing import TYPE_CHECKING, Any, Literal, Self, TypeVar
 
 import anyio
@@ -71,7 +72,7 @@ class Session(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    async def close(self) -> None:
+    async def close(self):
         """Close the session."""
         raise NotImplementedError
 
@@ -84,7 +85,7 @@ class Session(abc.ABC):
         exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: types.TracebackType | None,
-    ) -> None:
+    ):
         """Exit async context."""
         await self.close()
 
@@ -101,10 +102,10 @@ class Session(abc.ABC):
         exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: types.TracebackType | None,
-    ) -> None:
+    ):
         """Exit sync context."""
 
-        async def wrapper() -> None:
+        async def wrapper():
             await self.__aexit__(exc_type, exc_val, exc_tb)
 
         anyio.run(wrapper)
@@ -117,7 +118,7 @@ class HttpBackend(abc.ABC):
         self,
         cache_dir: str | PathLike[str] | None = None,
         cache_ttl: int = 3600,
-    ) -> None:
+    ):
         """Initialize HTTP backend.
 
         Args:
@@ -125,7 +126,8 @@ class HttpBackend(abc.ABC):
                        uses platform-specific user cache directory.
             cache_ttl: Time-to-live for cached responses in seconds.
         """
-        self.cache_dir = cache_dir or user_cache_dir("anyenv", "anyenv")
+        dir_ = cache_dir or user_cache_dir("anyenv", "anyenv")
+        self.cache_dir = pathlib.Path(dir_)
         self.cache_ttl = cache_ttl
 
     @abc.abstractmethod
@@ -181,7 +183,7 @@ class HttpBackend(abc.ABC):
         headers: dict[str, str] | None = None,
         progress_callback: ProgressCallback | None = None,
         cache: bool = False,
-    ) -> None:
+    ):
         """Download a file with optional progress reporting."""
         raise NotImplementedError
 
@@ -193,10 +195,10 @@ class HttpBackend(abc.ABC):
         headers: dict[str, str] | None = None,
         progress_callback: ProgressCallback | None = None,
         cache: bool = False,
-    ) -> None:
+    ):
         """Synchronous version of download."""
 
-        async def wrapper() -> None:
+        async def wrapper():
             await self.download(
                 url,
                 path,
@@ -241,7 +243,7 @@ class HttpBackend(abc.ABC):
         callback: ProgressCallback,
         current: int,
         total: int,
-    ) -> None:
+    ):
         """Handle both sync and async callbacks."""
         if inspect.iscoroutinefunction(callback):
             await callback(current, total)

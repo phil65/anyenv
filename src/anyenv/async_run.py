@@ -81,7 +81,7 @@ def run_sync_in_thread(coro: Coroutine[Any, Any, T]) -> T:
     done = threading.Event()
     ctx = contextvars.copy_context()
 
-    def thread_target() -> None:
+    def thread_target():
         nonlocal result, error
         try:
             result = ctx.run(anyio.run, lambda: coro)
