@@ -34,10 +34,13 @@ class ThreadGroup[R]:
         self._exceptions: list[Exception] = []
         self._logger = logging.getLogger(self.__class__.__name__)
 
-    def spawn(self, func: Callable[..., R], *args: Any, **kwargs: Any) -> None:
+    def spawn(
+        self, func: Callable[..., R], *args: Any, **kwargs: Any
+    ) -> concurrent.futures.Future[R]:
         """Submit a task immediately to the executor."""
         future = self.executor.submit(func, *args, **kwargs)
         self.futures.append(future)
+        return future
 
     def __enter__(self) -> ThreadGroup[R]:
         return self
@@ -55,15 +58,6 @@ class ThreadGroup[R]:
 
         self.futures = []
 
-    async def __aenter__(self) -> ThreadGroup[R]:
-        return self.__enter__()
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        import asyncio
-
-        loop = asyncio.get_running_loop()
-        await loop.run_in_executor(None, lambda: self.__exit__(exc_type, exc_val, exc_tb))
-
     def shutdown(self) -> None:
         """Shutdown the executor when done with the ThreadGroup."""
         self.executor.shutdown()
@@ -75,3 +69,16 @@ class ThreadGroup[R]:
     @property
     def exceptions(self) -> list[Exception]:
         return self._exceptions
+
+
+if __name__ == "__main__":
+    import time
+
+    def test():
+        print("test")
+
+    with ThreadGroup[None]() as tg:
+        tg.spawn(time.sleep, 1)
+        tg.spawn(time.sleep, 2)
+
+    print(tg.results)
