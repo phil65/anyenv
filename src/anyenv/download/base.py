@@ -121,8 +121,8 @@ class HttpBackend(abc.ABC):
         """Initialize HTTP backend.
 
         Args:
-            cache_dir: Directory to store cached responses. If None, uses platform-specific
-                      user cache directory.
+            cache_dir: Directory to store cached responses. If None,
+                       uses platform-specific user cache directory.
             cache_ttl: Time-to-live for cached responses in seconds.
         """
         self.cache_dir = cache_dir or user_cache_dir("anyenv", "anyenv")
