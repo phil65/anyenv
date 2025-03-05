@@ -22,6 +22,7 @@ from anyenv.download.functional import (
 )
 from anyenv.threadgroup.threadgroup import ThreadGroup
 from anyenv.package_install.functional import install, install_sync
+from anyenv.testing import open_in_playground
 
 __all__ = [
     "ThreadGroup",
@@ -38,6 +39,7 @@ __all__ = [
     "get_text_sync",
     "install",
     "install_sync",
+    "open_in_playground",
     "post",
     "post_sync",
     "request",
