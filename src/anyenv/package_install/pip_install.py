@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import importlib
 import importlib.metadata
 import sys
@@ -41,26 +40,28 @@ class PipInstaller(PackageInstaller):
 
         # Run pip in a separate process to avoid blocking the event loop
         cmd = [sys.executable, "-m", "pip", *args]
-        cmd_str = " ".join(cmd)
-        print(f"Running: {cmd_str}")
+        print(f"Running: {' '.join(cmd)}")
 
-        proc = await asyncio.create_subprocess_shell(
-            cmd_str,
-            stderr=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-        )
+        # Use anyio's run_process
+        import subprocess
 
-        stdout, stderr = await proc.communicate()
-        print(stdout.decode())
+        import anyio
 
-        if proc.returncode != 0:
-            error_msg = stderr.decode()
+        try:
+            # When check=True, run_process raises CalledProcessError on non-zero exit
+            process = await anyio.run_process(cmd, check=True)
+
+            # Output is available in process.stdout
+            print(process.stdout.decode())
+
+            # Reload the package if it was upgraded
+            if upgrade:
+                self._reload_package(package_name)
+
+        except subprocess.CalledProcessError as e:
+            error_msg = e.stderr.decode() if e.stderr else str(e)
             msg = f"Pip installation failed: {error_msg}"
-            raise RuntimeError(msg)
-
-        # Reload the package if it was upgraded
-        if upgrade:
-            self._reload_package(package_name)
+            raise RuntimeError(msg) from e
 
     def _reload_package(self, package_name: str) -> None:
         """Attempt to reload a package's modules after installation."""
