@@ -46,14 +46,14 @@ def _get_default_backend() -> HttpBackend:
 
 def get_backend(
     backend_type: BackendType | None = None,
-    cache_path: str | os.PathLike[str] | None = None,
+    cache_dir: str | os.PathLike[str] | None = None,
     cache_ttl: int | None = None,
 ) -> HttpBackend:
     """Get a specific HTTP backend or the best available one.
 
     Args:
         backend_type: Optional backend type to use. If None, uses the best available.
-        cache_path: Optional path to use for caching. If None, uses a default path.
+        cache_dir: Optional path to use for caching. If None, uses a default path.
         cache_ttl: Optional TTL for cached responses. If None, uses a default TTL.
 
     Returns:
@@ -69,7 +69,7 @@ def get_backend(
         if importlib.util.find_spec("httpx") and importlib.util.find_spec("hishel"):
             from anyenv.download.httpx_backend import HttpxBackend
 
-            return HttpxBackend(cache_dir=cache_path, cache_ttl=cache_ttl)
+            return HttpxBackend(cache_dir=cache_dir, cache_ttl=cache_ttl)
         msg = "httpx backend requested but httpx or hishel not installed"
         raise ImportError(msg)
 
@@ -79,7 +79,7 @@ def get_backend(
         ):
             from anyenv.download.aiohttp_backend import AiohttpBackend
 
-            return AiohttpBackend(cache_dir=cache_path, cache_ttl=cache_ttl)
+            return AiohttpBackend(cache_dir=cache_dir, cache_ttl=cache_ttl)
         msg = (
             "aiohttp backend requested but aiohttp or aiohttp_client_cache not installed"
         )
@@ -111,6 +111,8 @@ async def request(
     timeout: float | None = None,
     cache: bool = False,
     backend: BackendType | None = None,
+    cache_dir: str | os.PathLike[str] | None = None,
+    cache_ttl: int | None = None,
 ) -> HttpResponse:
     """Make an HTTP request.
 
@@ -124,11 +126,13 @@ async def request(
         timeout: Optional request timeout in seconds
         cache: Whether to use cached responses
         backend: Optional specific backend to use
+        cache_dir: Optional directory to store cached responses
+        cache_ttl: Optional time-to-live for cached responses in seconds
 
     Returns:
         An HttpResponse object
     """
-    http_backend = get_backend(backend)
+    http_backend = get_backend(backend, cache_dir=cache_dir, cache_ttl=cache_ttl)
     return await http_backend.request(
         method,
         url,
@@ -149,6 +153,8 @@ async def get(
     timeout: float | None = None,
     cache: bool = False,
     backend: BackendType | None = None,
+    cache_dir: str | os.PathLike[str] | None = None,
+    cache_ttl: int | None = None,
 ) -> HttpResponse:
     """Make a GET request.
 
@@ -159,6 +165,8 @@ async def get(
         timeout: Optional request timeout in seconds
         cache: Whether to use cached responses
         backend: Optional specific backend to use
+        cache_dir: Optional directory to store cached responses
+        cache_ttl: Optional time-to-live for cached responses in seconds
 
     Returns:
         An HttpResponse object
@@ -171,6 +179,8 @@ async def get(
         timeout=timeout,
         cache=cache,
         backend=backend,
+        cache_dir=cache_dir,
+        cache_ttl=cache_ttl,
     )
 
 
@@ -184,6 +194,8 @@ async def post(
     timeout: float | None = None,
     cache: bool = False,
     backend: BackendType | None = None,
+    cache_dir: str | os.PathLike[str] | None = None,
+    cache_ttl: int | None = None,
 ) -> HttpResponse:
     """Make a POST request.
 
@@ -196,6 +208,8 @@ async def post(
         timeout: Optional request timeout in seconds
         cache: Whether to use cached responses
         backend: Optional specific backend to use
+        cache_dir: Optional path to use for caching
+        cache_ttl: Optional time-to-live for cached responses
 
     Returns:
         An HttpResponse object
@@ -210,6 +224,8 @@ async def post(
         timeout=timeout,
         cache=cache,
         backend=backend,
+        cache_dir=cache_dir,
+        cache_ttl=cache_ttl,
     )
 
 
@@ -221,6 +237,8 @@ async def download(
     progress_callback: ProgressCallback | None = None,
     cache: bool = False,
     backend: BackendType | None = None,
+    cache_dir: str | os.PathLike[str] | None = None,
+    cache_ttl: int | None = None,
 ) -> None:
     """Download a file with optional progress reporting.
 
@@ -231,8 +249,10 @@ async def download(
         progress_callback: Optional callback for progress reporting
         cache: Whether to use cached responses
         backend: Optional specific backend to use
+        cache_dir: Optional directory to use for caching
+        cache_ttl: Optional time-to-live for cached responses
     """
-    http_backend = get_backend(backend)
+    http_backend = get_backend(backend, cache_dir=cache_dir, cache_ttl=cache_ttl)
     await http_backend.download(
         url,
         path,
@@ -253,6 +273,8 @@ async def get_text(
     timeout: float | None = None,
     cache: bool = False,
     backend: BackendType | None = None,
+    cache_dir: str | os.PathLike[str] | None = None,
+    cache_ttl: int | None = None,
 ) -> str:
     """Make a GET request and return the response text.
 
@@ -263,12 +285,21 @@ async def get_text(
         timeout: Optional request timeout in seconds
         cache: Whether to use cached responses
         backend: Optional specific backend to use
+        cache_dir: Optional directory to store cached responses
+        cache_ttl: Optional time-to-live for cached responses
 
     Returns:
         The response body as text
     """
     response = await get(
-        url, params=params, headers=headers, timeout=timeout, cache=cache, backend=backend
+        url,
+        params=params,
+        headers=headers,
+        timeout=timeout,
+        cache=cache,
+        backend=backend,
+        cache_dir=cache_dir,
+        cache_ttl=cache_ttl,
     )
     return await response.text()
 
@@ -281,6 +312,8 @@ async def get_json(
     timeout: float | None = None,
     cache: bool = False,
     backend: BackendType | None = None,
+    cache_dir: str | os.PathLike[str] | None = None,
+    cache_ttl: int | None = None,
 ) -> Any:
     """Make a GET request and return the response as JSON.
 
@@ -291,12 +324,21 @@ async def get_json(
         timeout: Optional request timeout in seconds
         cache: Whether to use cached responses
         backend: Optional specific backend to use
+        cache_dir: Optional directory to store cached responses
+        cache_ttl: Optional time-to-live for cached responses
 
     Returns:
         The response body parsed as JSON
     """
     response = await get(
-        url, params=params, headers=headers, timeout=timeout, cache=cache, backend=backend
+        url,
+        params=params,
+        headers=headers,
+        timeout=timeout,
+        cache=cache,
+        backend=backend,
+        cache_dir=cache_dir,
+        cache_ttl=cache_ttl,
     )
     return await response.json()
 
@@ -309,6 +351,8 @@ async def get_bytes(
     timeout: float | None = None,
     cache: bool = False,
     backend: BackendType | None = None,
+    cache_dir: str | os.PathLike[str] | None = None,
+    cache_ttl: int | None = None,
 ) -> bytes:
     """Make a GET request and return the response as bytes.
 
@@ -319,12 +363,21 @@ async def get_bytes(
         timeout: Optional request timeout in seconds
         cache: Whether to use cached responses
         backend: Optional specific backend to use
+        cache_dir: Optional directory to store cached responses
+        cache_ttl: Optional time-to-live for cached responses
 
     Returns:
         The response body as bytes
     """
     response = await get(
-        url, params=params, headers=headers, timeout=timeout, cache=cache, backend=backend
+        url,
+        params=params,
+        headers=headers,
+        timeout=timeout,
+        cache=cache,
+        backend=backend,
+        cache_dir=cache_dir,
+        cache_ttl=cache_ttl,
     )
     return await response.bytes()
 
@@ -343,9 +396,11 @@ def request_sync(
     timeout: float | None = None,
     cache: bool = False,
     backend: BackendType | None = None,
+    cache_dir: str | os.PathLike[str] | None = None,
+    cache_ttl: int | None = None,
 ) -> HttpResponse:
     """Synchronous version of request."""
-    http_backend = get_backend(backend)
+    http_backend = get_backend(backend, cache_dir=cache_dir, cache_ttl=cache_ttl)
     return http_backend.request_sync(
         method,
         url,
@@ -366,6 +421,8 @@ def get_sync(
     timeout: float | None = None,
     cache: bool = False,
     backend: BackendType | None = None,
+    cache_dir: str | os.PathLike[str] | None = None,
+    cache_ttl: int | None = None,
 ) -> HttpResponse:
     """Synchronous version of get."""
     return request_sync(
@@ -376,6 +433,8 @@ def get_sync(
         timeout=timeout,
         cache=cache,
         backend=backend,
+        cache_dir=cache_dir,
+        cache_ttl=cache_ttl,
     )
 
 
@@ -389,6 +448,8 @@ def post_sync(
     timeout: float | None = None,
     cache: bool = False,
     backend: BackendType | None = None,
+    cache_dir: str | os.PathLike[str] | None = None,
+    cache_ttl: int | None = None,
 ) -> HttpResponse:
     """Synchronous version of post."""
     return request_sync(
@@ -401,6 +462,8 @@ def post_sync(
         timeout=timeout,
         cache=cache,
         backend=backend,
+        cache_dir=cache_dir,
+        cache_ttl=cache_ttl,
     )
 
 
@@ -412,9 +475,11 @@ def download_sync(
     progress_callback: ProgressCallback | None = None,
     cache: bool = False,
     backend: BackendType | None = None,
+    cache_dir: str | os.PathLike[str] | None = None,
+    cache_ttl: int | None = None,
 ) -> None:
     """Synchronous version of download."""
-    http_backend = get_backend(backend)
+    http_backend = get_backend(backend, cache_dir=cache_dir, cache_ttl=cache_ttl)
     http_backend.download_sync(
         url,
         path,
@@ -432,6 +497,8 @@ def get_text_sync(
     timeout: float | None = None,
     cache: bool = False,
     backend: BackendType | None = None,
+    cache_dir: str | os.PathLike[str] | None = None,
+    cache_ttl: int | None = None,
 ) -> str:
     """Synchronous version of get_text."""
     from anyenv.async_run import run_sync
@@ -444,6 +511,8 @@ def get_text_sync(
             timeout=timeout,
             cache=cache,
             backend=backend,
+            cache_dir=cache_dir,
+            cache_ttl=cache_ttl,
         )
     )
 
@@ -456,6 +525,8 @@ def get_json_sync(
     timeout: float | None = None,
     cache: bool = False,
     backend: BackendType | None = None,
+    cache_dir: str | os.PathLike[str] | None = None,
+    cache_ttl: int | None = None,
 ) -> Any:
     """Synchronous version of get_json."""
     from anyenv.async_run import run_sync
@@ -468,6 +539,8 @@ def get_json_sync(
             timeout=timeout,
             cache=cache,
             backend=backend,
+            cache_dir=cache_dir,
+            cache_ttl=cache_ttl,
         )
     )
 
@@ -480,6 +553,8 @@ def get_bytes_sync(
     timeout: float | None = None,
     cache: bool = False,
     backend: BackendType | None = None,
+    cache_dir: str | os.PathLike[str] | None = None,
+    cache_ttl: int | None = None,
 ) -> bytes:
     """Synchronous version of get_bytes."""
     from anyenv.async_run import run_sync
@@ -492,5 +567,7 @@ def get_bytes_sync(
             timeout=timeout,
             cache=cache,
             backend=backend,
+            cache_dir=cache_dir,
+            cache_ttl=cache_ttl,
         )
     )
