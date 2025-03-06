@@ -23,11 +23,14 @@ from anyenv.download.functional import (
 from anyenv.threadgroup.threadgroup import ThreadGroup
 from anyenv.package_install.functional import install, install_sync
 from anyenv.testing import open_in_playground
+from anyenv.json_tools.loading import load_json
+from anyenv.json_tools.dumping import dump_json
 
 __all__ = [
     "ThreadGroup",
     "download",
     "download_sync",
+    "dump_json",
     "get",
     "get_backend",
     "get_bytes",
@@ -39,6 +42,7 @@ __all__ = [
     "get_text_sync",
     "install",
     "install_sync",
+    "load_json",
     "open_in_playground",
     "post",
     "post_sync",
