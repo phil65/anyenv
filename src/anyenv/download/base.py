@@ -128,7 +128,7 @@ class HttpBackend(abc.ABC):
             cache_ttl: Time-to-live for cached responses in seconds.
         """
         cache_ttl = cache_ttl or DEFAULT_TTL
-        dir_ = cache_dir or user_cache_dir("anyenv", "anyenv")
+        dir_ = cache_dir or user_cache_dir("anyenv", False)
         self.cache_dir = pathlib.Path(dir_)
         self.cache_ttl = cache_ttl
 
