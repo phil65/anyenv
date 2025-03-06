@@ -5,6 +5,8 @@ from __future__ import annotations
 import importlib.util
 from typing import TYPE_CHECKING, Any, Literal, TypeVar
 
+from anyenv.download.validate import validate_json_data
+
 
 if TYPE_CHECKING:
     import os
@@ -313,7 +315,8 @@ async def get_json(
     backend: BackendType | None = None,
     cache_dir: str | os.PathLike[str] | None = None,
     cache_ttl: int | None = None,
-) -> Any:
+    return_type: type[T] | None = None,
+) -> T:
     """Make a GET request and return the response as JSON.
 
     Args:
@@ -325,6 +328,7 @@ async def get_json(
         backend: Optional specific backend to use
         cache_dir: Optional directory to store cached responses
         cache_ttl: Optional time-to-live for cached responses
+        return_type: Optional type to validate the response against
 
     Returns:
         The response body parsed as JSON
@@ -339,7 +343,8 @@ async def get_json(
         cache_dir=cache_dir,
         cache_ttl=cache_ttl,
     )
-    return await response.json()
+    data = await response.json()
+    return validate_json_data(data, return_type)
 
 
 async def get_bytes(
@@ -526,7 +531,8 @@ def get_json_sync(
     backend: BackendType | None = None,
     cache_dir: str | os.PathLike[str] | None = None,
     cache_ttl: int | None = None,
-) -> Any:
+    return_type: type[T] | None = None,
+) -> T:
     """Synchronous version of get_json."""
     from anyenv.async_run import run_sync
 
@@ -540,6 +546,7 @@ def get_json_sync(
             backend=backend,
             cache_dir=cache_dir,
             cache_ttl=cache_ttl,
+            return_type=return_type,
         )
     )
 
