@@ -103,22 +103,12 @@ class AiohttpBackend(HttpBackend):
         headers: dict[str, str] | None = None,
     ) -> CachedSession:
         if cache:
-            cache_backend = SQLiteBackend(
-                cache_name=str(self.cache_dir / "http_cache.db"),
-                expire_after=self.cache_ttl,
-            )
-            return CachedSession(
-                cache=cache_backend,
-                headers=headers,
-                base_url=base_url,
-            )
+            path = str(self.cache_dir / "http_cache.db")
+            cache_backend = SQLiteBackend(cache_name=path, expire_after=self.cache_ttl)
+            return CachedSession(cache=cache_backend, headers=headers, base_url=base_url)
 
         # Even when not caching, we use CachedSession for consistent interface
-        return CachedSession(
-            expire_after=0,  # Disable caching
-            headers=headers,
-            base_url=base_url,
-        )
+        return CachedSession(expire_after=0, headers=headers, base_url=base_url)
 
     async def request(
         self,
