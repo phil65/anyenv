@@ -20,6 +20,8 @@ if TYPE_CHECKING:
 
     from pyodide.http import FetchResponse  # pyright:ignore[reportMissingImports]
 
+    from anyenv.download.http_types import HeaderType
+
 
 class PyodideResponse(HttpResponse):
     """Pyodide implementation of HTTP response."""
@@ -55,7 +57,7 @@ class PyodideSession(Session):
     def __init__(
         self,
         base_url: str | None = None,
-        headers: dict[str, str] | None = None,
+        headers: HeaderType | None = None,
     ):
         self._base_url = base_url
         self._headers = headers or {}
@@ -66,7 +68,7 @@ class PyodideSession(Session):
         url: str,
         *,
         params: dict[str, str] | None = None,
-        headers: dict[str, str] | None = None,
+        headers: HeaderType | None = None,
         json: Any = None,
         data: Any = None,
         timeout: float | None = None,
@@ -126,7 +128,7 @@ class PyodideBackend(HttpBackend):
         url: str,
         *,
         params: dict[str, str] | None = None,
-        headers: dict[str, str] | None = None,
+        headers: HeaderType | None = None,
         json: Any = None,
         data: Any = None,
         timeout: float | None = None,
@@ -162,7 +164,7 @@ class PyodideBackend(HttpBackend):
         url: str,
         path: str | os.PathLike[str],
         *,
-        headers: dict[str, str] | None = None,
+        headers: HeaderType | None = None,
         progress_callback: ProgressCallback | None = None,
         cache: bool = False,
     ):
@@ -207,7 +209,7 @@ class PyodideBackend(HttpBackend):
         self,
         *,
         base_url: str | None = None,
-        headers: dict[str, str] | None = None,
+        headers: HeaderType | None = None,
         cache: bool = False,
     ) -> Session:
         return PyodideSession(base_url=base_url, headers=headers)

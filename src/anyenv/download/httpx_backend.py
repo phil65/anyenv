@@ -24,6 +24,8 @@ if TYPE_CHECKING:
 
     import httpx
 
+    from anyenv.download.http_types import HeaderType
+
 
 class HttpxResponse(HttpResponse):
     """HTTPX implementation of HTTP response."""
@@ -68,7 +70,7 @@ class HttpxSession(Session):
         url: str,
         *,
         params: dict[str, str] | None = None,
-        headers: dict[str, str] | None = None,
+        headers: HeaderType | None = None,
         json: Any = None,
         data: Any = None,
         timeout: float | None = None,
@@ -107,7 +109,7 @@ class HttpxBackend(HttpBackend):
         self,
         cache: bool = False,
         base_url: str | None = None,
-        headers: dict[str, str] | None = None,
+        headers: HeaderType | None = None,
     ) -> httpx.AsyncClient:
         import hishel
         import httpx
@@ -137,7 +139,7 @@ class HttpxBackend(HttpBackend):
         url: str,
         *,
         params: dict[str, str] | None = None,
-        headers: dict[str, str] | None = None,
+        headers: HeaderType | None = None,
         json: Any = None,
         data: Any = None,
         timeout: float | None = None,
@@ -169,7 +171,7 @@ class HttpxBackend(HttpBackend):
         url: str,
         path: str | os.PathLike[str],
         *,
-        headers: dict[str, str] | None = None,
+        headers: HeaderType | None = None,
         progress_callback: ProgressCallback | None = None,
         cache: bool = False,
     ):
@@ -207,7 +209,7 @@ class HttpxBackend(HttpBackend):
         self,
         *,
         base_url: str | None = None,
-        headers: dict[str, str] | None = None,
+        headers: HeaderType | None = None,
         cache: bool = False,
     ) -> Session:
         client = self._create_client(

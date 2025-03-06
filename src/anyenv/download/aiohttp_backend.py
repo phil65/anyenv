@@ -25,6 +25,8 @@ if TYPE_CHECKING:
     import aiohttp
     from aiohttp_client_cache import CachedSession
 
+    from anyenv.download.http_types import HeaderType
+
 
 class AiohttpResponse(HttpResponse):
     """aiohttp implementation of HTTP response."""
@@ -69,7 +71,7 @@ class AiohttpSession(Session):
         url: str,
         *,
         params: dict[str, str] | None = None,
-        headers: dict[str, str] | None = None,
+        headers: HeaderType | None = None,
         json: Any = None,
         data: Any = None,
         timeout: float | None = None,
@@ -110,7 +112,7 @@ class AiohttpBackend(HttpBackend):
         self,
         cache: bool = False,
         base_url: str | None = None,
-        headers: dict[str, str] | None = None,
+        headers: HeaderType | None = None,
     ) -> CachedSession:
         from aiohttp_client_cache import CachedSession, SQLiteBackend
 
@@ -128,7 +130,7 @@ class AiohttpBackend(HttpBackend):
         url: str,
         *,
         params: dict[str, str] | None = None,
-        headers: dict[str, str] | None = None,
+        headers: HeaderType | None = None,
         json: Any = None,
         data: Any = None,
         timeout: float | None = None,
@@ -165,7 +167,7 @@ class AiohttpBackend(HttpBackend):
         url: str,
         path: str | os.PathLike[str],
         *,
-        headers: dict[str, str] | None = None,
+        headers: HeaderType | None = None,
         progress_callback: ProgressCallback | None = None,
         cache: bool = False,
     ):
@@ -203,7 +205,7 @@ class AiohttpBackend(HttpBackend):
         self,
         *,
         base_url: str | None = None,
-        headers: dict[str, str] | None = None,
+        headers: HeaderType | None = None,
         cache: bool = False,
     ) -> Session:
         session = await self._create_session(

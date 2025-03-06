@@ -13,6 +13,8 @@ if TYPE_CHECKING:
     from os import PathLike
     import types
 
+    from anyenv.download.http_types import HeaderType
+
 T = TypeVar("T")
 ProgressCallback = Callable[[int, int], Any]  # current, total -> Any
 Method = Literal["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD"]
@@ -60,7 +62,7 @@ class Session(abc.ABC):
         url: str,
         *,
         params: dict[str, str] | None = None,
-        headers: dict[str, str] | None = None,
+        headers: HeaderType | None = None,
         json: Any = None,
         data: Any = None,
         timeout: float | None = None,
@@ -146,7 +148,7 @@ class HttpBackend(abc.ABC):
         url: str,
         *,
         params: dict[str, str] | None = None,
-        headers: dict[str, str] | None = None,
+        headers: HeaderType | None = None,
         json: Any = None,
         data: Any = None,
         timeout: float | None = None,
@@ -161,7 +163,7 @@ class HttpBackend(abc.ABC):
         url: str,
         *,
         params: dict[str, str] | None = None,
-        headers: dict[str, str] | None = None,
+        headers: HeaderType | None = None,
         json: Any = None,
         data: Any = None,
         timeout: float | None = None,
@@ -190,7 +192,7 @@ class HttpBackend(abc.ABC):
         url: str,
         path: str | PathLike[str],
         *,
-        headers: dict[str, str] | None = None,
+        headers: HeaderType | None = None,
         progress_callback: ProgressCallback | None = None,
         cache: bool = False,
     ):
@@ -202,7 +204,7 @@ class HttpBackend(abc.ABC):
         url: str,
         path: str | PathLike[str],
         *,
-        headers: dict[str, str] | None = None,
+        headers: HeaderType | None = None,
         progress_callback: ProgressCallback | None = None,
         cache: bool = False,
     ):
@@ -225,7 +227,7 @@ class HttpBackend(abc.ABC):
         self,
         *,
         base_url: str | None = None,
-        headers: dict[str, str] | None = None,
+        headers: HeaderType | None = None,
         cache: bool = False,
     ) -> Session:
         """Create a new session for connection reuse."""
@@ -235,7 +237,7 @@ class HttpBackend(abc.ABC):
         self,
         *,
         base_url: str | None = None,
-        headers: dict[str, str] | None = None,
+        headers: HeaderType | None = None,
         cache: bool = False,
     ) -> Session:
         """Synchronous version of create_session."""
