@@ -25,10 +25,14 @@ from anyenv.package_install.functional import install, install_sync
 from anyenv.testing import open_in_playground
 from anyenv.json_tools.loading import load_json, JsonLoadError
 from anyenv.json_tools.dumping import dump_json, JsonDumpError
+from anyenv.download.base import HttpBackend, HttpResponse, Session
 
 __all__ = [
+    "HttpBackend",
+    "HttpResponse",
     "JsonDumpError",
     "JsonLoadError",
+    "Session",
     "ThreadGroup",
     "download",
     "download_sync",
