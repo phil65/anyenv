@@ -48,7 +48,7 @@ def _get_default_backend() -> HttpBackend:
 def get_backend(
     backend_type: BackendType | None = None,
     cache_dir: str | os.PathLike[str] | None = None,
-    cache_ttl: int | None = None,
+    cache_ttl: int | str | None = None,
 ) -> HttpBackend:
     """Get a specific HTTP backend or the best available one.
 
@@ -113,7 +113,7 @@ async def request(
     cache: bool = False,
     backend: BackendType | None = None,
     cache_dir: str | os.PathLike[str] | None = None,
-    cache_ttl: int | None = None,
+    cache_ttl: int | str | None = None,
 ) -> HttpResponse:
     """Make an HTTP request.
 
@@ -128,7 +128,8 @@ async def request(
         cache: Whether to use cached responses
         backend: Optional specific backend to use
         cache_dir: Optional directory to store cached responses
-        cache_ttl: Optional time-to-live for cached responses in seconds
+        cache_ttl: Optional TTL for cached responses. Can be specified as seconds (int)
+                   or as a time period string (e.g. "1h", "2d", "1w 2d").
 
     Returns:
         An HttpResponse object
@@ -155,7 +156,7 @@ async def get(
     cache: bool = False,
     backend: BackendType | None = None,
     cache_dir: str | os.PathLike[str] | None = None,
-    cache_ttl: int | None = None,
+    cache_ttl: int | str | None = None,
 ) -> HttpResponse:
     """Make a GET request.
 
@@ -167,7 +168,8 @@ async def get(
         cache: Whether to use cached responses
         backend: Optional specific backend to use
         cache_dir: Optional directory to store cached responses
-        cache_ttl: Optional time-to-live for cached responses in seconds
+        cache_ttl: Optional TTL for cached responses. Can be specified as seconds (int)
+                   or as a time period string (e.g. "1h", "2d", "1w 2d").
 
     Returns:
         An HttpResponse object
@@ -196,7 +198,7 @@ async def post(
     cache: bool = False,
     backend: BackendType | None = None,
     cache_dir: str | os.PathLike[str] | None = None,
-    cache_ttl: int | None = None,
+    cache_ttl: int | str | None = None,
 ) -> HttpResponse:
     """Make a POST request.
 
@@ -210,7 +212,8 @@ async def post(
         cache: Whether to use cached responses
         backend: Optional specific backend to use
         cache_dir: Optional path to use for caching
-        cache_ttl: Optional time-to-live for cached responses
+        cache_ttl: Optional TTL for cached responses. Can be specified as seconds (int)
+                   or as a time period string (e.g. "1h", "2d", "1w 2d").
 
     Returns:
         An HttpResponse object
@@ -239,7 +242,7 @@ async def download(
     cache: bool = False,
     backend: BackendType | None = None,
     cache_dir: str | os.PathLike[str] | None = None,
-    cache_ttl: int | None = None,
+    cache_ttl: int | str | None = None,
 ) -> None:
     """Download a file with optional progress reporting.
 
@@ -251,7 +254,8 @@ async def download(
         cache: Whether to use cached responses
         backend: Optional specific backend to use
         cache_dir: Optional directory to use for caching
-        cache_ttl: Optional time-to-live for cached responses
+        cache_ttl: Optional TTL for cached responses. Can be specified as seconds (int)
+                   or as a time period string (e.g. "1h", "2d", "1w 2d").
     """
     http_backend = get_backend(backend, cache_dir=cache_dir, cache_ttl=cache_ttl)
     await http_backend.download(
@@ -275,7 +279,7 @@ async def get_text(
     cache: bool = False,
     backend: BackendType | None = None,
     cache_dir: str | os.PathLike[str] | None = None,
-    cache_ttl: int | None = None,
+    cache_ttl: int | str | None = None,
 ) -> str:
     """Make a GET request and return the response text.
 
@@ -287,7 +291,8 @@ async def get_text(
         cache: Whether to use cached responses
         backend: Optional specific backend to use
         cache_dir: Optional directory to store cached responses
-        cache_ttl: Optional time-to-live for cached responses
+        cache_ttl: Optional TTL for cached responses. Can be specified as seconds (int)
+                   or as a time period string (e.g. "1h", "2d", "1w 2d").
 
     Returns:
         The response body as text
@@ -314,7 +319,7 @@ async def get_json(
     cache: bool = False,
     backend: BackendType | None = None,
     cache_dir: str | os.PathLike[str] | None = None,
-    cache_ttl: int | None = None,
+    cache_ttl: int | str | None = None,
     return_type: type[T] | None = None,
 ) -> T:
     """Make a GET request and return the response as JSON.
@@ -327,7 +332,8 @@ async def get_json(
         cache: Whether to use cached responses
         backend: Optional specific backend to use
         cache_dir: Optional directory to store cached responses
-        cache_ttl: Optional time-to-live for cached responses
+        cache_ttl: Optional TTL for cached responses. Can be specified as seconds (int)
+                   or as a time period string (e.g. "1h", "2d", "1w 2d").
         return_type: Optional type to validate the response against
 
     Returns:
@@ -356,7 +362,7 @@ async def get_bytes(
     cache: bool = False,
     backend: BackendType | None = None,
     cache_dir: str | os.PathLike[str] | None = None,
-    cache_ttl: int | None = None,
+    cache_ttl: int | str | None = None,
 ) -> bytes:
     """Make a GET request and return the response as bytes.
 
@@ -368,7 +374,8 @@ async def get_bytes(
         cache: Whether to use cached responses
         backend: Optional specific backend to use
         cache_dir: Optional directory to store cached responses
-        cache_ttl: Optional time-to-live for cached responses
+        cache_ttl: Optional TTL for cached responses. Can be specified as seconds (int)
+                   or as a time period string (e.g. "1h", "2d", "1w 2d").
 
     Returns:
         The response body as bytes
@@ -401,7 +408,7 @@ def request_sync(
     cache: bool = False,
     backend: BackendType | None = None,
     cache_dir: str | os.PathLike[str] | None = None,
-    cache_ttl: int | None = None,
+    cache_ttl: int | str | None = None,
 ) -> HttpResponse:
     """Synchronous version of request."""
     http_backend = get_backend(backend, cache_dir=cache_dir, cache_ttl=cache_ttl)
@@ -426,7 +433,7 @@ def get_sync(
     cache: bool = False,
     backend: BackendType | None = None,
     cache_dir: str | os.PathLike[str] | None = None,
-    cache_ttl: int | None = None,
+    cache_ttl: int | str | None = None,
 ) -> HttpResponse:
     """Synchronous version of get."""
     return request_sync(
@@ -453,7 +460,7 @@ def post_sync(
     cache: bool = False,
     backend: BackendType | None = None,
     cache_dir: str | os.PathLike[str] | None = None,
-    cache_ttl: int | None = None,
+    cache_ttl: int | str | None = None,
 ) -> HttpResponse:
     """Synchronous version of post."""
     return request_sync(
@@ -480,7 +487,7 @@ def download_sync(
     cache: bool = False,
     backend: BackendType | None = None,
     cache_dir: str | os.PathLike[str] | None = None,
-    cache_ttl: int | None = None,
+    cache_ttl: int | str | None = None,
 ) -> None:
     """Synchronous version of download."""
     http_backend = get_backend(backend, cache_dir=cache_dir, cache_ttl=cache_ttl)
@@ -502,7 +509,7 @@ def get_text_sync(
     cache: bool = False,
     backend: BackendType | None = None,
     cache_dir: str | os.PathLike[str] | None = None,
-    cache_ttl: int | None = None,
+    cache_ttl: int | str | None = None,
 ) -> str:
     """Synchronous version of get_text."""
     from anyenv.async_run import run_sync
@@ -530,7 +537,7 @@ def get_json_sync(
     cache: bool = False,
     backend: BackendType | None = None,
     cache_dir: str | os.PathLike[str] | None = None,
-    cache_ttl: int | None = None,
+    cache_ttl: int | str | None = None,
     return_type: type[T] | None = None,
 ) -> T:
     """Synchronous version of get_json."""
@@ -560,7 +567,7 @@ def get_bytes_sync(
     cache: bool = False,
     backend: BackendType | None = None,
     cache_dir: str | os.PathLike[str] | None = None,
-    cache_ttl: int | None = None,
+    cache_ttl: int | str | None = None,
 ) -> bytes:
     """Synchronous version of get_bytes."""
     from anyenv.async_run import run_sync

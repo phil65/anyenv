@@ -119,19 +119,25 @@ class HttpBackend(abc.ABC):
     def __init__(
         self,
         cache_dir: str | PathLike[str] | None = None,
-        cache_ttl: int | None = None,
+        cache_ttl: int | str | None = None,
     ):
         """Initialize HTTP backend.
 
         Args:
             cache_dir: Directory to store cached responses. If None,
                        uses platform-specific user cache directory.
-            cache_ttl: Time-to-live for cached responses in seconds.
+            cache_ttl: Time-to-live for cached responses in seconds or as a
+                        time period string (e.g. "1h", "2d", "1w 2d").
         """
-        cache_ttl = cache_ttl or DEFAULT_TTL
+        if isinstance(cache_ttl, str):
+            from anyenv.parse_time import parse_time_period
+
+            cache_ttl_seconds = int(parse_time_period(cache_ttl).total_seconds())
+        else:
+            cache_ttl_seconds = cache_ttl or DEFAULT_TTL
         dir_ = cache_dir or user_cache_dir("anyenv", False)
         self.cache_dir = pathlib.Path(dir_)
-        self.cache_ttl = cache_ttl
+        self.cache_ttl = cache_ttl_seconds
 
     @abc.abstractmethod
     async def request(
