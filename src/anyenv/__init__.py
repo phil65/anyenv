@@ -23,10 +23,12 @@ from anyenv.download.functional import (
 from anyenv.threadgroup.threadgroup import ThreadGroup
 from anyenv.package_install.functional import install, install_sync
 from anyenv.testing import open_in_playground
-from anyenv.json_tools.loading import load_json
-from anyenv.json_tools.dumping import dump_json
+from anyenv.json_tools.loading import load_json, JsonLoadError
+from anyenv.json_tools.dumping import dump_json, JsonDumpError
 
 __all__ = [
+    "JsonDumpError",
+    "JsonLoadError",
     "ThreadGroup",
     "download",
     "download_sync",
