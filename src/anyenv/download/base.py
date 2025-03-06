@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 T = TypeVar("T")
 ProgressCallback = Callable[[int, int], Any]  # current, total -> Any
 Method = Literal["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD"]
+DEFAULT_TTL = 3600
 
 
 class HttpResponse(abc.ABC):
@@ -117,7 +118,7 @@ class HttpBackend(abc.ABC):
     def __init__(
         self,
         cache_dir: str | PathLike[str] | None = None,
-        cache_ttl: int = 3600,
+        cache_ttl: int | None = None,
     ):
         """Initialize HTTP backend.
 
@@ -126,6 +127,7 @@ class HttpBackend(abc.ABC):
                        uses platform-specific user cache directory.
             cache_ttl: Time-to-live for cached responses in seconds.
         """
+        cache_ttl = cache_ttl or DEFAULT_TTL
         dir_ = cache_dir or user_cache_dir("anyenv", "anyenv")
         self.cache_dir = pathlib.Path(dir_)
         self.cache_ttl = cache_ttl

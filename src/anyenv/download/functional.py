@@ -19,15 +19,13 @@ BackendType = Literal["httpx", "aiohttp", "pyodide"]
 def _get_default_backend() -> HttpBackend:
     """Get the best available HTTP backend."""
     # Try httpx first
-    if importlib.util.find_spec("httpx") and importlib.util.find_spec("hishel"):
+    if importlib.util.find_spec("httpx"):
         from anyenv.download.httpx_backend import HttpxBackend
 
         return HttpxBackend()
 
     # Try aiohttp next
-    if importlib.util.find_spec("aiohttp") and importlib.util.find_spec(
-        "aiohttp_client_cache"
-    ):
+    if importlib.util.find_spec("aiohttp"):
         from anyenv.download.aiohttp_backend import AiohttpBackend
 
         return AiohttpBackend()
@@ -46,11 +44,17 @@ def _get_default_backend() -> HttpBackend:
     raise ImportError(msg)
 
 
-def get_backend(backend_type: BackendType | None = None) -> HttpBackend:
+def get_backend(
+    backend_type: BackendType | None = None,
+    cache_path: str | os.PathLike[str] | None = None,
+    cache_ttl: int | None = None,
+) -> HttpBackend:
     """Get a specific HTTP backend or the best available one.
 
     Args:
         backend_type: Optional backend type to use. If None, uses the best available.
+        cache_path: Optional path to use for caching. If None, uses a default path.
+        cache_ttl: Optional TTL for cached responses. If None, uses a default TTL.
 
     Returns:
         An instance of the selected HTTP backend.
@@ -65,7 +69,7 @@ def get_backend(backend_type: BackendType | None = None) -> HttpBackend:
         if importlib.util.find_spec("httpx") and importlib.util.find_spec("hishel"):
             from anyenv.download.httpx_backend import HttpxBackend
 
-            return HttpxBackend()
+            return HttpxBackend(cache_dir=cache_path, cache_ttl=cache_ttl)
         msg = "httpx backend requested but httpx or hishel not installed"
         raise ImportError(msg)
 
@@ -75,7 +79,7 @@ def get_backend(backend_type: BackendType | None = None) -> HttpBackend:
         ):
             from anyenv.download.aiohttp_backend import AiohttpBackend
 
-            return AiohttpBackend()
+            return AiohttpBackend(cache_dir=cache_path, cache_ttl=cache_ttl)
         msg = (
             "aiohttp backend requested but aiohttp or aiohttp_client_cache not installed"
         )
