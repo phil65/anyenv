@@ -11,6 +11,7 @@ from anyenv.download.base import (
     ProgressCallback,
     Session,
 )
+from anyenv.download.exceptions import RequestError, check_response
 
 
 try:
@@ -79,17 +80,24 @@ class AiohttpSession(Session):
         if self._base_url:
             url = f"{self._base_url.rstrip('/')}/{url.lstrip('/')}"
 
-        # The CachedSession from aiohttp_client_cache honors cache_disabled parameter
-        response = await self._session.request(
-            method,
-            url,
-            params=params,
-            headers=headers,
-            json=json,
-            data=data,
-            timeout=aiohttp.ClientTimeout(total=timeout) if timeout else None,
-        )
-        return AiohttpResponse(response)
+        try:
+            # The CachedSession from aiohttp_client_cache honors cache_disabled parameter
+            response = await self._session.request(
+                method,
+                url,
+                params=params,
+                headers=headers,
+                json=json,
+                data=data,
+                timeout=aiohttp.ClientTimeout(total=timeout) if timeout else None,
+            )
+            aiohttp_response = AiohttpResponse(response)
+        except aiohttp.ClientError as exc:
+            error_msg = f"Request failed: {exc!s}"
+            raise RequestError(error_msg) from exc
+
+        # Check for HTTP status errors
+        return check_response(aiohttp_response)
 
     async def close(self):
         await self._session.close()
@@ -128,18 +136,27 @@ class AiohttpBackend(HttpBackend):
     ) -> HttpResponse:
         import aiohttp
 
+        from anyenv.download.exceptions import RequestError, check_response
+
         session = await self._create_session(cache=cache)
         try:
-            response = await session.request(
-                method,
-                url,
-                params=params,
-                headers=headers,
-                json=json,
-                data=data,
-                timeout=aiohttp.ClientTimeout(total=timeout) if timeout else None,
-            )
-            return AiohttpResponse(response)
+            try:
+                response = await session.request(
+                    method,
+                    url,
+                    params=params,
+                    headers=headers,
+                    json=json,
+                    data=data,
+                    timeout=aiohttp.ClientTimeout(total=timeout) if timeout else None,
+                )
+                aiohttp_response = AiohttpResponse(response)
+            except aiohttp.ClientError as exc:
+                error_msg = f"Request failed: {exc!s}"
+                raise RequestError(error_msg) from exc
+
+            # Check for HTTP status errors
+            return check_response(aiohttp_response)
         finally:
             await session.close()
 
@@ -152,20 +169,33 @@ class AiohttpBackend(HttpBackend):
         progress_callback: ProgressCallback | None = None,
         cache: bool = False,
     ):
+        import aiohttp
+
+        from anyenv.download.exceptions import RequestError, ResponseError
+
         session = await self._create_session(cache=cache)
         try:
-            async with session.get(url, headers=headers) as response:
-                response.raise_for_status()
+            try:
+                async with session.get(url, headers=headers) as response:
+                    # Check for HTTP errors instead of using raise_for_status()
+                    if 400 <= response.status < 600:  # noqa: PLR2004
+                        message = f"HTTP Error {response.status}"
+                        raise ResponseError(message, AiohttpResponse(response))
 
-                total = int(response.headers.get("content-length", "0"))
-                current = 0
+                    total = int(response.headers.get("content-length", "0"))
+                    current = 0
 
-                with Path(path).open("wb") as f:
-                    async for chunk in response.content.iter_chunked(8192):
-                        f.write(chunk)
-                        current += len(chunk)
-                        if progress_callback:
-                            await self._handle_callback(progress_callback, current, total)
+                    with Path(path).open("wb") as f:
+                        async for chunk in response.content.iter_chunked(8192):
+                            f.write(chunk)
+                            current += len(chunk)
+                            if progress_callback:
+                                await self._handle_callback(
+                                    progress_callback, current, total
+                                )
+            except aiohttp.ClientError as exc:
+                error_msg = f"Download failed: {exc!s}"
+                raise RequestError(error_msg) from exc
         finally:
             await session.close()
 

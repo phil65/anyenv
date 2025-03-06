@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json as json_lib
 import pathlib
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urljoin
@@ -76,6 +75,9 @@ class PyodideSession(Session):
         # Merge session headers with request headers
         from pyodide.http import pyfetch  # pyright:ignore[reportMissingImports]
 
+        from anyenv.download.exceptions import RequestError, check_response
+        from anyenv.json_tools import dumping
+
         request_headers = self._headers.copy()
         if headers:
             request_headers.update(headers)
@@ -93,19 +95,23 @@ class PyodideSession(Session):
 
         # Handle body data
         if json is not None:
-            options["body"] = json_lib.dumps(json)
+            options["body"] = dumping.dump_json(json)
             request_headers["Content-Type"] = "application/json"
         elif data is not None:
             options["body"] = data
 
-        # Handle caching
-        if cache:
-            options["cache"] = "force-cache"
-        else:
-            options["cache"] = "no-store"
+        options["cache"] = "force-cache" if cache else "no-store"
 
-        response = await pyfetch(url, **options)
-        return PyodideResponse(response)
+        try:
+            response = await pyfetch(url, **options)
+            pyodide_response = PyodideResponse(response)
+        except Exception as exc:
+            # Pyodide might throw different error types, so we catch a general Exception
+            error_msg = f"Request failed: {exc!s}"
+            raise RequestError(error_msg) from exc
+
+        # Check for HTTP status errors
+        return check_response(pyodide_response)
 
     async def close(self):
         """No-op in Pyodide as there's no persistent connection."""
@@ -126,17 +132,30 @@ class PyodideBackend(HttpBackend):
         timeout: float | None = None,
         cache: bool = False,
     ) -> HttpResponse:
-        session = PyodideSession()
-        return await session.request(
-            method,
-            url,
-            params=params,
-            headers=headers,
-            json=json,
-            data=data,
-            timeout=timeout,
-            cache=cache,
-        )
+        from anyenv.download.exceptions import RequestError, check_response
+
+        try:
+            session = PyodideSession()
+            response = await session.request(
+                method,
+                url,
+                params=params,
+                headers=headers,
+                json=json,
+                data=data,
+                timeout=timeout,
+                cache=cache,
+            )
+        except RequestError:
+            # Re-raise existing RequestErrors without wrapping
+            raise
+        except Exception as exc:
+            # Catch any other exceptions
+            error_msg = f"Request failed: {exc!s}"
+            raise RequestError(error_msg) from exc
+
+        # Check for HTTP status errors (although session.request should have done this)
+        return check_response(response)
 
     async def download(
         self,
@@ -147,25 +166,42 @@ class PyodideBackend(HttpBackend):
         progress_callback: ProgressCallback | None = None,
         cache: bool = False,
     ):
-        # In browser environment, we need to get the full response first
         from pyodide.http import pyfetch  # pyright:ignore[reportMissingImports]
 
-        response = await pyfetch(
-            url,
-            headers=headers,
-            cache="force-cache" if cache else "no-store",
-        )
+        from anyenv.download.exceptions import RequestError, ResponseError
 
-        content = await response.bytes()
-        total = len(content)
+        try:
+            # In browser environment, we need to get the full response first
+            response = await pyfetch(
+                url,
+                headers=headers,
+                cache="force-cache" if cache else "no-store",
+            )
 
-        # Write to file and handle progress
-        with pathlib.Path(path).open("wb") as f:
-            if progress_callback:
-                await self._handle_callback(progress_callback, 0, total)
-            f.write(content)
-            if progress_callback:
-                await self._handle_callback(progress_callback, total, total)
+            # Check for HTTP errors
+            if 400 <= response.status < 600:  # noqa: PLR2004
+                pyodide_response = PyodideResponse(response)
+                message = f"HTTP Error {response.status}"
+                raise ResponseError(message, pyodide_response)  # noqa: TRY301
+
+            content = await response.bytes()
+            total = len(content)
+
+            # Write to file and handle progress
+            with pathlib.Path(path).open("wb") as f:
+                if progress_callback:
+                    await self._handle_callback(progress_callback, 0, total)
+                f.write(content)
+                if progress_callback:
+                    await self._handle_callback(progress_callback, total, total)
+
+        except ResponseError:
+            # Re-raise ResponseErrors
+            raise
+        except Exception as exc:
+            # Catch any other exceptions
+            error_msg = f"Download failed: {exc!s}"
+            raise RequestError(error_msg) from exc
 
     async def create_session(
         self,

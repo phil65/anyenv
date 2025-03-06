@@ -14,6 +14,7 @@ from anyenv.download.base import (
     ProgressCallback,
     Session,
 )
+from anyenv.download.exceptions import RequestError, check_response
 
 
 try:
@@ -77,16 +78,22 @@ class HttpxSession(Session):
         if self._base_url:
             url = f"{self._base_url.rstrip('/')}/{url.lstrip('/')}"
 
-        response = await self._client.request(
-            method,
-            url,
-            params=params,
-            headers=headers,
-            json=json,
-            data=data,
-            timeout=timeout if timeout else None,
-        )
-        return HttpxResponse(response)
+        try:
+            response = await self._client.request(
+                method,
+                url,
+                params=params,
+                headers=headers,
+                json=json,
+                data=data,
+                timeout=timeout if timeout else None,
+            )
+            httpx_response = HttpxResponse(response)
+        except httpx.RequestError as exc:
+            error_msg = f"Request failed: {exc!s}"
+            raise RequestError(error_msg) from exc
+
+        return check_response(httpx_response)
 
     async def close(self):
         await self._client.aclose()
@@ -132,17 +139,24 @@ class HttpxBackend(HttpBackend):
         timeout: float | None = None,
         cache: bool = False,
     ) -> HttpResponse:
-        async with self._create_client(cache=cache) as client:
-            response = await client.request(
-                method,
-                url,
-                params=params,
-                headers=headers,
-                json=json,
-                data=data,
-                timeout=timeout if timeout else None,
-            )
-            return HttpxResponse(response)
+        try:
+            async with self._create_client(cache=cache) as client:
+                response = await client.request(
+                    method,
+                    url,
+                    params=params,
+                    headers=headers,
+                    json=json,
+                    data=data,
+                    timeout=timeout if timeout else None,
+                )
+                httpx_response = HttpxResponse(response)
+        except httpx.RequestError as exc:
+            error_msg = f"Request failed: {exc!s}"
+            raise RequestError(error_msg) from exc
+
+        # Outside the exception handler for request errors
+        return check_response(httpx_response)
 
     async def download(
         self,
@@ -153,19 +167,33 @@ class HttpxBackend(HttpBackend):
         progress_callback: ProgressCallback | None = None,
         cache: bool = False,
     ):
-        async with self._create_client(cache=cache) as client:  # noqa: SIM117
-            async with client.stream("GET", url, headers=headers) as response:
-                response.raise_for_status()
+        from anyenv.download.exceptions import RequestError, ResponseError
 
-                total = int(response.headers.get("content-length", "0"))
-                current = 0
+        try:
+            async with self._create_client(cache=cache) as client:  # noqa: SIM117
+                async with client.stream("GET", url, headers=headers) as response:
+                    # Check for HTTP errors instead of using raise_for_status()
+                    if 400 <= response.status_code < 600:  # noqa: PLR2004
+                        message = f"HTTP Error {response.status_code}"
+                        raise ResponseError(message, HttpxResponse(response))
 
-                with Path(path).open("wb") as f:
-                    async for chunk in response.aiter_bytes():
-                        f.write(chunk)
-                        current += len(chunk)
-                        if progress_callback:
-                            await self._handle_callback(progress_callback, current, total)
+                    total = int(response.headers.get("content-length", "0"))
+                    current = 0
+
+                    with Path(path).open("wb") as f:
+                        async for chunk in response.aiter_bytes():
+                            f.write(chunk)
+                            current += len(chunk)
+                            if progress_callback:
+                                await self._handle_callback(
+                                    progress_callback, current, total
+                                )
+        except httpx.TransportError as exc:
+            error_msg = f"Download failed: {exc!s}"
+            raise RequestError(error_msg) from exc
+        except httpx.RequestError as exc:
+            error_msg = f"Download error: {exc!s}"
+            raise RequestError(error_msg) from exc
 
     async def create_session(
         self,
