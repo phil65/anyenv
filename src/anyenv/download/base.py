@@ -8,8 +8,6 @@ import inspect
 import pathlib
 from typing import TYPE_CHECKING, Any, Literal, Self, TypeVar
 
-from appdirs import user_cache_dir
-
 
 if TYPE_CHECKING:
     from os import PathLike
@@ -129,6 +127,8 @@ class HttpBackend(abc.ABC):
             cache_ttl: Time-to-live for cached responses in seconds or as a
                         time period string (e.g. "1h", "2d", "1w 2d").
         """
+        from appdirs import user_cache_dir
+
         if isinstance(cache_ttl, str):
             from anyenv.parse_time import parse_time_period
 

@@ -5,8 +5,6 @@ from __future__ import annotations
 import importlib.util
 from typing import TYPE_CHECKING, Any, Literal, TypeVar
 
-from anyenv.download.validate import validate_json_data
-
 
 if TYPE_CHECKING:
     import os
@@ -339,6 +337,8 @@ async def get_json(
     Returns:
         The response body parsed as JSON
     """
+    from anyenv.download.validate import validate_json_data
+
     response = await get(
         url,
         params=params,

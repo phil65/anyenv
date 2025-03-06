@@ -4,9 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-import hishel
-import httpx
-
 from anyenv.download.base import (
     HttpBackend,
     HttpResponse,
@@ -24,6 +21,8 @@ except ImportError:
 
 if TYPE_CHECKING:
     import os
+
+    import httpx
 
 
 class HttpxResponse(HttpResponse):
@@ -75,6 +74,8 @@ class HttpxSession(Session):
         timeout: float | None = None,
         cache: bool = False,
     ) -> HttpResponse:
+        import httpx
+
         if self._base_url:
             url = f"{self._base_url.rstrip('/')}/{url.lstrip('/')}"
 
@@ -108,6 +109,9 @@ class HttpxBackend(HttpBackend):
         base_url: str | None = None,
         headers: dict[str, str] | None = None,
     ) -> httpx.AsyncClient:
+        import hishel
+        import httpx
+
         url = base_url or ""
         if cache:
             from anyenv.download.httpx_serializer import AnyEnvSerializer
@@ -139,6 +143,8 @@ class HttpxBackend(HttpBackend):
         timeout: float | None = None,
         cache: bool = False,
     ) -> HttpResponse:
+        import httpx
+
         try:
             async with self._create_client(cache=cache) as client:
                 response = await client.request(
@@ -167,6 +173,8 @@ class HttpxBackend(HttpBackend):
         progress_callback: ProgressCallback | None = None,
         cache: bool = False,
     ):
+        import httpx
+
         from anyenv.download.exceptions import RequestError, ResponseError
 
         try:
