@@ -98,7 +98,10 @@ class HttpxBackend(HttpBackend):
         headers: dict[str, str] | None = None,
     ) -> httpx.AsyncClient:
         if cache:
+            from anyenv.download.httpx_serializer import AnyEnvSerializer
+
             storage = hishel.AsyncFileStorage(
+                serializer=AnyEnvSerializer(),
                 base_path=self.cache_dir,
                 ttl=self.cache_ttl,
             )
