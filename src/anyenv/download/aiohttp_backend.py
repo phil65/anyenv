@@ -39,7 +39,9 @@ class AiohttpResponse(HttpResponse):
         return await self._response.text()
 
     async def json(self) -> Any:
-        return await self._response.json()
+        from anyenv.json_tools import loading
+
+        return await self._response.json(loads=loading.load_json)
 
     async def bytes(self) -> bytes:
         return await self._response.read()
