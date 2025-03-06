@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pathlib
 from typing import TYPE_CHECKING, Any
 
 import aiohttp
@@ -16,6 +15,11 @@ from anyenv.download.base import (
     Session,
 )
 
+
+try:
+    from upath import UPath as Path
+except ImportError:
+    from pathlib import Path  # type: ignore[assignment]
 
 if TYPE_CHECKING:
     import os
@@ -160,7 +164,7 @@ class AiohttpBackend(HttpBackend):
                 total = int(response.headers.get("content-length", "0"))
                 current = 0
 
-                with pathlib.Path(path).open("wb") as f:
+                with Path(path).open("wb") as f:
                     async for chunk in response.content.iter_chunked(8192):
                         f.write(chunk)
                         current += len(chunk)

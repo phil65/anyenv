@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pathlib
 from typing import TYPE_CHECKING, Any
 
 import hishel
@@ -16,6 +15,11 @@ from anyenv.download.base import (
     Session,
 )
 
+
+try:
+    from upath import UPath as Path
+except ImportError:
+    from pathlib import Path  # type: ignore[assignment]
 
 if TYPE_CHECKING:
     import os
@@ -97,6 +101,7 @@ class HttpxBackend(HttpBackend):
         base_url: str | None = None,
         headers: dict[str, str] | None = None,
     ) -> httpx.AsyncClient:
+        url = base_url or ""
         if cache:
             from anyenv.download.httpx_serializer import AnyEnvSerializer
 
@@ -105,26 +110,15 @@ class HttpxBackend(HttpBackend):
                 base_path=self.cache_dir,
                 ttl=self.cache_ttl,
             )
-            controller = hishel.Controller(
+            ctl = hishel.Controller(
                 cacheable_methods=["GET"],
                 cacheable_status_codes=[200],
                 allow_stale=True,
             )
-            transport = hishel.AsyncCacheTransport(
-                transport=httpx.AsyncHTTPTransport(),
-                storage=storage,
-                controller=controller,
-            )
-            return httpx.AsyncClient(
-                transport=transport,
-                headers=headers,
-                base_url=base_url or "",
-            )
-
-        return httpx.AsyncClient(
-            headers=headers,
-            base_url=base_url or "",
-        )
+            tp = httpx.AsyncHTTPTransport()
+            transport = hishel.AsyncCacheTransport(tp, storage=storage, controller=ctl)
+            return httpx.AsyncClient(transport=transport, headers=headers, base_url=url)
+        return httpx.AsyncClient(headers=headers, base_url=url)
 
     async def request(
         self,
@@ -166,7 +160,7 @@ class HttpxBackend(HttpBackend):
                 total = int(response.headers.get("content-length", "0"))
                 current = 0
 
-                with pathlib.Path(path).open("wb") as f:
+                with Path(path).open("wb") as f:
                     async for chunk in response.aiter_bytes():
                         f.write(chunk)
                         current += len(chunk)
@@ -194,7 +188,7 @@ if __name__ == "__main__":
         backend = HttpxBackend()
         await backend.download(
             url="http://speedtest.tele2.net/10MB.zip",
-            path=pathlib.Path.cwd() / "file.zip",
+            path=Path.cwd() / "file.zip",
             headers={"User-Agent": "anyenv"},
         )
 
