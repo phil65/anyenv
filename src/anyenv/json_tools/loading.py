@@ -30,6 +30,17 @@ elif importlib.util.find_spec("pydantic_core") is not None:
                 data = data.read()
         return from_json(data)
 
+elif importlib.util.find_spec("msgspec") is not None:
+    import msgspec.json
+
+    def load_json(data: str | bytes | TextIOWrapper) -> Any:
+        """Load JSON using msgspec."""
+        match data:
+            case TextIOWrapper():
+                data = data.read()
+        return msgspec.json.decode(data)
+
+
 else:
     import json
 
