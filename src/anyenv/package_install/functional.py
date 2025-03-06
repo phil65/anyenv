@@ -6,8 +6,6 @@ import importlib.util
 import sys
 from typing import TYPE_CHECKING
 
-from anyenv.async_run import run_sync
-
 
 if TYPE_CHECKING:
     from anyenv.package_install.base import PackageInstaller
@@ -66,4 +64,6 @@ def install_sync(
     upgrade: bool = False,
 ) -> None:
     """Synchronous version of install."""
+    from anyenv.async_run import run_sync
+
     return run_sync(install(package_name=package_name, version=version, upgrade=upgrade))

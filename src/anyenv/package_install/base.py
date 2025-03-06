@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import abc
 
-from anyenv.async_run import run_sync
-
 
 class PackageInstaller(abc.ABC):
     """Base class for package installer implementations."""
@@ -34,6 +32,8 @@ class PackageInstaller(abc.ABC):
         upgrade: bool = False,
     ) -> None:
         """Synchronous version of install."""
+        from anyenv.async_run import run_sync
+
         return run_sync(
             self.install(
                 package_name=package_name,

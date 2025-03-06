@@ -18,7 +18,6 @@ BackendType = Literal["httpx", "aiohttp", "pyodide"]
 
 def _get_default_backend() -> HttpBackend:
     """Get the best available HTTP backend."""
-    # Try httpx first
     if importlib.util.find_spec("httpx"):
         from anyenv.download.httpx_backend import HttpxBackend
 

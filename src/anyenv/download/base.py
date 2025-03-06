@@ -8,7 +8,6 @@ import inspect
 import pathlib
 from typing import TYPE_CHECKING, Any, Literal, Self, TypeVar
 
-import anyio
 from appdirs import user_cache_dir
 
 
@@ -92,6 +91,7 @@ class Session(abc.ABC):
 
     def __enter__(self) -> Self:
         """Enter sync context."""
+        import anyio
 
         async def wrapper() -> Self:
             return await self.__aenter__()
@@ -105,6 +105,7 @@ class Session(abc.ABC):
         exc_tb: types.TracebackType | None,
     ):
         """Exit sync context."""
+        import anyio
 
         async def wrapper():
             await self.__aexit__(exc_type, exc_val, exc_tb)
@@ -161,6 +162,7 @@ class HttpBackend(abc.ABC):
         cache: bool = False,
     ) -> HttpResponse:
         """Synchronous version of request."""
+        import anyio
 
         async def wrapper() -> HttpResponse:
             return await self.request(
@@ -199,6 +201,7 @@ class HttpBackend(abc.ABC):
         cache: bool = False,
     ):
         """Synchronous version of download."""
+        import anyio
 
         async def wrapper():
             await self.download(
@@ -230,6 +233,7 @@ class HttpBackend(abc.ABC):
         cache: bool = False,
     ) -> Session:
         """Synchronous version of create_session."""
+        import anyio
 
         async def wrapper() -> Session:
             return await self.create_session(

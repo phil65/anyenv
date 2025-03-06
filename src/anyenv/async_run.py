@@ -6,8 +6,6 @@ import contextvars
 import threading
 from typing import TYPE_CHECKING, Any, TypeVar
 
-import anyio
-
 
 if TYPE_CHECKING:
     from collections.abc import Coroutine
@@ -40,6 +38,8 @@ def run_sync(coro: Coroutine[Any, Any, T]) -> T:
     Returns:
         The result of the coroutine
     """
+    import anyio
+
     ctx = contextvars.copy_context()
 
     try:
@@ -76,6 +76,8 @@ def run_sync_in_thread(coro: Coroutine[Any, Any, T]) -> T:
     Returns:
         The result of the coroutine
     """
+    import anyio
+
     result: T | None = None
     error: BaseException | None = None
     done = threading.Event()

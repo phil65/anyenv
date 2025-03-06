@@ -4,9 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-import aiohttp
-from aiohttp_client_cache import CachedSession, SQLiteBackend
-
 from anyenv.download.base import (
     HttpBackend,
     HttpResponse,
@@ -23,6 +20,9 @@ except ImportError:
 
 if TYPE_CHECKING:
     import os
+
+    import aiohttp
+    from aiohttp_client_cache import CachedSession
 
 
 class AiohttpResponse(HttpResponse):
@@ -74,6 +74,8 @@ class AiohttpSession(Session):
         timeout: float | None = None,
         cache: bool = False,
     ) -> HttpResponse:
+        import aiohttp
+
         if self._base_url:
             url = f"{self._base_url.rstrip('/')}/{url.lstrip('/')}"
 
@@ -102,6 +104,8 @@ class AiohttpBackend(HttpBackend):
         base_url: str | None = None,
         headers: dict[str, str] | None = None,
     ) -> CachedSession:
+        from aiohttp_client_cache import CachedSession, SQLiteBackend
+
         if cache:
             path = str(self.cache_dir / "http_cache.db")
             cache_backend = SQLiteBackend(cache_name=path, expire_after=self.cache_ttl)
@@ -122,6 +126,8 @@ class AiohttpBackend(HttpBackend):
         timeout: float | None = None,
         cache: bool = False,
     ) -> HttpResponse:
+        import aiohttp
+
         session = await self._create_session(cache=cache)
         try:
             response = await session.request(
