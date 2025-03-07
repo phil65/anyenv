@@ -4,17 +4,17 @@ from __future__ import annotations
 
 import contextvars
 import threading
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, Literal, overload
+
+import anyio
+from anyio import to_thread
 
 
 if TYPE_CHECKING:
-    from collections.abc import Coroutine
+    from collections.abc import Awaitable, Callable, Coroutine, Sequence
 
 
-T = TypeVar("T")
-
-
-def run_sync(coro: Coroutine[Any, Any, T]) -> T:
+def run_sync[T](coro: Coroutine[Any, Any, T]) -> T:
     """Run a coroutine synchronously.
 
     This function uses anyio to run a coroutine in a synchronous context.
@@ -54,7 +54,7 @@ def run_sync(coro: Coroutine[Any, Any, T]) -> T:
         raise RuntimeError(msg) from e
 
 
-def run_sync_in_thread(coro: Coroutine[Any, Any, T]) -> T:
+def run_sync_in_thread[T](coro: Coroutine[Any, Any, T]) -> T:
     """Run a coroutine synchronously in a new thread.
 
     This function creates a new thread to run the coroutine with anyio.
@@ -101,3 +101,57 @@ def run_sync_in_thread(coro: Coroutine[Any, Any, T]) -> T:
 
     # We know result can't be None here if no exception was raised
     return result  # type: ignore
+
+
+@overload
+async def gather[T](
+    *coros_or_futures: Awaitable[T],
+    return_exceptions: Literal[True],
+) -> Sequence[T | Exception]: ...
+
+
+@overload
+async def gather[T](
+    *coros_or_futures: Awaitable[T],
+    return_exceptions: Literal[False] = False,
+) -> Sequence[T]: ...
+
+
+async def gather[T](
+    *coros_or_futures: Awaitable[T],
+    return_exceptions: bool = False,
+) -> Sequence[T | Exception]:
+    """Run awaitables concurrently using anyio's task groups.
+
+    Args:
+        *coros_or_futures: Awaitables (coroutines or futures) to run concurrently
+        return_exceptions: If True, exceptions are returned instead of raised
+
+    Returns:
+        A list of results in the same order as the input awaitables
+    """
+    results: list[Any] = [None] * len(coros_or_futures)
+
+    async with anyio.create_task_group() as tg:
+        for i, coro in enumerate(coros_or_futures):
+
+            async def run_and_store(idx: int = i, awaitable: Awaitable[T] = coro):
+                try:
+                    results[idx] = await awaitable
+                except Exception as exc:
+                    if return_exceptions:
+                        results[idx] = exc
+                    else:
+                        raise
+
+            tg.start_soon(run_and_store)
+
+    return results
+
+
+async def run_in_thread[T](func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
+    """Run a function in a separate thread using anyio.
+
+    Equivalent to asyncio.to_thread.
+    """
+    return await to_thread.run_sync(func, *args, **kwargs)
