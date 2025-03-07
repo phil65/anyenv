@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 
 HeaderType = dict[str, str]
-ParamsType = dict[str, str | int | float]
+ParamsType = Mapping[str, str | int | float | None]

@@ -87,7 +87,7 @@ class AiohttpSession(Session):
             response = await self._session.request(
                 method,
                 url,
-                params=params,
+                params=params,  # type: ignore
                 headers=headers,
                 json=json,
                 data=data,
@@ -146,7 +146,7 @@ class AiohttpBackend(HttpBackend):
                 response = await session.request(
                     method,
                     url,
-                    params=params,
+                    params=params,  # type: ignore
                     headers=headers,
                     json=json,
                     data=data,
