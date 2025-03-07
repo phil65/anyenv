@@ -38,10 +38,12 @@ class PyodideResponse(HttpResponse):
         return dict(self._response.headers)
 
     async def text(self) -> str:
-        return await self._response.string()
+        return await self._response.text()
 
     async def json(self) -> Any:
-        return await self._response.json()
+        from anyenv.json_tools import loading
+
+        return await loading.load_json(self._response)
 
     async def bytes(self) -> bytes:
         return await self._response.bytes()
