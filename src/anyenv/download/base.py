@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from os import PathLike
     import types
 
-    from anyenv.download.http_types import HeaderType
+    from anyenv.download.http_types import HeaderType, ParamsType
 
 T = TypeVar("T")
 ProgressCallback = Callable[[int, int], Any]  # current, total -> Any
@@ -61,7 +61,7 @@ class Session(abc.ABC):
         method: Method,
         url: str,
         *,
-        params: dict[str, str] | None = None,
+        params: ParamsType | None = None,
         headers: HeaderType | None = None,
         json: Any = None,
         data: Any = None,
@@ -147,7 +147,7 @@ class HttpBackend(abc.ABC):
         method: Method,
         url: str,
         *,
-        params: dict[str, str] | None = None,
+        params: ParamsType | None = None,
         headers: HeaderType | None = None,
         json: Any = None,
         data: Any = None,
@@ -162,7 +162,7 @@ class HttpBackend(abc.ABC):
         method: Method,
         url: str,
         *,
-        params: dict[str, str] | None = None,
+        params: ParamsType | None = None,
         headers: HeaderType | None = None,
         json: Any = None,
         data: Any = None,

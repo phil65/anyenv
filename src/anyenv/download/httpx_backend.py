@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
     import httpx
 
-    from anyenv.download.http_types import HeaderType
+    from anyenv.download.http_types import HeaderType, ParamsType
 
 
 class HttpxResponse(HttpResponse):
@@ -69,7 +69,7 @@ class HttpxSession(Session):
         method: Method,
         url: str,
         *,
-        params: dict[str, str] | None = None,
+        params: ParamsType | None = None,
         headers: HeaderType | None = None,
         json: Any = None,
         data: Any = None,
@@ -138,7 +138,7 @@ class HttpxBackend(HttpBackend):
         method: Method,
         url: str,
         *,
-        params: dict[str, str] | None = None,
+        params: ParamsType | None = None,
         headers: HeaderType | None = None,
         json: Any = None,
         data: Any = None,

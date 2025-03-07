@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
     from pyodide.http import FetchResponse  # pyright:ignore[reportMissingImports]
 
-    from anyenv.download.http_types import HeaderType
+    from anyenv.download.http_types import HeaderType, ParamsType
 
 
 class PyodideResponse(HttpResponse):
@@ -67,7 +67,7 @@ class PyodideSession(Session):
         method: Method,
         url: str,
         *,
-        params: dict[str, str] | None = None,
+        params: ParamsType | None = None,
         headers: HeaderType | None = None,
         json: Any = None,
         data: Any = None,
@@ -127,7 +127,7 @@ class PyodideBackend(HttpBackend):
         method: Method,
         url: str,
         *,
-        params: dict[str, str] | None = None,
+        params: ParamsType | None = None,
         headers: HeaderType | None = None,
         json: Any = None,
         data: Any = None,

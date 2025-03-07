@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     import os
 
     from anyenv.download.base import HttpBackend, HttpResponse, Method, ProgressCallback
-    from anyenv.download.http_types import HeaderType
+    from anyenv.download.http_types import HeaderType, ParamsType
 
 
 T = TypeVar("T")
@@ -104,7 +104,7 @@ async def request(
     method: Method,
     url: str,
     *,
-    params: dict[str, str] | None = None,
+    params: ParamsType | None = None,
     headers: HeaderType | None = None,
     json: Any = None,
     data: Any = None,
@@ -149,7 +149,7 @@ async def request(
 async def get(
     url: str,
     *,
-    params: dict[str, str] | None = None,
+    params: ParamsType | None = None,
     headers: HeaderType | None = None,
     timeout: float | None = None,
     cache: bool = False,
@@ -189,7 +189,7 @@ async def get(
 async def post(
     url: str,
     *,
-    params: dict[str, str] | None = None,
+    params: ParamsType | None = None,
     headers: HeaderType | None = None,
     json: Any = None,
     data: Any = None,
@@ -272,7 +272,7 @@ async def download(
 async def get_text(
     url: str,
     *,
-    params: dict[str, str] | None = None,
+    params: ParamsType | None = None,
     headers: HeaderType | None = None,
     timeout: float | None = None,
     cache: bool = False,
@@ -312,7 +312,7 @@ async def get_text(
 async def get_json(
     url: str,
     *,
-    params: dict[str, str] | None = None,
+    params: ParamsType | None = None,
     headers: HeaderType | None = None,
     timeout: float | None = None,
     cache: bool = False,
@@ -357,7 +357,7 @@ async def get_json(
 async def get_bytes(
     url: str,
     *,
-    params: dict[str, str] | None = None,
+    params: ParamsType | None = None,
     headers: HeaderType | None = None,
     timeout: float | None = None,
     cache: bool = False,
@@ -401,7 +401,7 @@ def request_sync(
     method: Method,
     url: str,
     *,
-    params: dict[str, str] | None = None,
+    params: ParamsType | None = None,
     headers: HeaderType | None = None,
     json: Any = None,
     data: Any = None,
@@ -428,7 +428,7 @@ def request_sync(
 def get_sync(
     url: str,
     *,
-    params: dict[str, str] | None = None,
+    params: ParamsType | None = None,
     headers: HeaderType | None = None,
     timeout: float | None = None,
     cache: bool = False,
@@ -453,7 +453,7 @@ def get_sync(
 def post_sync(
     url: str,
     *,
-    params: dict[str, str] | None = None,
+    params: ParamsType | None = None,
     headers: HeaderType | None = None,
     json: Any = None,
     data: Any = None,
@@ -504,7 +504,7 @@ def download_sync(
 def get_text_sync(
     url: str,
     *,
-    params: dict[str, str] | None = None,
+    params: ParamsType | None = None,
     headers: HeaderType | None = None,
     timeout: float | None = None,
     cache: bool = False,
@@ -532,7 +532,7 @@ def get_text_sync(
 def get_json_sync(
     url: str,
     *,
-    params: dict[str, str] | None = None,
+    params: ParamsType | None = None,
     headers: HeaderType | None = None,
     timeout: float | None = None,
     cache: bool = False,
@@ -562,7 +562,7 @@ def get_json_sync(
 def get_bytes_sync(
     url: str,
     *,
-    params: dict[str, str] | None = None,
+    params: ParamsType | None = None,
     headers: HeaderType | None = None,
     timeout: float | None = None,
     cache: bool = False,

@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     import aiohttp
     from aiohttp_client_cache import CachedSession
 
-    from anyenv.download.http_types import HeaderType
+    from anyenv.download.http_types import HeaderType, ParamsType
 
 
 class AiohttpResponse(HttpResponse):
@@ -70,7 +70,7 @@ class AiohttpSession(Session):
         method: Method,
         url: str,
         *,
-        params: dict[str, str] | None = None,
+        params: ParamsType | None = None,
         headers: HeaderType | None = None,
         json: Any = None,
         data: Any = None,
@@ -129,7 +129,7 @@ class AiohttpBackend(HttpBackend):
         method: Method,
         url: str,
         *,
-        params: dict[str, str] | None = None,
+        params: ParamsType | None = None,
         headers: HeaderType | None = None,
         json: Any = None,
         data: Any = None,
