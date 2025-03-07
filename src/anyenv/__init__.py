@@ -2,7 +2,7 @@
 
 __version__ = "0.4.0"
 
-from anyenv.async_run import run_sync, run_sync_in_thread
+from anyenv.async_run import run_sync, run_sync_in_thread, gather, run_in_thread
 from anyenv.download.functional import (
     download,
     download_sync,
@@ -41,6 +41,7 @@ __all__ = [
     "download",
     "download_sync",
     "dump_json",
+    "gather",
     "get",
     "get_backend",
     "get_bytes",
@@ -58,6 +59,7 @@ __all__ = [
     "post_sync",
     "request",
     "request_sync",
+    "run_in_thread",
     "run_sync",
     "run_sync_in_thread",
 ]
