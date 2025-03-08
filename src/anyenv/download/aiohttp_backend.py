@@ -110,7 +110,7 @@ class AiohttpSession(Session):
                                 content_type=content_type,
                             )
                         case _:
-                            msg = f"Invalid file specification for field '{field_name}'"
+                            msg = f"Invalid file specification for field {field_name!r}"
                             raise ValueError(msg)
                 data = form
 
@@ -214,7 +214,7 @@ class AiohttpBackend(HttpBackend):
                                 )
                             case _:
                                 msg = (
-                                    f"Invalid file specification for field '{field_name}'"
+                                    f"Invalid file specification for field {field_name!r}"
                                 )
                                 raise ValueError(msg)
                     data = form
