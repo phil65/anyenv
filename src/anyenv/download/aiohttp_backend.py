@@ -100,15 +100,18 @@ class AiohttpSession(Session):
                     match file_info:
                         case str() | bytes() as content:
                             form.add_field(field_name, content)
-                        case tuple([filename, content]):
+                        case (str() as filename, content):
                             form.add_field(field_name, content, filename=filename)
-                        case tuple([filename, content, content_type]):
+                        case (str() as filename, content, str() as content_type):
                             form.add_field(
                                 field_name,
                                 content,
                                 filename=filename,
                                 content_type=content_type,
                             )
+                        case _:
+                            msg = f"Invalid file specification for field '{field_name}'"
+                            raise ValueError(msg)
                 data = form
 
             # The CachedSession from aiohttp_client_cache honors cache_disabled parameter
@@ -200,15 +203,20 @@ class AiohttpBackend(HttpBackend):
                         match file_info:
                             case str() | bytes() as content:
                                 form.add_field(field_name, content)
-                            case tuple([filename, content]):
+                            case (str() as filename, content):
                                 form.add_field(field_name, content, filename=filename)
-                            case tuple([filename, content, content_type]):
+                            case (str() as filename, content, str() as content_type):
                                 form.add_field(
                                     field_name,
                                     content,
                                     filename=filename,
                                     content_type=content_type,
                                 )
+                            case _:
+                                msg = (
+                                    f"Invalid file specification for field '{field_name}'"
+                                )
+                                raise ValueError(msg)
                     data = form
 
                 response = await session.request(
