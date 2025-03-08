@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     import os
 
     from anyenv.download.base import HttpBackend, HttpResponse, Method, ProgressCallback
-    from anyenv.download.http_types import HeaderType, ParamsType
+    from anyenv.download.http_types import FilesType, HeaderType, ParamsType
 
 
 T = TypeVar("T")
@@ -108,6 +108,7 @@ async def request(
     headers: HeaderType | None = None,
     json: Any = None,
     data: Any = None,
+    files: FilesType | None = None,
     timeout: float | None = None,
     cache: bool = False,
     backend: BackendType | None = None,
@@ -123,6 +124,7 @@ async def request(
         headers: Optional request headers
         json: Optional JSON body
         data: Optional request body
+        files: Optional files to upload
         timeout: Optional request timeout in seconds
         cache: Whether to use cached responses
         backend: Optional specific backend to use
@@ -141,6 +143,7 @@ async def request(
         headers=headers,
         json=json,
         data=data,
+        files=files,
         timeout=timeout,
         cache=cache,
     )
@@ -193,6 +196,7 @@ async def post(
     headers: HeaderType | None = None,
     json: Any = None,
     data: Any = None,
+    files: FilesType | None = None,
     timeout: float | None = None,
     cache: bool = False,
     backend: BackendType | None = None,
@@ -207,6 +211,7 @@ async def post(
         headers: Optional request headers
         json: Optional JSON body
         data: Optional request body
+        files: Optional files to upload
         timeout: Optional request timeout in seconds
         cache: Whether to use cached responses
         backend: Optional specific backend to use
@@ -224,6 +229,7 @@ async def post(
         headers=headers,
         json=json,
         data=data,
+        files=files,
         timeout=timeout,
         cache=cache,
         backend=backend,
@@ -405,6 +411,7 @@ def request_sync(
     headers: HeaderType | None = None,
     json: Any = None,
     data: Any = None,
+    files: FilesType | None = None,
     timeout: float | None = None,
     cache: bool = False,
     backend: BackendType | None = None,
@@ -420,6 +427,7 @@ def request_sync(
         headers=headers,
         json=json,
         data=data,
+        files=files,
         timeout=timeout,
         cache=cache,
     )
@@ -457,6 +465,7 @@ def post_sync(
     headers: HeaderType | None = None,
     json: Any = None,
     data: Any = None,
+    files: FilesType | None = None,
     timeout: float | None = None,
     cache: bool = False,
     backend: BackendType | None = None,
@@ -471,6 +480,7 @@ def post_sync(
         headers=headers,
         json=json,
         data=data,
+        files=files,
         timeout=timeout,
         cache=cache,
         backend=backend,

@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     import aiohttp
     from aiohttp_client_cache import CachedSession
 
-    from anyenv.download.http_types import HeaderType, ParamsType
+    from anyenv.download.http_types import FilesType, HeaderType, ParamsType
 
 
 class AiohttpResponse(HttpResponse):
@@ -74,15 +74,43 @@ class AiohttpSession(Session):
         headers: HeaderType | None = None,
         json: Any = None,
         data: Any = None,
+        files: FilesType | None = None,
         timeout: float | None = None,
         cache: bool = False,
     ) -> HttpResponse:
+        """Make a request using aiohttp session."""
         import aiohttp
+        from aiohttp import FormData
 
         if self._base_url:
             url = f"{self._base_url.rstrip('/')}/{url.lstrip('/')}"
 
         try:
+            # Handle file uploads if present
+            if files:
+                form = FormData()
+
+                # Add regular form data if any
+                if isinstance(data, dict):
+                    for key, value in data.items():
+                        form.add_field(key, str(value))
+
+                # Add files
+                for field_name, file_info in files.items():
+                    match file_info:
+                        case str() | bytes() as content:
+                            form.add_field(field_name, content)
+                        case tuple([filename, content]):
+                            form.add_field(field_name, content, filename=filename)
+                        case tuple([filename, content, content_type]):
+                            form.add_field(
+                                field_name,
+                                content,
+                                filename=filename,
+                                content_type=content_type,
+                            )
+                data = form
+
             # The CachedSession from aiohttp_client_cache honors cache_disabled parameter
             response = await self._session.request(
                 method,
@@ -145,16 +173,44 @@ class AiohttpBackend(HttpBackend):
         headers: HeaderType | None = None,
         json: Any = None,
         data: Any = None,
+        files: FilesType | None = None,
         timeout: float | None = None,
         cache: bool = False,
     ) -> HttpResponse:
+        """Make a request using aiohttp backend."""
         import aiohttp
+        from aiohttp import FormData
 
         from anyenv.download.exceptions import RequestError, check_response
 
         session = await self._create_session(cache=cache)
         try:
             try:
+                # Handle file uploads if present
+                if files:
+                    form = FormData()
+
+                    # Add regular form data if any
+                    if isinstance(data, dict):
+                        for key, value in data.items():
+                            form.add_field(key, str(value))
+
+                    # Add files
+                    for field_name, file_info in files.items():
+                        match file_info:
+                            case str() | bytes() as content:
+                                form.add_field(field_name, content)
+                            case tuple([filename, content]):
+                                form.add_field(field_name, content, filename=filename)
+                            case tuple([filename, content, content_type]):
+                                form.add_field(
+                                    field_name,
+                                    content,
+                                    filename=filename,
+                                    content_type=content_type,
+                                )
+                    data = form
+
                 response = await session.request(
                     method,
                     url,

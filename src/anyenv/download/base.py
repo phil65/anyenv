@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from os import PathLike
     import types
 
-    from anyenv.download.http_types import HeaderType, ParamsType
+    from anyenv.download.http_types import FilesType, HeaderType, ParamsType
 
 T = TypeVar("T")
 ProgressCallback = Callable[[int, int], Any]  # current, total -> Any
@@ -65,6 +65,7 @@ class Session(abc.ABC):
         headers: HeaderType | None = None,
         json: Any = None,
         data: Any = None,
+        files: FilesType | None = None,
         timeout: float | None = None,
         cache: bool = False,
     ) -> HttpResponse:
@@ -151,6 +152,7 @@ class HttpBackend(abc.ABC):
         headers: HeaderType | None = None,
         json: Any = None,
         data: Any = None,
+        files: FilesType | None = None,
         timeout: float | None = None,
         cache: bool = False,
     ) -> HttpResponse:
@@ -166,6 +168,7 @@ class HttpBackend(abc.ABC):
         headers: HeaderType | None = None,
         json: Any = None,
         data: Any = None,
+        files: FilesType | None = None,
         timeout: float | None = None,
         cache: bool = False,
     ) -> HttpResponse:
@@ -180,6 +183,7 @@ class HttpBackend(abc.ABC):
                 headers=headers,
                 json=json,
                 data=data,
+                files=files,
                 timeout=timeout,
                 cache=cache,
             )

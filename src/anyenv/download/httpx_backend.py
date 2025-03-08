@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
     import httpx
 
-    from anyenv.download.http_types import HeaderType, ParamsType
+    from anyenv.download.http_types import FilesType, HeaderType, ParamsType
 
 
 class HttpxResponse(HttpResponse):
@@ -73,6 +73,7 @@ class HttpxSession(Session):
         headers: HeaderType | None = None,
         json: Any = None,
         data: Any = None,
+        files: FilesType | None = None,
         timeout: float | None = None,
         cache: bool = False,
     ) -> HttpResponse:
@@ -89,6 +90,7 @@ class HttpxSession(Session):
                 headers=headers,
                 json=json,
                 data=data,
+                files=files,
                 timeout=timeout if timeout else None,
             )
             httpx_response = HttpxResponse(response)
@@ -142,6 +144,7 @@ class HttpxBackend(HttpBackend):
         headers: HeaderType | None = None,
         json: Any = None,
         data: Any = None,
+        files: FilesType | None = None,
         timeout: float | None = None,
         cache: bool = False,
     ) -> HttpResponse:
@@ -156,6 +159,7 @@ class HttpxBackend(HttpBackend):
                     headers=headers,
                     json=json,
                     data=data,
+                    files=files,
                     timeout=timeout if timeout else None,
                 )
                 httpx_response = HttpxResponse(response)

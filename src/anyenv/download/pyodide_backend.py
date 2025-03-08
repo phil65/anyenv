@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
     from pyodide.http import FetchResponse  # pyright:ignore[reportMissingImports]
 
-    from anyenv.download.http_types import HeaderType, ParamsType
+    from anyenv.download.http_types import FilesType, HeaderType, ParamsType
 
 
 class PyodideResponse(HttpResponse):
@@ -73,10 +73,12 @@ class PyodideSession(Session):
         headers: HeaderType | None = None,
         json: Any = None,
         data: Any = None,
+        files: FilesType | None = None,
         timeout: float | None = None,
         cache: bool = False,
     ) -> HttpResponse:
-        # Merge session headers with request headers
+        """Make a request using Pyodide's fetch."""
+        from js import Array, Blob, FormData  # pyright: ignore
         from pyodide.http import pyfetch  # pyright:ignore[reportMissingImports]
 
         from anyenv.download.exceptions import RequestError, check_response
@@ -97,8 +99,43 @@ class PyodideSession(Session):
             "mode": "cors",
         }
 
-        # Handle body data
-        if json is not None:
+        # Handle files using FormData
+        if files:
+            form_data = FormData.new()
+
+            # Add regular form data if any
+            if isinstance(data, dict):
+                for key, value in data.items():
+                    form_data.append(key, str(value))
+
+            # Add files
+            for field_name, file_info in files.items():
+                match file_info:
+                    case str() | bytes() as content:
+                        # Convert bytes to Blob if necessary
+                        if isinstance(content, bytes):
+                            blob = Blob.new([Array.from_buffer(content)])
+                            form_data.append(field_name, blob)
+                        else:
+                            form_data.append(field_name, content)
+                    case tuple([filename, content]):
+                        if isinstance(content, bytes):
+                            blob = Blob.new([Array.from_buffer(content)])
+                            form_data.append(field_name, blob, filename)
+                        else:
+                            form_data.append(field_name, content, filename)
+                    case tuple([filename, content, content_type]):
+                        if isinstance(content, bytes):
+                            blob = Blob.new(
+                                [Array.from_buffer(content)], {"type": content_type}
+                            )
+                            form_data.append(field_name, blob, filename)
+                        else:
+                            form_data.append(field_name, content, filename)
+
+            options["body"] = form_data
+        # Handle regular data
+        elif json is not None:
             options["body"] = dumping.dump_json(json)
             request_headers["Content-Type"] = "application/json"
         elif data is not None:
@@ -133,6 +170,7 @@ class PyodideBackend(HttpBackend):
         headers: HeaderType | None = None,
         json: Any = None,
         data: Any = None,
+        files: FilesType | None = None,
         timeout: float | None = None,
         cache: bool = False,
     ) -> HttpResponse:
@@ -148,6 +186,7 @@ class PyodideBackend(HttpBackend):
                 json=json,
                 data=data,
                 timeout=timeout,
+                files=files,
                 cache=cache,
             )
         except RequestError:
