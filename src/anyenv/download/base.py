@@ -51,6 +51,23 @@ class HttpResponse(abc.ABC):
         """Get response body as bytes."""
         raise NotImplementedError
 
+    async def validated_json[T](self, return_type: type[T]) -> T:
+        """Get response body as JSON and validate against a type.
+
+        Args:
+            return_type: The type to validate the response against
+
+        Returns:
+            The parsed JSON data, validated against return_type
+
+        Raises:
+            TypeError: If validation fails
+        """
+        from anyenv.download.validate import validate_json_data
+
+        data = await self.json()
+        return validate_json_data(data, return_type)
+
 
 class Session(abc.ABC):
     """HTTP session for connection reuse."""
