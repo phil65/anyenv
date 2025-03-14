@@ -57,11 +57,7 @@ class AiohttpResponse(HttpResponse):
 class AiohttpSession(Session):
     """aiohttp implementation of HTTP session."""
 
-    def __init__(
-        self,
-        session: CachedSession,
-        base_url: str | None = None,
-    ):
+    def __init__(self, session: CachedSession, base_url: str | None = None):
         self._session = session
         self._base_url = base_url
 

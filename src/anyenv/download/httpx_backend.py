@@ -56,11 +56,7 @@ class HttpxResponse(HttpResponse):
 class HttpxSession(Session):
     """HTTPX implementation of HTTP session."""
 
-    def __init__(
-        self,
-        client: httpx.AsyncClient,
-        base_url: str | None = None,
-    ):
+    def __init__(self, client: httpx.AsyncClient, base_url: str | None = None):
         self._client = client
         self._base_url = base_url
 
