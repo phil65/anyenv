@@ -5,7 +5,7 @@ from __future__ import annotations
 import concurrent.futures
 import contextvars
 import logging
-from typing import TYPE_CHECKING, Any, Generic
+from typing import TYPE_CHECKING, Any
 
 from typing_extensions import TypeVar
 
@@ -39,7 +39,9 @@ class ContextExecutor(concurrent.futures.ThreadPoolExecutor):
             var.set(value)
 
 
-class ThreadGroup(Generic[R]):
+class ThreadGroup[R]:
+    """Class that executes functions in parallel, with TaskGroup-like API."""
+
     def __init__(
         self,
         max_workers: int | None = None,
@@ -59,7 +61,6 @@ class ThreadGroup(Generic[R]):
         self.raise_exceptions = raise_exceptions
         self.preserve_context = preserve_context
 
-        # Choose executor type based on preserve_context
         if preserve_context:
             self.executor: concurrent.futures.ThreadPoolExecutor = ContextExecutor(
                 max_workers=self.max_workers

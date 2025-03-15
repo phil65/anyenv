@@ -1,3 +1,5 @@
+"""Tests for ThreadGroup."""
+
 from __future__ import annotations
 
 import contextvars

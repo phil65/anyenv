@@ -1,3 +1,5 @@
+"""Duties."""
+
 from __future__ import annotations
 
 from duty import duty

@@ -165,19 +165,12 @@ select = [
     "YTT", # flake8-2020
 ]
 ignore = [
-    "C408",   # Unnecessary {obj_type} call (rewrite as a literal)
-    "B905",   # zip() without an explicit strict= parameter
-    "C901",   # {name} is too complex ({complexity} > {max_complexity})
+    "C901",    # {name} is too complex ({complexity} > {max_complexity})
     "COM812",
-    # "CPY001", # Missing copyright notice at top of file
-    "D100",    # Missing docstring in public module
-    "D101",    # Missing docstring in public class
-    "D104",    # Missing docstring in public package
     "D105",    # Missing docstring in magic method
     "D106",    # Missing docstring in public nested class
     "D107",    # Missing docstring in __init__
     "D203",    # 1 blank line required before class docstring
-    "D204",    # 1 blank line required after class docstring
     "D213",    # Multi-line docstring summary should start at the second line
     "D215",    # Section underline is over-indented ("{name}")
     "D401",    # First line of docstring should be in imperative mood: "{first_line}"
@@ -192,9 +185,7 @@ ignore = [
     "PLR0913", # Too many arguments to function call
     "PLR0915", # Too many statements
     # "PLR2004", # Magic values instead of named consts
-    "SLF001", # Private member accessed
-    "TRY003", # Avoid specifying long messages outside the exception class
-    "TC006",  # runtime-cast-value
+    "TC006", # runtime-cast-value
 ]
 
 [tool.ruff.lint.flake8-quotes]
