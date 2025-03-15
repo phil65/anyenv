@@ -595,3 +595,83 @@ def get_bytes_sync(
             cache_ttl=cache_ttl,
         )
     )
+
+
+async def post_json[T](
+    url: str,
+    json_data: Any,
+    *,
+    params: ParamsType | None = None,
+    headers: HeaderType | None = None,
+    timeout: float | None = None,
+    cache: bool = False,
+    backend: BackendType | None = None,
+    cache_dir: str | os.PathLike[str] | None = None,
+    cache_ttl: int | str | None = None,
+    return_type: type[T] | None = None,
+) -> T:
+    """Make a POST request with JSON data and return the response as JSON.
+
+    Args:
+        url: URL to request
+        json_data: Data to send as JSON in the request body
+        params: Optional query parameters
+        headers: Optional request headers
+        timeout: Optional request timeout in seconds
+        cache: Whether to use cached responses
+        backend: Optional specific backend to use
+        cache_dir: Optional directory to store cached responses
+        cache_ttl: Optional TTL for cached responses. Can be specified as seconds (int)
+                   or as a time period string (e.g. "1h", "2d", "1w 2d").
+        return_type: Optional type to validate the response against
+
+    Returns:
+        The response body parsed as JSON
+    """
+    from anyenv.download.validate import validate_json_data
+
+    response = await post(
+        url,
+        json=json_data,
+        params=params,
+        headers=headers,
+        timeout=timeout,
+        cache=cache,
+        backend=backend,
+        cache_dir=cache_dir,
+        cache_ttl=cache_ttl,
+    )
+    data = await response.json()
+    return validate_json_data(data, return_type)
+
+
+def post_json_sync[T](
+    url: str,
+    json_data: Any,
+    *,
+    params: ParamsType | None = None,
+    headers: HeaderType | None = None,
+    timeout: float | None = None,
+    cache: bool = False,
+    backend: BackendType | None = None,
+    cache_dir: str | os.PathLike[str] | None = None,
+    cache_ttl: int | str | None = None,
+    return_type: type[T] | None = None,
+) -> T:
+    """Synchronous version of post_json."""
+    from anyenv.async_run import run_sync
+
+    return run_sync(
+        post_json(
+            url,
+            json_data,
+            params=params,
+            headers=headers,
+            timeout=timeout,
+            cache=cache,
+            backend=backend,
+            cache_dir=cache_dir,
+            cache_ttl=cache_ttl,
+            return_type=return_type,
+        )
+    )

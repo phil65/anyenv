@@ -19,6 +19,8 @@ from anyenv.download.functional import (
     post_sync,
     request,
     request_sync,
+    post_json,
+    post_json_sync,
 )
 from anyenv.download.exceptions import RequestError, ResponseError, HttpError
 from anyenv.threadgroup.threadgroup import ThreadGroup
@@ -56,6 +58,8 @@ __all__ = [
     "load_json",
     "open_in_playground",
     "post",
+    "post_json",
+    "post_json_sync",
     "post_sync",
     "request",
     "request_sync",
