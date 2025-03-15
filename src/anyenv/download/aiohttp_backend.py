@@ -36,21 +36,26 @@ class AiohttpResponse(HttpResponse):
 
     @property
     def status_code(self) -> int:
+        """Status code of the response."""
         return self._response.status
 
     @property
     def headers(self) -> dict[str, str]:
+        """Headers of the response."""
         return dict(self._response.headers)
 
     async def text(self) -> str:
+        """Text content of the response."""
         return await self._response.text()
 
     async def json(self) -> Any:
+        """JSON content of the response."""
         from anyenv.json_tools import loading
 
         return await self._response.json(loads=loading.load_json)
 
     async def bytes(self) -> bytes:
+        """Bytes content of the response."""
         return await self._response.read()
 
 
@@ -129,6 +134,7 @@ class AiohttpSession(Session):
         return check_response(aiohttp_response)
 
     async def close(self):
+        """Close the session."""
         await self._session.close()
 
 
@@ -243,6 +249,7 @@ class AiohttpBackend(HttpBackend):
         progress_callback: ProgressCallback | None = None,
         cache: bool = False,
     ):
+        """Download implementation using aiohttp."""
         import aiohttp
 
         from anyenv.download.exceptions import RequestError, ResponseError
@@ -280,6 +287,7 @@ class AiohttpBackend(HttpBackend):
         headers: HeaderType | None = None,
         cache: bool = False,
     ) -> Session:
+        """Create a new aiohttp session."""
         session = await self._create_session(
             cache=cache,
             base_url=base_url,

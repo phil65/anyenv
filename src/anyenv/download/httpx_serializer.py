@@ -133,4 +133,5 @@ class AnyEnvSerializer(BaseSerializer):
 
     @property
     def is_binary(self) -> bool:
+        """Check if the response content is binary."""
         return False

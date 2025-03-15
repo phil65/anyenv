@@ -8,6 +8,7 @@ from anyenv.threadgroup.threadgroup import ThreadGroup
 
 
 def test_threadgroup():
+    """Test the ThreadGroup class."""
     ctx_var = contextvars.ContextVar("example", default="default")
 
     def test_with_context():

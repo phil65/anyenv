@@ -35,21 +35,26 @@ class HttpxResponse(HttpResponse):
 
     @property
     def status_code(self) -> int:
+        """Status code of the response."""
         return self._response.status_code
 
     @property
     def headers(self) -> dict[str, str]:
+        """Headers of the response."""
         return dict(self._response.headers)
 
     async def text(self) -> str:
+        """Text content of the response."""
         return self._response.text
 
     async def json(self) -> Any:
+        """JSON content of the response."""
         from anyenv.json_tools import loading
 
         return loading.load_json(self._response.content)
 
     async def bytes(self) -> bytes:
+        """Bytes content of the response."""
         return self._response.content
 
 
@@ -73,6 +78,7 @@ class HttpxSession(Session):
         timeout: float | None = None,
         cache: bool = False,
     ) -> HttpResponse:
+        """Request implementation using HTTPX."""
         import httpx
 
         if self._base_url:
@@ -97,6 +103,7 @@ class HttpxSession(Session):
         return check_response(httpx_response)
 
     async def close(self):
+        """Close the HTTPX client."""
         await self._client.aclose()
 
 
@@ -109,6 +116,7 @@ class HttpxBackend(HttpBackend):
         base_url: str | None = None,
         headers: HeaderType | None = None,
     ) -> httpx.AsyncClient:
+        """Create an HTTPX client."""
         import hishel
         import httpx
 
@@ -144,6 +152,7 @@ class HttpxBackend(HttpBackend):
         timeout: float | None = None,
         cache: bool = False,
     ) -> HttpResponse:
+        """Request implementation using httpx."""
         import httpx
 
         try:
@@ -175,6 +184,7 @@ class HttpxBackend(HttpBackend):
         progress_callback: ProgressCallback | None = None,
         cache: bool = False,
     ):
+        """Download implementation using HTTPX."""
         import httpx
 
         from anyenv.download.exceptions import RequestError, ResponseError
@@ -212,6 +222,7 @@ class HttpxBackend(HttpBackend):
         headers: HeaderType | None = None,
         cache: bool = False,
     ) -> Session:
+        """Create a new HTTPX session."""
         client = self._create_client(
             cache=cache,
             base_url=base_url,
@@ -223,6 +234,7 @@ class HttpxBackend(HttpBackend):
 if __name__ == "__main__":
 
     async def main():
+        """Test the HTTPX backend."""
         backend = HttpxBackend()
         await backend.download(
             url="http://speedtest.tele2.net/10MB.zip",

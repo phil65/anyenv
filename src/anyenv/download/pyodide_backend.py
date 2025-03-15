@@ -31,21 +31,26 @@ class PyodideResponse(HttpResponse):
 
     @property
     def status_code(self) -> int:
+        """Status code implementation for PyodideResponse."""
         return self._response.status
 
     @property
     def headers(self) -> dict[str, str]:
+        """Headers implementation for PyodideResponse."""
         return dict(self._response.headers)
 
     async def text(self) -> str:
+        """Text implementation for PyodideResponse."""
         return await self._response.text()
 
     async def json(self) -> Any:
+        """JSON implementation for PyodideResponse."""
         from anyenv.json_tools import loading
 
         return await loading.load_json(self._response)
 
     async def bytes(self) -> bytes:
+        """Bytes implementation for PyodideResponse."""
         return await self._response.bytes()
 
 
@@ -170,6 +175,7 @@ class PyodideBackend(HttpBackend):
         timeout: float | None = None,
         cache: bool = False,
     ) -> HttpResponse:
+        """Request implementation for Pyodide."""
         from anyenv.download.exceptions import RequestError, check_response
 
         try:
@@ -205,6 +211,7 @@ class PyodideBackend(HttpBackend):
         progress_callback: ProgressCallback | None = None,
         cache: bool = False,
     ):
+        """Download implementation for Pyodide."""
         from pyodide.http import pyfetch  # pyright:ignore[reportMissingImports]
 
         from anyenv.download.exceptions import RequestError, ResponseError
@@ -249,4 +256,5 @@ class PyodideBackend(HttpBackend):
         headers: HeaderType | None = None,
         cache: bool = False,
     ) -> Session:
+        """Create Pyodide Session."""
         return PyodideSession(base_url=base_url, headers=headers)

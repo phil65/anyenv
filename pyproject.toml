@@ -157,7 +157,7 @@ select = [
     # "TD",   # flake8-todos
     "T10", # flake8-debugger
     # "T20",  # flake8-print
-    "TC", # flake8-type-checking
+    "TC",  # flake8-type-checking
     "TID", # flake8-tidy-imports
     "TRY", # tryceratops
     "UP",  # PyUpgrade
@@ -172,8 +172,6 @@ ignore = [
     # "CPY001", # Missing copyright notice at top of file
     "D100",    # Missing docstring in public module
     "D101",    # Missing docstring in public class
-    "D102",    # Missing docstring in public method
-    "D103",    # Missing docstring in public function
     "D104",    # Missing docstring in public package
     "D105",    # Missing docstring in magic method
     "D106",    # Missing docstring in public nested class
@@ -182,7 +180,6 @@ ignore = [
     "D204",    # 1 blank line required after class docstring
     "D213",    # Multi-line docstring summary should start at the second line
     "D215",    # Section underline is over-indented ("{name}")
-    "D400",    # First line should end with a period
     "D401",    # First line of docstring should be in imperative mood: "{first_line}"
     "D404",    # First word of the docstring should not be "This"
     "D406",    # Section name should end with a newline ("{name}")
@@ -197,7 +194,7 @@ ignore = [
     # "PLR2004", # Magic values instead of named consts
     "SLF001", # Private member accessed
     "TRY003", # Avoid specifying long messages outside the exception class
-    "TC006", # runtime-cast-value
+    "TC006",  # runtime-cast-value
 ]
 
 [tool.ruff.lint.flake8-quotes]

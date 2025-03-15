@@ -137,6 +137,7 @@ if __name__ == "__main__":
     ctx_var = contextvars.ContextVar("example", default="default")
 
     def test_with_context():
+        """Test for context preservation."""
         return ctx_var.get()
 
     # Set a value in the main thread
