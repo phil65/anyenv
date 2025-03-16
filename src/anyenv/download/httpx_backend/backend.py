@@ -122,7 +122,7 @@ class HttpxBackend(HttpBackend):
 
         url = base_url or ""
         if cache:
-            from anyenv.download.httpx_serializer import AnyEnvSerializer
+            from anyenv.download.httpx_backend.serializer import AnyEnvSerializer
 
             storage = hishel.AsyncFileStorage(
                 serializer=AnyEnvSerializer(),

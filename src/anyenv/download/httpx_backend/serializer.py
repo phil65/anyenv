@@ -18,7 +18,10 @@ from hishel._serializers import (
 
 
 class AnyEnvSerializer(BaseSerializer):
-    """A json-based serializer using AnyEnv."""
+    """A json-based serializer using AnyEnv.
+
+    Automatically chooses the best serializer based whats "available".
+    """
 
     def dumps(
         self, response: Response, request: Request, metadata: Metadata
