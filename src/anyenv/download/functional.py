@@ -344,7 +344,7 @@ async def get_json(
     Returns:
         The response body parsed as JSON
     """
-    from anyenv.download.validate import validate_json_data
+    from anyenv.validate import validate_json_data
 
     response = await get(
         url,
@@ -628,7 +628,7 @@ async def post_json[T](
     Returns:
         The response body parsed as JSON
     """
-    from anyenv.download.validate import validate_json_data
+    from anyenv.validate import validate_json_data
 
     response = await post(
         url,

@@ -63,7 +63,7 @@ class HttpResponse(abc.ABC):
         Raises:
             TypeError: If validation fails
         """
-        from anyenv.download.validate import validate_json_data
+        from anyenv.validate import validate_json_data
 
         data = await self.json()
         return validate_json_data(data, return_type)
