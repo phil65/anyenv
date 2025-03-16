@@ -46,9 +46,9 @@ class AiohttpResponse(HttpResponse):
 
     async def json(self) -> Any:
         """JSON content of the response."""
-        from anyenv.json_tools import loading
+        from anyenv import load_json
 
-        return await self._response.json(loads=loading.load_json)
+        return await self._response.json(loads=load_json)
 
     async def bytes(self) -> bytes:
         """Bytes content of the response."""
@@ -145,7 +145,7 @@ class AiohttpBackend(HttpBackend):
     ) -> CachedSession:
         from aiohttp_client_cache import CachedSession, SQLiteBackend
 
-        from anyenv.json_tools.dumping import dump_json
+        from anyenv import dump_json
 
         if cache:
             path = str(self.cache_dir / "http_cache.db")

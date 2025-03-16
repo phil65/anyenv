@@ -45,9 +45,9 @@ class PyodideResponse(HttpResponse):
 
     async def json(self) -> Any:
         """JSON implementation for PyodideResponse."""
-        from anyenv.json_tools import loading
+        from anyenv import load_json
 
-        return await loading.load_json(self._response)
+        return await load_json(self._response)
 
     async def bytes(self) -> bytes:
         """Bytes implementation for PyodideResponse."""
@@ -82,8 +82,8 @@ class PyodideSession(Session):
         from js import Array, Blob, FormData  # pyright: ignore
         from pyodide.http import pyfetch  # pyright:ignore[reportMissingImports]
 
+        from anyenv import dump_json
         from anyenv.download.exceptions import RequestError, check_response
-        from anyenv.json_tools import dumping
 
         request_headers = self._headers.copy()
         if headers:
@@ -137,7 +137,7 @@ class PyodideSession(Session):
             options["body"] = form_data
         # Handle regular data
         elif json is not None:
-            options["body"] = dumping.dump_json(json)
+            options["body"] = dump_json(json)
             request_headers["Content-Type"] = "application/json"
         elif data is not None:
             options["body"] = data

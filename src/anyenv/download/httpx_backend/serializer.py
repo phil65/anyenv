@@ -76,9 +76,9 @@ class AnyEnvSerializer(BaseSerializer):
             "request": request_dict,
             "metadata": metadata_dict,
         }
-        from anyenv.json_tools import dumping
+        from anyenv import dump_json
 
-        return dumping.dump_json(full_json, indent=True)
+        return dump_json(full_json, indent=True)
 
     def loads(self, data: str | bytes) -> tuple[Response, Request, Metadata]:
         """Loads the HTTP response and its HTTP request from serialized data.
@@ -88,9 +88,9 @@ class AnyEnvSerializer(BaseSerializer):
         :return: HTTP response and its HTTP request
         :rtype: tuple[Response, Request, Metadata]
         """
-        from anyenv.json_tools import loading
+        from anyenv import load_json
 
-        full_json = loading.load_json(data)
+        full_json = load_json(data)
 
         response_dict = full_json["response"]
         request_dict = full_json["request"]

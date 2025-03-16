@@ -45,9 +45,9 @@ class HttpxResponse(HttpResponse):
 
     async def json(self) -> Any:
         """JSON content of the response."""
-        from anyenv.json_tools import loading
+        from anyenv import load_json
 
-        return loading.load_json(self._response.content)
+        return load_json(self._response.content)
 
     async def bytes(self) -> bytes:
         """Bytes content of the response."""

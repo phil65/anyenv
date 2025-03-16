@@ -39,7 +39,7 @@ else:
 # Export the provider's methods
 load_json: Callable[[str | bytes | TextIOWrapper], Any] = _provider.load_json
 
-dump_json: Callable[[Any, bool, bool, bool], str] = _provider.dump_json
+dump_json: Callable[..., str] = _provider.dump_json
 
 # Export the exception classes for user code
 __all__ = ["JsonDumpError", "JsonLoadError", "dump_json", "load_json"]
