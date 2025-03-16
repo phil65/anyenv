@@ -90,7 +90,7 @@ class AnyEnvSerializer(BaseSerializer):
         """
         from anyenv import load_json
 
-        full_json = load_json(data)
+        full_json = load_json(data, return_type=dict)
 
         response_dict = full_json["response"]
         request_dict = full_json["request"]
