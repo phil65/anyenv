@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from anyenv.anypath import Path
 from anyenv.download.base import (
     HttpBackend,
     HttpResponse,
@@ -13,11 +14,6 @@ from anyenv.download.base import (
 )
 from anyenv.download.exceptions import RequestError, check_response
 
-
-try:
-    from upath import UPath as Path
-except ImportError:
-    from pathlib import Path  # type: ignore[assignment]
 
 if TYPE_CHECKING:
     import os

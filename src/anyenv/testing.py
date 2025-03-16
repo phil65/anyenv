@@ -6,11 +6,7 @@ import os
 import types
 from typing import Any
 
-
-try:
-    from upath import UPath as Path
-except ImportError:
-    from pathlib import Path  # type: ignore[assignment]
+from anyenv.anypath import Path
 
 
 def open_in_playground(
