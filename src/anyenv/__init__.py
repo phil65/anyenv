@@ -26,8 +26,7 @@ from anyenv.download.exceptions import RequestError, ResponseError, HttpError
 from anyenv.threadgroup.threadgroup import ThreadGroup
 from anyenv.package_install.functional import install, install_sync
 from anyenv.testing import open_in_playground
-from anyenv.json_tools.loading import load_json, JsonLoadError
-from anyenv.json_tools.dumping import dump_json, JsonDumpError
+from anyenv.json_tools import load_json, JsonLoadError, dump_json, JsonDumpError
 from anyenv.download.base import HttpBackend, HttpResponse, Session
 
 __all__ = [
