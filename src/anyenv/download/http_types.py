@@ -3,7 +3,16 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import BinaryIO
+from typing import BinaryIO, Protocol, runtime_checkable
+
+
+@runtime_checkable
+class SecretStr(Protocol):
+    """Protocol for secret string objects with get_secret_value() method."""
+
+    def get_secret_value(self) -> str:
+        """Get the secret value as a string."""
+        ...
 
 
 # Existing types
