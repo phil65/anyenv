@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import BinaryIO, Protocol, runtime_checkable
+from typing import BinaryIO, Literal, Protocol, runtime_checkable
 
 
 @runtime_checkable
@@ -18,7 +18,7 @@ class SecretStr(Protocol):
 # Existing types
 HeaderType = dict[str, str]
 ParamsType = Mapping[str, str | int | float | None]
-
+AuthType = Literal["bearer", "basic", "header", "query"]
 # New types for file uploads
 type FileContent = str | bytes | BinaryIO
 type FileType = FileContent | tuple[str, FileContent] | tuple[str, FileContent, str]
