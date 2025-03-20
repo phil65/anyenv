@@ -5,6 +5,8 @@ from __future__ import annotations
 import importlib.util
 from typing import TYPE_CHECKING, Any, Literal, TypeVar
 
+from anyenv.download.http_types import AuthType, SecretStr
+
 
 if TYPE_CHECKING:
     import os
@@ -17,7 +19,7 @@ T = TypeVar("T")
 BackendType = Literal["httpx", "aiohttp", "pyodide"]
 
 
-def _get_default_backend() -> HttpBackend:
+def get_default_backend() -> HttpBackend:
     """Get the best available HTTP backend."""
     if importlib.util.find_spec("httpx"):
         from anyenv.download.httpx_backend import HttpxBackend
@@ -63,7 +65,7 @@ def get_backend(
         ImportError: If the requested backend is not available.
     """
     if backend_type is None:
-        return _get_default_backend()
+        return get_default_backend()
 
     if backend_type == "httpx":
         if importlib.util.find_spec("httpx") and importlib.util.find_spec("hishel"):
@@ -114,6 +116,10 @@ async def request(
     backend: BackendType | None = None,
     cache_dir: str | os.PathLike[str] | None = None,
     cache_ttl: int | str | None = None,
+    api_key: str | SecretStr | None = None,
+    auth_type: AuthType = "bearer",
+    auth_username: str | None = None,
+    auth_header_name: str | None = None,
 ) -> HttpResponse:
     """Make an HTTP request.
 
@@ -131,16 +137,67 @@ async def request(
         cache_dir: Optional directory to store cached responses
         cache_ttl: Optional TTL for cached responses. Can be specified as seconds (int)
                    or as a time period string (e.g. "1h", "2d", "1w 2d").
+        api_key: Optional API key or token for authentication
+        auth_type: Authentication type to use with the api_key:
+                   - "bearer": Authorization: Bearer {api_key}
+                   - "basic": Authorization: Basic {base64(auth_username:api_key)}
+                   - "header": Uses auth_header_name: {api_key}
+                   - "query": Adds api_key as query parameter
+        auth_username: Username for basic authentication (only used with auth_type basic)
+        auth_header_name: Header name to use when auth_type="header"
+                          Defaults to "X-API-Key"
 
     Returns:
         An HttpResponse object
     """
+    if auth_header_name is None:
+        auth_header_name = "X-API-Key"
+
     http_backend = get_backend(backend, cache_dir=cache_dir, cache_ttl=cache_ttl)
+
+    # Apply authentication if api_key is provided
+    processed_params = params
+    processed_headers = headers or {}
+
+    if api_key is not None:
+        key_value = (
+            api_key.get_secret_value() if isinstance(api_key, SecretStr) else api_key
+        )
+
+        match auth_type:
+            case "bearer":
+                processed_headers = dict(processed_headers)
+                processed_headers["Authorization"] = f"Bearer {key_value}"
+
+            case "basic":
+                if auth_username is None:
+                    msg = "auth_username is required for basic authentication"
+                    raise ValueError(msg)
+
+                import base64
+
+                auth_str = f"{auth_username}:{key_value}"
+                encoded = base64.b64encode(auth_str.encode()).decode()
+                processed_headers = dict(processed_headers)
+                processed_headers["Authorization"] = f"Basic {encoded}"
+
+            case "header":
+                processed_headers = dict(processed_headers)
+                processed_headers[auth_header_name] = key_value
+
+            case "query":
+                processed_params = dict(params or {})
+                processed_params["api_key"] = key_value
+
+            case _:
+                msg = f"Unknown auth_type: {auth_type}"
+                raise ValueError(msg)
+
     return await http_backend.request(
         method,
         url,
-        params=params,
-        headers=headers,
+        params=processed_params,
+        headers=processed_headers,
         json=json,
         data=data,
         files=files,
@@ -159,6 +216,10 @@ async def get(
     backend: BackendType | None = None,
     cache_dir: str | os.PathLike[str] | None = None,
     cache_ttl: int | str | None = None,
+    api_key: str | SecretStr | None = None,
+    auth_type: AuthType = "bearer",
+    auth_username: str | None = None,
+    auth_header_name: str | None = None,
 ) -> HttpResponse:
     """Make a GET request.
 
@@ -172,6 +233,10 @@ async def get(
         cache_dir: Optional directory to store cached responses
         cache_ttl: Optional TTL for cached responses. Can be specified as seconds (int)
                    or as a time period string (e.g. "1h", "2d", "1w 2d").
+        api_key: Optional API key for authentication
+        auth_type: Type of authentication to use (bearer, basic, header, query)
+        auth_username: Username for basic authentication
+        auth_header_name: Header name for header authentication
 
     Returns:
         An HttpResponse object
@@ -186,6 +251,10 @@ async def get(
         backend=backend,
         cache_dir=cache_dir,
         cache_ttl=cache_ttl,
+        api_key=api_key,
+        auth_type=auth_type,
+        auth_username=auth_username,
+        auth_header_name=auth_header_name,
     )
 
 
@@ -202,6 +271,10 @@ async def post(
     backend: BackendType | None = None,
     cache_dir: str | os.PathLike[str] | None = None,
     cache_ttl: int | str | None = None,
+    api_key: str | SecretStr | None = None,
+    auth_type: AuthType = "bearer",
+    auth_username: str | None = None,
+    auth_header_name: str | None = None,
 ) -> HttpResponse:
     """Make a POST request.
 
@@ -218,6 +291,10 @@ async def post(
         cache_dir: Optional path to use for caching
         cache_ttl: Optional TTL for cached responses. Can be specified as seconds (int)
                    or as a time period string (e.g. "1h", "2d", "1w 2d").
+        api_key: Optional API key for authentication
+        auth_type: Optional authentication type
+        auth_username: Optional username for authentication
+        auth_header_name: Optional header name for authentication
 
     Returns:
         An HttpResponse object
@@ -235,6 +312,10 @@ async def post(
         backend=backend,
         cache_dir=cache_dir,
         cache_ttl=cache_ttl,
+        api_key=api_key,
+        auth_type=auth_type,
+        auth_username=auth_username,
+        auth_header_name=auth_header_name,
     )
 
 
@@ -285,6 +366,10 @@ async def get_text(
     backend: BackendType | None = None,
     cache_dir: str | os.PathLike[str] | None = None,
     cache_ttl: int | str | None = None,
+    api_key: str | SecretStr | None = None,
+    auth_type: AuthType = "bearer",
+    auth_username: str | None = None,
+    auth_header_name: str | None = None,
 ) -> str:
     """Make a GET request and return the response text.
 
@@ -298,6 +383,10 @@ async def get_text(
         cache_dir: Optional directory to store cached responses
         cache_ttl: Optional TTL for cached responses. Can be specified as seconds (int)
                    or as a time period string (e.g. "1h", "2d", "1w 2d").
+        api_key: Optional API key for authentication
+        auth_type: Authentication type ("bearer", "basic", etc.)
+        auth_username: Optional username for authentication
+        auth_header_name: Optional header name for authentication
 
     Returns:
         The response body as text
@@ -311,6 +400,10 @@ async def get_text(
         backend=backend,
         cache_dir=cache_dir,
         cache_ttl=cache_ttl,
+        api_key=api_key,
+        auth_type=auth_type,
+        auth_username=auth_username,
+        auth_header_name=auth_header_name,
     )
     return await response.text()
 
@@ -326,6 +419,10 @@ async def get_json(
     cache_dir: str | os.PathLike[str] | None = None,
     cache_ttl: int | str | None = None,
     return_type: type[T] | None = None,
+    api_key: str | SecretStr | None = None,
+    auth_type: AuthType = "bearer",
+    auth_username: str | None = None,
+    auth_header_name: str | None = None,
 ) -> T:
     """Make a GET request and return the response as JSON.
 
@@ -340,6 +437,10 @@ async def get_json(
         cache_ttl: Optional TTL for cached responses. Can be specified as seconds (int)
                    or as a time period string (e.g. "1h", "2d", "1w 2d").
         return_type: Optional type to validate the response against
+        api_key: Optional API key for authentication
+        auth_type: Authentication type (default: "bearer")
+        auth_username: Optional username for basic authentication
+        auth_header_name: Optional header name for custom authentication
 
     Returns:
         The response body parsed as JSON
@@ -355,6 +456,10 @@ async def get_json(
         backend=backend,
         cache_dir=cache_dir,
         cache_ttl=cache_ttl,
+        api_key=api_key,
+        auth_type=auth_type,
+        auth_username=auth_username,
+        auth_header_name=auth_header_name,
     )
     data = await response.json()
     return validate_json_data(data, return_type)
@@ -370,6 +475,10 @@ async def get_bytes(
     backend: BackendType | None = None,
     cache_dir: str | os.PathLike[str] | None = None,
     cache_ttl: int | str | None = None,
+    api_key: str | SecretStr | None = None,
+    auth_type: AuthType = "bearer",
+    auth_username: str | None = None,
+    auth_header_name: str | None = None,
 ) -> bytes:
     """Make a GET request and return the response as bytes.
 
@@ -383,6 +492,10 @@ async def get_bytes(
         cache_dir: Optional directory to store cached responses
         cache_ttl: Optional TTL for cached responses. Can be specified as seconds (int)
                    or as a time period string (e.g. "1h", "2d", "1w 2d").
+        api_key: Optional API key for authentication
+        auth_type: Authentication type (default: "bearer")
+        auth_username: Optional username for authentication
+        auth_header_name: Optional header name for authentication
 
     Returns:
         The response body as bytes
@@ -396,6 +509,10 @@ async def get_bytes(
         backend=backend,
         cache_dir=cache_dir,
         cache_ttl=cache_ttl,
+        api_key=api_key,
+        auth_type=auth_type,
+        auth_username=auth_username,
+        auth_header_name=auth_header_name,
     )
     return await response.bytes()
 
@@ -417,14 +534,60 @@ def request_sync(
     backend: BackendType | None = None,
     cache_dir: str | os.PathLike[str] | None = None,
     cache_ttl: int | str | None = None,
+    api_key: str | SecretStr | None = None,
+    auth_type: AuthType = "bearer",
+    auth_username: str | None = None,
+    auth_header_name: str | None = None,
 ) -> HttpResponse:
     """Synchronous version of request."""
+    if auth_header_name is None:
+        auth_header_name = "X-API-Key"
+
     http_backend = get_backend(backend, cache_dir=cache_dir, cache_ttl=cache_ttl)
+
+    # Apply authentication if api_key is provided
+    processed_params = params
+    processed_headers = headers or {}
+
+    if api_key is not None:
+        key_value = (
+            api_key.get_secret_value() if isinstance(api_key, SecretStr) else api_key
+        )
+
+        match auth_type:
+            case "bearer":
+                processed_headers = dict(processed_headers)
+                processed_headers["Authorization"] = f"Bearer {key_value}"
+
+            case "basic":
+                if auth_username is None:
+                    msg = "auth_username is required for basic authentication"
+                    raise ValueError(msg)
+
+                import base64
+
+                auth_str = f"{auth_username}:{key_value}"
+                encoded = base64.b64encode(auth_str.encode()).decode()
+                processed_headers = dict(processed_headers)
+                processed_headers["Authorization"] = f"Basic {encoded}"
+
+            case "header":
+                processed_headers = dict(processed_headers)
+                processed_headers[auth_header_name] = key_value
+
+            case "query":
+                processed_params = dict(params or {})
+                processed_params["api_key"] = key_value
+
+            case _:
+                msg = f"Unknown auth_type: {auth_type}"
+                raise ValueError(msg)
+
     return http_backend.request_sync(
         method,
         url,
-        params=params,
-        headers=headers,
+        params=processed_params,
+        headers=processed_headers,
         json=json,
         data=data,
         files=files,
@@ -443,6 +606,10 @@ def get_sync(
     backend: BackendType | None = None,
     cache_dir: str | os.PathLike[str] | None = None,
     cache_ttl: int | str | None = None,
+    api_key: str | SecretStr | None = None,
+    auth_type: AuthType = "bearer",
+    auth_username: str | None = None,
+    auth_header_name: str | None = None,
 ) -> HttpResponse:
     """Synchronous version of get."""
     return request_sync(
@@ -455,6 +622,10 @@ def get_sync(
         backend=backend,
         cache_dir=cache_dir,
         cache_ttl=cache_ttl,
+        api_key=api_key,
+        auth_type=auth_type,
+        auth_username=auth_username,
+        auth_header_name=auth_header_name,
     )
 
 
@@ -471,6 +642,10 @@ def post_sync(
     backend: BackendType | None = None,
     cache_dir: str | os.PathLike[str] | None = None,
     cache_ttl: int | str | None = None,
+    api_key: str | SecretStr | None = None,
+    auth_type: AuthType = "bearer",
+    auth_username: str | None = None,
+    auth_header_name: str | None = None,
 ) -> HttpResponse:
     """Synchronous version of post."""
     return request_sync(
@@ -486,6 +661,10 @@ def post_sync(
         backend=backend,
         cache_dir=cache_dir,
         cache_ttl=cache_ttl,
+        api_key=api_key,
+        auth_type=auth_type,
+        auth_username=auth_username,
+        auth_header_name=auth_header_name,
     )
 
 
@@ -521,6 +700,10 @@ def get_text_sync(
     backend: BackendType | None = None,
     cache_dir: str | os.PathLike[str] | None = None,
     cache_ttl: int | str | None = None,
+    api_key: str | SecretStr | None = None,
+    auth_type: AuthType = "bearer",
+    auth_username: str | None = None,
+    auth_header_name: str | None = None,
 ) -> str:
     """Synchronous version of get_text."""
     from anyenv.async_run import run_sync
@@ -535,6 +718,10 @@ def get_text_sync(
             backend=backend,
             cache_dir=cache_dir,
             cache_ttl=cache_ttl,
+            api_key=api_key,
+            auth_type=auth_type,
+            auth_username=auth_username,
+            auth_header_name=auth_header_name,
         )
     )
 
@@ -550,6 +737,10 @@ def get_json_sync(
     cache_dir: str | os.PathLike[str] | None = None,
     cache_ttl: int | str | None = None,
     return_type: type[T] | None = None,
+    api_key: str | SecretStr | None = None,
+    auth_type: AuthType = "bearer",
+    auth_username: str | None = None,
+    auth_header_name: str | None = None,
 ) -> T:
     """Synchronous version of get_json."""
     from anyenv.async_run import run_sync
@@ -565,6 +756,10 @@ def get_json_sync(
             cache_dir=cache_dir,
             cache_ttl=cache_ttl,
             return_type=return_type,
+            api_key=api_key,
+            auth_type=auth_type,
+            auth_username=auth_username,
+            auth_header_name=auth_header_name,
         )
     )
 
@@ -579,6 +774,10 @@ def get_bytes_sync(
     backend: BackendType | None = None,
     cache_dir: str | os.PathLike[str] | None = None,
     cache_ttl: int | str | None = None,
+    api_key: str | SecretStr | None = None,
+    auth_type: AuthType = "bearer",
+    auth_username: str | None = None,
+    auth_header_name: str | None = None,
 ) -> bytes:
     """Synchronous version of get_bytes."""
     from anyenv.async_run import run_sync
@@ -593,6 +792,10 @@ def get_bytes_sync(
             backend=backend,
             cache_dir=cache_dir,
             cache_ttl=cache_ttl,
+            api_key=api_key,
+            auth_type=auth_type,
+            auth_username=auth_username,
+            auth_header_name=auth_header_name,
         )
     )
 
@@ -609,6 +812,10 @@ async def post_json[T](
     cache_dir: str | os.PathLike[str] | None = None,
     cache_ttl: int | str | None = None,
     return_type: type[T] | None = None,
+    api_key: str | SecretStr | None = None,
+    auth_type: AuthType = "bearer",
+    auth_username: str | None = None,
+    auth_header_name: str | None = None,
 ) -> T:
     """Make a POST request with JSON data and return the response as JSON.
 
@@ -624,6 +831,10 @@ async def post_json[T](
         cache_ttl: Optional TTL for cached responses. Can be specified as seconds (int)
                    or as a time period string (e.g. "1h", "2d", "1w 2d").
         return_type: Optional type to validate the response against
+        api_key: Optional API key for authentication
+        auth_type: Authentication type (default: "bearer")
+        auth_username: Optional username for authentication
+        auth_header_name: Optional header name for authentication
 
     Returns:
         The response body parsed as JSON
@@ -640,6 +851,10 @@ async def post_json[T](
         backend=backend,
         cache_dir=cache_dir,
         cache_ttl=cache_ttl,
+        api_key=api_key,
+        auth_type=auth_type,
+        auth_username=auth_username,
+        auth_header_name=auth_header_name,
     )
     data = await response.json()
     return validate_json_data(data, return_type)
@@ -657,6 +872,10 @@ def post_json_sync[T](
     cache_dir: str | os.PathLike[str] | None = None,
     cache_ttl: int | str | None = None,
     return_type: type[T] | None = None,
+    api_key: str | SecretStr | None = None,
+    auth_type: AuthType = "bearer",
+    auth_username: str | None = None,
+    auth_header_name: str | None = None,
 ) -> T:
     """Synchronous version of post_json."""
     from anyenv.async_run import run_sync
@@ -673,5 +892,9 @@ def post_json_sync[T](
             cache_dir=cache_dir,
             cache_ttl=cache_ttl,
             return_type=return_type,
+            api_key=api_key,
+            auth_type=auth_type,
+            auth_username=auth_username,
+            auth_header_name=auth_header_name,
         )
     )
