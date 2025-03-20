@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import importlib.util
 from typing import TYPE_CHECKING, Any, Literal, TypeVar
 
@@ -173,8 +174,6 @@ async def request(
                 if auth_username is None:
                     msg = "auth_username is required for basic authentication"
                     raise ValueError(msg)
-
-                import base64
 
                 auth_str = f"{auth_username}:{key_value}"
                 encoded = base64.b64encode(auth_str.encode()).decode()
@@ -544,8 +543,6 @@ def request_sync(
         auth_header_name = "X-API-Key"
 
     http_backend = get_backend(backend, cache_dir=cache_dir, cache_ttl=cache_ttl)
-
-    # Apply authentication if api_key is provided
     processed_params = params
     processed_headers = headers or {}
 
@@ -563,8 +560,6 @@ def request_sync(
                 if auth_username is None:
                     msg = "auth_username is required for basic authentication"
                     raise ValueError(msg)
-
-                import base64
 
                 auth_str = f"{auth_username}:{key_value}"
                 encoded = base64.b64encode(auth_str.encode()).decode()
