@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
     from pyodide.http import FetchResponse  # pyright:ignore[reportMissingImports]
 
-    from anyenv.download.http_types import FilesType, HeaderType, ParamsType
+    from anyenv.download.http_types import CacheType, FilesType, HeaderType, ParamsType
 
 
 class PyodideResponse(HttpResponse):
@@ -89,11 +89,9 @@ class PyodideSession(Session):
         if headers:
             request_headers.update(headers)
 
-        # Handle base URL
         if self._base_url:
             url = urljoin(self._base_url, url)
 
-        # Prepare request options
         options: dict[str, Any] = {
             "method": method,
             "headers": request_headers,
@@ -174,6 +172,7 @@ class PyodideBackend(HttpBackend):
         files: FilesType | None = None,
         timeout: float | None = None,
         cache: bool = False,
+        cache_backend: CacheType = "file",
     ) -> HttpResponse:
         """Request implementation for Pyodide."""
         from anyenv.download.exceptions import RequestError, check_response
@@ -210,6 +209,7 @@ class PyodideBackend(HttpBackend):
         headers: HeaderType | None = None,
         progress_callback: ProgressCallback | None = None,
         cache: bool = False,
+        cache_backend: CacheType = "file",
     ):
         """Download implementation for Pyodide."""
         from pyodide.http import pyfetch  # pyright:ignore[reportMissingImports]
@@ -255,6 +255,7 @@ class PyodideBackend(HttpBackend):
         base_url: str | None = None,
         headers: HeaderType | None = None,
         cache: bool = False,
+        cache_backend: CacheType = "file",
     ) -> Session:
         """Create Pyodide Session."""
         return PyodideSession(base_url=base_url, headers=headers)

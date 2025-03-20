@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from os import PathLike
     import types
 
-    from anyenv.download.http_types import FilesType, HeaderType, ParamsType
+    from anyenv.download.http_types import CacheType, FilesType, HeaderType, ParamsType
 
 T = TypeVar("T")
 ProgressCallback = Callable[[int, int], Any]  # current, total -> Any
@@ -172,6 +172,7 @@ class HttpBackend(abc.ABC):
         files: FilesType | None = None,
         timeout: float | None = None,
         cache: bool = False,
+        cache_backend: CacheType = "file",
     ) -> HttpResponse:
         """Make a request."""
         raise NotImplementedError
@@ -188,6 +189,7 @@ class HttpBackend(abc.ABC):
         files: FilesType | None = None,
         timeout: float | None = None,
         cache: bool = False,
+        cache_backend: CacheType = "file",
     ) -> HttpResponse:
         """Synchronous version of request."""
         import anyio
@@ -203,6 +205,7 @@ class HttpBackend(abc.ABC):
                 files=files,
                 timeout=timeout,
                 cache=cache,
+                cache_backend=cache_backend,
             )
 
         return anyio.run(wrapper)
@@ -216,6 +219,7 @@ class HttpBackend(abc.ABC):
         headers: HeaderType | None = None,
         progress_callback: ProgressCallback | None = None,
         cache: bool = False,
+        cache_backend: CacheType = "file",
     ):
         """Download a file with optional progress reporting."""
         raise NotImplementedError
@@ -228,6 +232,7 @@ class HttpBackend(abc.ABC):
         headers: HeaderType | None = None,
         progress_callback: ProgressCallback | None = None,
         cache: bool = False,
+        cache_backend: CacheType = "file",
     ):
         """Synchronous version of download."""
         import anyio
@@ -239,6 +244,7 @@ class HttpBackend(abc.ABC):
                 headers=headers,
                 progress_callback=progress_callback,
                 cache=cache,
+                cache_backend=cache_backend,
             )
 
         return anyio.run(wrapper)
@@ -250,6 +256,7 @@ class HttpBackend(abc.ABC):
         base_url: str | None = None,
         headers: HeaderType | None = None,
         cache: bool = False,
+        cache_backend: CacheType = "file",
     ) -> Session:
         """Create a new session for connection reuse."""
         raise NotImplementedError
@@ -260,6 +267,7 @@ class HttpBackend(abc.ABC):
         base_url: str | None = None,
         headers: HeaderType | None = None,
         cache: bool = False,
+        cache_backend: CacheType = "file",
     ) -> Session:
         """Synchronous version of create_session."""
         import anyio
@@ -269,6 +277,7 @@ class HttpBackend(abc.ABC):
                 base_url=base_url,
                 headers=headers,
                 cache=cache,
+                cache_backend=cache_backend,
             )
 
         return anyio.run(wrapper)

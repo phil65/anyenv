@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
     import httpx
 
-    from anyenv.download.http_types import FilesType, HeaderType, ParamsType
+    from anyenv.download.http_types import CacheType, FilesType, HeaderType, ParamsType
 
 
 class HttpxResponse(HttpResponse):
@@ -111,6 +111,7 @@ class HttpxBackend(HttpBackend):
         cache: bool = False,
         base_url: str | None = None,
         headers: HeaderType | None = None,
+        cache_backend: CacheType = "file",
     ) -> httpx.AsyncClient:
         """Create an HTTPX client."""
         import hishel
@@ -120,11 +121,28 @@ class HttpxBackend(HttpBackend):
         if cache:
             from anyenv.download.httpx_backend.serializer import AnyEnvSerializer
 
-            storage = hishel.AsyncFileStorage(
-                serializer=AnyEnvSerializer(),
-                base_path=self.cache_dir,
-                ttl=self.cache_ttl,
-            )
+            match cache_backend:
+                case "sqlite":
+                    storage: hishel.AsyncBaseStorage = hishel.AsyncSQLiteStorage(
+                        serializer=AnyEnvSerializer(),
+                        connection=...,
+                        ttl=self.cache_ttl,
+                    )
+                case "file":
+                    storage = hishel.AsyncFileStorage(
+                        serializer=AnyEnvSerializer(),
+                        base_path=self.cache_dir,
+                        ttl=self.cache_ttl,
+                    )
+                case "memory":
+                    storage = hishel.AsyncInMemoryStorage(
+                        serializer=AnyEnvSerializer(),
+                        ttl=self.cache_ttl,
+                    )
+                case _:
+                    msg = f"Invalid cache backend: {cache_backend}"
+                    raise ValueError(msg)
+
             ctl = hishel.Controller(
                 cacheable_methods=["GET"],
                 cacheable_status_codes=[200],
@@ -147,12 +165,15 @@ class HttpxBackend(HttpBackend):
         files: FilesType | None = None,
         timeout: float | None = None,
         cache: bool = False,
+        cache_backend: CacheType = "file",
     ) -> HttpResponse:
         """Request implementation using httpx."""
         import httpx
 
         try:
-            async with self._create_client(cache=cache) as client:
+            async with self._create_client(
+                cache=cache, cache_backend=cache_backend
+            ) as client:
                 response = await client.request(
                     method,
                     url,
@@ -179,6 +200,7 @@ class HttpxBackend(HttpBackend):
         headers: HeaderType | None = None,
         progress_callback: ProgressCallback | None = None,
         cache: bool = False,
+        cache_backend: CacheType = "file",
     ):
         """Download implementation using HTTPX."""
         import httpx
@@ -186,7 +208,9 @@ class HttpxBackend(HttpBackend):
         from anyenv.download.exceptions import RequestError, ResponseError
 
         try:
-            async with self._create_client(cache=cache) as client:  # noqa: SIM117
+            async with self._create_client(  # noqa: SIM117
+                cache=cache, cache_backend=cache_backend
+            ) as client:
                 async with client.stream("GET", url, headers=headers) as response:
                     # Check for HTTP errors instead of using raise_for_status()
                     if 400 <= response.status_code < 600:  # noqa: PLR2004
@@ -217,12 +241,14 @@ class HttpxBackend(HttpBackend):
         base_url: str | None = None,
         headers: HeaderType | None = None,
         cache: bool = False,
+        cache_backend: CacheType = "file",
     ) -> Session:
         """Create a new HTTPX session."""
         client = self._create_client(
             cache=cache,
             base_url=base_url,
             headers=headers,
+            cache_backend=cache_backend,
         )
         return HttpxSession(client, base_url)
 

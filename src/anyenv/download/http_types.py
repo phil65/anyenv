@@ -19,6 +19,7 @@ class SecretStr(Protocol):
 HeaderType = dict[str, str]
 ParamsType = Mapping[str, str | int | float | None]
 AuthType = Literal["bearer", "basic", "header", "query"]
+CacheType = Literal["sqlite", "file", "memory"]
 # New types for file uploads
 type FileContent = str | bytes | BinaryIO
 type FileType = FileContent | tuple[str, FileContent] | tuple[str, FileContent, str]

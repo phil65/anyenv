@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     import aiohttp
     from aiohttp_client_cache import CachedSession
 
-    from anyenv.download.http_types import FilesType, HeaderType, ParamsType
+    from anyenv.download.http_types import CacheType, FilesType, HeaderType, ParamsType
 
 
 class AiohttpResponse(HttpResponse):
@@ -142,16 +142,35 @@ class AiohttpBackend(HttpBackend):
         cache: bool = False,
         base_url: str | None = None,
         headers: HeaderType | None = None,
+        cache_backend: CacheType = "file",
     ) -> CachedSession:
-        from aiohttp_client_cache import CachedSession, SQLiteBackend
+        from aiohttp_client_cache import (
+            CacheBackend,
+            CachedSession,
+            FileBackend,
+            SQLiteBackend,
+        )
 
         from anyenv import dump_json
 
         if cache:
-            path = str(self.cache_dir / "http_cache.db")
-            cache_backend = SQLiteBackend(cache_name=path, expire_after=self.cache_ttl)
+            match cache_backend:
+                case "sqlite":
+                    path = str(self.cache_dir / "http_cache.db")
+                    cache_client: CacheBackend = SQLiteBackend(
+                        cache_name=path, expire_after=self.cache_ttl
+                    )
+                case "file":
+                    cache_client = FileBackend(
+                        cache_name=str(self.cache_dir), expire_after=self.cache_ttl
+                    )
+                case "memory":
+                    cache_client = CacheBackend(expire_after=self.cache_ttl)
+                case _:
+                    msg = f"Invalid cache backend: {cache_backend}"
+                    raise ValueError(msg)
             return CachedSession(
-                cache=cache_backend,
+                cache=cache_client,
                 headers=headers,
                 base_url=base_url,
                 json_serialize=dump_json,
@@ -177,6 +196,7 @@ class AiohttpBackend(HttpBackend):
         files: FilesType | None = None,
         timeout: float | None = None,
         cache: bool = False,
+        cache_backend: CacheType = "file",
     ) -> HttpResponse:
         """Make a request using aiohttp backend."""
         import aiohttp
@@ -184,7 +204,7 @@ class AiohttpBackend(HttpBackend):
 
         from anyenv.download.exceptions import RequestError, check_response
 
-        session = await self._create_session(cache=cache)
+        session = await self._create_session(cache=cache, cache_backend=cache_backend)
         try:
             try:
                 # Handle file uploads if present
@@ -244,13 +264,14 @@ class AiohttpBackend(HttpBackend):
         headers: HeaderType | None = None,
         progress_callback: ProgressCallback | None = None,
         cache: bool = False,
+        cache_backend: CacheType = "file",
     ):
         """Download implementation using aiohttp."""
         import aiohttp
 
         from anyenv.download.exceptions import RequestError, ResponseError
 
-        session = await self._create_session(cache=cache)
+        session = await self._create_session(cache=cache, cache_backend=cache_backend)
         try:
             try:
                 async with session.get(url, headers=headers) as response:
@@ -282,11 +303,13 @@ class AiohttpBackend(HttpBackend):
         base_url: str | None = None,
         headers: HeaderType | None = None,
         cache: bool = False,
+        cache_backend: CacheType = "file",
     ) -> Session:
         """Create a new aiohttp session."""
         session = await self._create_session(
             cache=cache,
             base_url=base_url,
             headers=headers,
+            cache_backend=cache_backend,
         )
         return AiohttpSession(session, base_url)
