@@ -35,6 +35,11 @@ class PyodideResponse(HttpResponse):
         return self._response.status
 
     @property
+    def url(self) -> str:
+        """URL of the response."""
+        return self._response.url
+
+    @property
     def headers(self) -> dict[str, str]:
         """Headers implementation for PyodideResponse."""
         return dict(self._response.headers)

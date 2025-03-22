@@ -32,6 +32,12 @@ class HttpResponse(abc.ABC):
 
     @property
     @abc.abstractmethod
+    def url(self) -> str:
+        """URL of the response."""
+        raise NotImplementedError
+
+    @property
+    @abc.abstractmethod
     def headers(self) -> dict[str, str]:
         """Response headers."""
         raise NotImplementedError

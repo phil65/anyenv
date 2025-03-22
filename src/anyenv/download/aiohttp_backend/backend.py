@@ -36,6 +36,11 @@ class AiohttpResponse(HttpResponse):
         return self._response.status
 
     @property
+    def url(self) -> str:
+        """URL of the response."""
+        return str(self._response.url)
+
+    @property
     def headers(self) -> dict[str, str]:
         """Headers of the response."""
         return dict(self._response.headers)
