@@ -149,9 +149,42 @@ async def gather[T](
     return results
 
 
-async def run_in_thread[T](func: Callable[..., T], *args: Any, **kwargs: Any) -> T:
+async def run_in_thread[T](
+    func: Callable[..., T],
+    *args: Any,
+    abandon_on_cancel: bool = False,
+    cancellable: bool | None = None,
+    limiter: Any = None,
+    **kwargs: Any,
+) -> T:
     """Run a function in a separate thread using anyio.
 
-    Equivalent to asyncio.to_thread.
+    Args:
+        func: The function to run in a thread
+        *args: Positional arguments to pass to the function
+        abandon_on_cancel: Whether to abandon execution on cancellation
+        cancellable: Whether the operation can be cancelled
+        limiter: Optional capacity limiter for limiting concurrent threads
+        **kwargs: Keyword arguments to pass to the function
+
+    Returns:
+        The return value of the function
     """
-    return await to_thread.run_sync(func, *args, **kwargs)
+    from functools import partial
+
+    if kwargs:
+        bound_func = partial(func, **kwargs)
+        return await to_thread.run_sync(
+            bound_func,
+            *args,
+            abandon_on_cancel=abandon_on_cancel,
+            cancellable=cancellable,
+            limiter=limiter,
+        )
+    return await to_thread.run_sync(
+        func,
+        *args,
+        abandon_on_cancel=abandon_on_cancel,
+        cancellable=cancellable,
+        limiter=limiter,
+    )
