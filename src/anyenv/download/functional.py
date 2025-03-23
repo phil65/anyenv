@@ -4,20 +4,20 @@ from __future__ import annotations
 
 import base64
 import importlib.util
+import os
 from typing import TYPE_CHECKING, Any, Literal, TypeVar
 
 from anyenv.download.http_types import AuthType, SecretStr
 
 
 if TYPE_CHECKING:
-    import os
-
     from anyenv.download.base import HttpBackend, HttpResponse, Method, ProgressCallback
     from anyenv.download.http_types import FilesType, HeaderType, ParamsType
 
 
 T = TypeVar("T")
 BackendType = Literal["httpx", "aiohttp", "pyodide"]
+StrPath = str | os.PathLike[str]
 
 
 def get_default_backend() -> HttpBackend:
@@ -39,7 +39,6 @@ def get_default_backend() -> HttpBackend:
 
         return PyodideBackend()
 
-    # If none are available, raise an error
     msg = (
         "No HTTP backend available. Please install one of: "
         "httpx+hishel, aiohttp+aiohttp_client_cache"
@@ -49,7 +48,7 @@ def get_default_backend() -> HttpBackend:
 
 def get_backend(
     backend_type: BackendType | None = None,
-    cache_dir: str | os.PathLike[str] | None = None,
+    cache_dir: StrPath | None = None,
     cache_ttl: int | str | None = None,
 ) -> HttpBackend:
     """Get a specific HTTP backend or the best available one.
@@ -115,7 +114,7 @@ async def request(
     timeout: float | None = None,
     cache: bool = False,
     backend: BackendType | None = None,
-    cache_dir: str | os.PathLike[str] | None = None,
+    cache_dir: StrPath | None = None,
     cache_ttl: int | str | None = None,
     api_key: str | SecretStr | None = None,
     auth_type: AuthType = "bearer",
@@ -213,7 +212,7 @@ async def get(
     timeout: float | None = None,
     cache: bool = False,
     backend: BackendType | None = None,
-    cache_dir: str | os.PathLike[str] | None = None,
+    cache_dir: StrPath | None = None,
     cache_ttl: int | str | None = None,
     api_key: str | SecretStr | None = None,
     auth_type: AuthType = "bearer",
@@ -268,7 +267,7 @@ async def post(
     timeout: float | None = None,
     cache: bool = False,
     backend: BackendType | None = None,
-    cache_dir: str | os.PathLike[str] | None = None,
+    cache_dir: StrPath | None = None,
     cache_ttl: int | str | None = None,
     api_key: str | SecretStr | None = None,
     auth_type: AuthType = "bearer",
@@ -326,7 +325,7 @@ async def download(
     progress_callback: ProgressCallback | None = None,
     cache: bool = False,
     backend: BackendType | None = None,
-    cache_dir: str | os.PathLike[str] | None = None,
+    cache_dir: StrPath | None = None,
     cache_ttl: int | str | None = None,
 ) -> None:
     """Download a file with optional progress reporting.
@@ -363,7 +362,7 @@ async def get_text(
     timeout: float | None = None,
     cache: bool = False,
     backend: BackendType | None = None,
-    cache_dir: str | os.PathLike[str] | None = None,
+    cache_dir: StrPath | None = None,
     cache_ttl: int | str | None = None,
     api_key: str | SecretStr | None = None,
     auth_type: AuthType = "bearer",
@@ -410,14 +409,14 @@ async def get_text(
 async def get_json(
     url: str,
     *,
+    return_type: type[T] | None = None,
     params: ParamsType | None = None,
     headers: HeaderType | None = None,
     timeout: float | None = None,
     cache: bool = False,
     backend: BackendType | None = None,
-    cache_dir: str | os.PathLike[str] | None = None,
+    cache_dir: StrPath | None = None,
     cache_ttl: int | str | None = None,
-    return_type: type[T] | None = None,
     api_key: str | SecretStr | None = None,
     auth_type: AuthType = "bearer",
     auth_username: str | None = None,
@@ -427,6 +426,7 @@ async def get_json(
 
     Args:
         url: URL to request
+        return_type: Optional type to validate the response against
         params: Optional query parameters
         headers: Optional request headers
         timeout: Optional request timeout in seconds
@@ -435,7 +435,6 @@ async def get_json(
         cache_dir: Optional directory to store cached responses
         cache_ttl: Optional TTL for cached responses. Can be specified as seconds (int)
                    or as a time period string (e.g. "1h", "2d", "1w 2d").
-        return_type: Optional type to validate the response against
         api_key: Optional API key for authentication
         auth_type: Authentication type (default: "bearer")
         auth_username: Optional username for basic authentication
@@ -472,7 +471,7 @@ async def get_bytes(
     timeout: float | None = None,
     cache: bool = False,
     backend: BackendType | None = None,
-    cache_dir: str | os.PathLike[str] | None = None,
+    cache_dir: StrPath | None = None,
     cache_ttl: int | str | None = None,
     api_key: str | SecretStr | None = None,
     auth_type: AuthType = "bearer",
@@ -523,15 +522,15 @@ def request_sync(
     method: Method,
     url: str,
     *,
-    params: ParamsType | None = None,
-    headers: HeaderType | None = None,
     json: Any = None,
     data: Any = None,
     files: FilesType | None = None,
+    params: ParamsType | None = None,
+    headers: HeaderType | None = None,
     timeout: float | None = None,
     cache: bool = False,
     backend: BackendType | None = None,
-    cache_dir: str | os.PathLike[str] | None = None,
+    cache_dir: StrPath | None = None,
     cache_ttl: int | str | None = None,
     api_key: str | SecretStr | None = None,
     auth_type: AuthType = "bearer",
@@ -599,7 +598,7 @@ def get_sync(
     timeout: float | None = None,
     cache: bool = False,
     backend: BackendType | None = None,
-    cache_dir: str | os.PathLike[str] | None = None,
+    cache_dir: StrPath | None = None,
     cache_ttl: int | str | None = None,
     api_key: str | SecretStr | None = None,
     auth_type: AuthType = "bearer",
@@ -627,15 +626,15 @@ def get_sync(
 def post_sync(
     url: str,
     *,
-    params: ParamsType | None = None,
-    headers: HeaderType | None = None,
     json: Any = None,
     data: Any = None,
     files: FilesType | None = None,
+    params: ParamsType | None = None,
+    headers: HeaderType | None = None,
     timeout: float | None = None,
     cache: bool = False,
     backend: BackendType | None = None,
-    cache_dir: str | os.PathLike[str] | None = None,
+    cache_dir: StrPath | None = None,
     cache_ttl: int | str | None = None,
     api_key: str | SecretStr | None = None,
     auth_type: AuthType = "bearer",
@@ -671,7 +670,7 @@ def download_sync(
     progress_callback: ProgressCallback | None = None,
     cache: bool = False,
     backend: BackendType | None = None,
-    cache_dir: str | os.PathLike[str] | None = None,
+    cache_dir: StrPath | None = None,
     cache_ttl: int | str | None = None,
 ) -> None:
     """Synchronous version of download."""
@@ -693,7 +692,7 @@ def get_text_sync(
     timeout: float | None = None,
     cache: bool = False,
     backend: BackendType | None = None,
-    cache_dir: str | os.PathLike[str] | None = None,
+    cache_dir: StrPath | None = None,
     cache_ttl: int | str | None = None,
     api_key: str | SecretStr | None = None,
     auth_type: AuthType = "bearer",
@@ -724,14 +723,14 @@ def get_text_sync(
 def get_json_sync(
     url: str,
     *,
+    return_type: type[T] | None = None,
     params: ParamsType | None = None,
     headers: HeaderType | None = None,
     timeout: float | None = None,
     cache: bool = False,
     backend: BackendType | None = None,
-    cache_dir: str | os.PathLike[str] | None = None,
+    cache_dir: StrPath | None = None,
     cache_ttl: int | str | None = None,
-    return_type: type[T] | None = None,
     api_key: str | SecretStr | None = None,
     auth_type: AuthType = "bearer",
     auth_username: str | None = None,
@@ -767,7 +766,7 @@ def get_bytes_sync(
     timeout: float | None = None,
     cache: bool = False,
     backend: BackendType | None = None,
-    cache_dir: str | os.PathLike[str] | None = None,
+    cache_dir: StrPath | None = None,
     cache_ttl: int | str | None = None,
     api_key: str | SecretStr | None = None,
     auth_type: AuthType = "bearer",
@@ -804,7 +803,7 @@ async def post_json[T](
     timeout: float | None = None,
     cache: bool = False,
     backend: BackendType | None = None,
-    cache_dir: str | os.PathLike[str] | None = None,
+    cache_dir: StrPath | None = None,
     cache_ttl: int | str | None = None,
     return_type: type[T] | None = None,
     api_key: str | SecretStr | None = None,
@@ -864,7 +863,7 @@ def post_json_sync[T](
     timeout: float | None = None,
     cache: bool = False,
     backend: BackendType | None = None,
-    cache_dir: str | os.PathLike[str] | None = None,
+    cache_dir: StrPath | None = None,
     cache_ttl: int | str | None = None,
     return_type: type[T] | None = None,
     api_key: str | SecretStr | None = None,

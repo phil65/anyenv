@@ -95,11 +95,8 @@ def run_sync_in_thread[T](coro: Coroutine[Any, Any, T]) -> T:
     thread = threading.Thread(target=thread_target)
     thread.start()
     done.wait()
-
     if error is not None:
         raise error
-
-    # We know result can't be None here if no exception was raised
     return result  # type: ignore
 
 
@@ -172,17 +169,9 @@ async def run_in_thread[T](
     """
     from functools import partial
 
-    if kwargs:
-        bound_func = partial(func, **kwargs)
-        return await to_thread.run_sync(
-            bound_func,
-            *args,
-            abandon_on_cancel=abandon_on_cancel,
-            cancellable=cancellable,
-            limiter=limiter,
-        )
+    fn = partial(func, **kwargs) if kwargs else func
     return await to_thread.run_sync(
-        func,
+        fn,
         *args,
         abandon_on_cancel=abandon_on_cancel,
         cancellable=cancellable,
