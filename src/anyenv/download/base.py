@@ -6,7 +6,7 @@ import abc
 from collections.abc import Callable
 import inspect
 import pathlib
-from typing import TYPE_CHECKING, Any, Literal, Self, TypeVar
+from typing import TYPE_CHECKING, Any, Literal, Self
 
 
 if TYPE_CHECKING:
@@ -15,7 +15,6 @@ if TYPE_CHECKING:
 
     from anyenv.download.http_types import CacheType, FilesType, HeaderType, ParamsType
 
-T = TypeVar("T")
 ProgressCallback = Callable[[int, int], Any]  # current, total -> Any
 Method = Literal["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD"]
 DEFAULT_TTL = 3600

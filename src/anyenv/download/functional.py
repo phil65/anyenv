@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 import importlib.util
 import os
-from typing import TYPE_CHECKING, Any, Literal, TypeVar
+from typing import TYPE_CHECKING, Any, Literal
 
 from anyenv.download.http_types import AuthType, SecretStr
 
@@ -15,7 +15,6 @@ if TYPE_CHECKING:
     from anyenv.download.http_types import FilesType, HeaderType, ParamsType
 
 
-T = TypeVar("T")
 BackendType = Literal["httpx", "aiohttp", "pyodide"]
 StrPath = str | os.PathLike[str]
 
@@ -406,7 +405,7 @@ async def get_text(
     return await response.text()
 
 
-async def get_json(
+async def get_json[T](
     url: str,
     *,
     return_type: type[T] | None = None,
@@ -720,7 +719,7 @@ def get_text_sync(
     )
 
 
-def get_json_sync(
+def get_json_sync[T](
     url: str,
     *,
     return_type: type[T] | None = None,
