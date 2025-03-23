@@ -5,19 +5,69 @@ from __future__ import annotations
 import abc
 from collections.abc import Callable
 import inspect
+import os
 import pathlib
-from typing import TYPE_CHECKING, Any, Literal, Self
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Literal,
+    NotRequired,
+    Self,
+    TypedDict,
+)
 
 
 if TYPE_CHECKING:
     from os import PathLike
     import types
 
-    from anyenv.download.http_types import CacheType, FilesType, HeaderType, ParamsType
+    from anyenv.download.http_types import (
+        AuthType,
+        CacheType,
+        FilesType,
+        HeaderType,
+        ParamsType,
+        SecretStr,
+    )
 
 ProgressCallback = Callable[[int, int], Any]  # current, total -> Any
 Method = Literal["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD"]
+BackendType = Literal["httpx", "aiohttp", "pyodide"]
+StrPath = str | os.PathLike[str]
 DEFAULT_TTL = 3600
+
+
+class BaseRequestOptions(TypedDict):
+    """Basic options common to all HTTP requests."""
+
+    params: NotRequired[ParamsType | None]
+    headers: NotRequired[HeaderType | None]
+    timeout: NotRequired[float | None]
+    cache: NotRequired[bool]
+    backend: NotRequired[BackendType | None]
+    cache_dir: NotRequired[StrPath | None]
+    cache_ttl: NotRequired[int | str | None]
+
+
+class BodyRequestOptions(TypedDict):
+    """Options for requests with a body."""
+
+    json: NotRequired[Any]
+    data: NotRequired[Any]
+    files: NotRequired[FilesType | None]
+
+
+class AuthOptions(TypedDict):
+    """Authentication options for HTTP requests."""
+
+    api_key: NotRequired[str | SecretStr | None]
+    auth_type: NotRequired[AuthType]
+    auth_username: NotRequired[str | None]
+    auth_header_name: NotRequired[str | None]
+
+
+class DataRetrievalOptions(BaseRequestOptions, AuthOptions):
+    """Combined options for data retrieval HTTP requests."""
 
 
 class HttpResponse(abc.ABC):

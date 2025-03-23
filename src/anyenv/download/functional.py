@@ -5,18 +5,23 @@ from __future__ import annotations
 import base64
 import importlib.util
 import os
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any
 
 from anyenv.download.http_types import AuthType, SecretStr
 
 
-if TYPE_CHECKING:
-    from anyenv.download.base import HttpBackend, HttpResponse, Method, ProgressCallback
-    from anyenv.download.http_types import FilesType, HeaderType, ParamsType
-
-
-BackendType = Literal["httpx", "aiohttp", "pyodide"]
 StrPath = str | os.PathLike[str]
+
+
+if TYPE_CHECKING:
+    from anyenv.download.base import (
+        BackendType,
+        HttpBackend,
+        HttpResponse,
+        Method,
+        ProgressCallback,
+    )
+    from anyenv.download.http_types import FilesType, HeaderType, ParamsType
 
 
 def get_default_backend() -> HttpBackend:
