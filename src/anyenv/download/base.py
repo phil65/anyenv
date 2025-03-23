@@ -49,14 +49,6 @@ class BaseRequestOptions(TypedDict):
     cache_ttl: NotRequired[int | str | None]
 
 
-class BodyRequestOptions(TypedDict):
-    """Options for requests with a body."""
-
-    json: NotRequired[Any]
-    data: NotRequired[Any]
-    files: NotRequired[FilesType | None]
-
-
 class AuthOptions(TypedDict):
     """Authentication options for HTTP requests."""
 

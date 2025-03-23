@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 import importlib.util
 import os
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Unpack
 
 from anyenv.download.http_types import AuthType, SecretStr
 
@@ -16,6 +16,7 @@ StrPath = str | os.PathLike[str]
 if TYPE_CHECKING:
     from anyenv.download.base import (
         BackendType,
+        DataRetrievalOptions,
         HttpBackend,
         HttpResponse,
         Method,
@@ -594,37 +595,9 @@ def request_sync(
     )
 
 
-def get_sync(
-    url: str,
-    *,
-    params: ParamsType | None = None,
-    headers: HeaderType | None = None,
-    timeout: float | None = None,
-    cache: bool = False,
-    backend: BackendType | None = None,
-    cache_dir: StrPath | None = None,
-    cache_ttl: int | str | None = None,
-    api_key: str | SecretStr | None = None,
-    auth_type: AuthType = "bearer",
-    auth_username: str | None = None,
-    auth_header_name: str | None = None,
-) -> HttpResponse:
+def get_sync(url: str, **kwargs: Unpack[DataRetrievalOptions]) -> HttpResponse:
     """Synchronous version of get."""
-    return request_sync(
-        "GET",
-        url,
-        params=params,
-        headers=headers,
-        timeout=timeout,
-        cache=cache,
-        backend=backend,
-        cache_dir=cache_dir,
-        cache_ttl=cache_ttl,
-        api_key=api_key,
-        auth_type=auth_type,
-        auth_username=auth_username,
-        auth_header_name=auth_header_name,
-    )
+    return request_sync("GET", url, **kwargs)
 
 
 def post_sync(
@@ -633,36 +606,16 @@ def post_sync(
     json: Any = None,
     data: Any = None,
     files: FilesType | None = None,
-    params: ParamsType | None = None,
-    headers: HeaderType | None = None,
-    timeout: float | None = None,
-    cache: bool = False,
-    backend: BackendType | None = None,
-    cache_dir: StrPath | None = None,
-    cache_ttl: int | str | None = None,
-    api_key: str | SecretStr | None = None,
-    auth_type: AuthType = "bearer",
-    auth_username: str | None = None,
-    auth_header_name: str | None = None,
+    **kwargs: Unpack[DataRetrievalOptions],
 ) -> HttpResponse:
     """Synchronous version of post."""
     return request_sync(
         "POST",
         url,
-        params=params,
-        headers=headers,
         json=json,
         data=data,
         files=files,
-        timeout=timeout,
-        cache=cache,
-        backend=backend,
-        cache_dir=cache_dir,
-        cache_ttl=cache_ttl,
-        api_key=api_key,
-        auth_type=auth_type,
-        auth_username=auth_username,
-        auth_header_name=auth_header_name,
+        **kwargs,
     )
 
 
@@ -688,132 +641,38 @@ def download_sync(
     )
 
 
-def get_text_sync(
-    url: str,
-    *,
-    params: ParamsType | None = None,
-    headers: HeaderType | None = None,
-    timeout: float | None = None,
-    cache: bool = False,
-    backend: BackendType | None = None,
-    cache_dir: StrPath | None = None,
-    cache_ttl: int | str | None = None,
-    api_key: str | SecretStr | None = None,
-    auth_type: AuthType = "bearer",
-    auth_username: str | None = None,
-    auth_header_name: str | None = None,
-) -> str:
+def get_text_sync(url: str, **kwargs: Unpack[DataRetrievalOptions]) -> str:
     """Synchronous version of get_text."""
     from anyenv.async_run import run_sync
 
-    return run_sync(
-        get_text(
-            url,
-            params=params,
-            headers=headers,
-            timeout=timeout,
-            cache=cache,
-            backend=backend,
-            cache_dir=cache_dir,
-            cache_ttl=cache_ttl,
-            api_key=api_key,
-            auth_type=auth_type,
-            auth_username=auth_username,
-            auth_header_name=auth_header_name,
-        )
-    )
+    return run_sync(get_text(url, **kwargs))
 
 
 def get_json_sync[T](
     url: str,
     *,
     return_type: type[T] | None = None,
-    params: ParamsType | None = None,
-    headers: HeaderType | None = None,
-    timeout: float | None = None,
-    cache: bool = False,
-    backend: BackendType | None = None,
-    cache_dir: StrPath | None = None,
-    cache_ttl: int | str | None = None,
-    api_key: str | SecretStr | None = None,
-    auth_type: AuthType = "bearer",
-    auth_username: str | None = None,
-    auth_header_name: str | None = None,
+    **kwargs: Unpack[DataRetrievalOptions],
 ) -> T:
     """Synchronous version of get_json."""
     from anyenv.async_run import run_sync
 
-    return run_sync(
-        get_json(
-            url,
-            params=params,
-            headers=headers,
-            timeout=timeout,
-            cache=cache,
-            backend=backend,
-            cache_dir=cache_dir,
-            cache_ttl=cache_ttl,
-            return_type=return_type,
-            api_key=api_key,
-            auth_type=auth_type,
-            auth_username=auth_username,
-            auth_header_name=auth_header_name,
-        )
-    )
+    return run_sync(get_json(url, return_type=return_type, **kwargs))
 
 
-def get_bytes_sync(
-    url: str,
-    *,
-    params: ParamsType | None = None,
-    headers: HeaderType | None = None,
-    timeout: float | None = None,
-    cache: bool = False,
-    backend: BackendType | None = None,
-    cache_dir: StrPath | None = None,
-    cache_ttl: int | str | None = None,
-    api_key: str | SecretStr | None = None,
-    auth_type: AuthType = "bearer",
-    auth_username: str | None = None,
-    auth_header_name: str | None = None,
-) -> bytes:
+def get_bytes_sync(url: str, **kwargs: Unpack[DataRetrievalOptions]) -> bytes:
     """Synchronous version of get_bytes."""
     from anyenv.async_run import run_sync
 
-    return run_sync(
-        get_bytes(
-            url,
-            params=params,
-            headers=headers,
-            timeout=timeout,
-            cache=cache,
-            backend=backend,
-            cache_dir=cache_dir,
-            cache_ttl=cache_ttl,
-            api_key=api_key,
-            auth_type=auth_type,
-            auth_username=auth_username,
-            auth_header_name=auth_header_name,
-        )
-    )
+    return run_sync(get_bytes(url, **kwargs))
 
 
-async def post_json[T](
+async def post_json[T](  # noqa: D417
     url: str,
     json_data: Any,
     *,
-    params: ParamsType | None = None,
-    headers: HeaderType | None = None,
-    timeout: float | None = None,
-    cache: bool = False,
-    backend: BackendType | None = None,
-    cache_dir: StrPath | None = None,
-    cache_ttl: int | str | None = None,
     return_type: type[T] | None = None,
-    api_key: str | SecretStr | None = None,
-    auth_type: AuthType = "bearer",
-    auth_username: str | None = None,
-    auth_header_name: str | None = None,
+    **kwargs: Unpack[DataRetrievalOptions],
 ) -> T:
     """Make a POST request with JSON data and return the response as JSON.
 
@@ -839,21 +698,7 @@ async def post_json[T](
     """
     from anyenv.validate import validate_json_data
 
-    response = await post(
-        url,
-        json=json_data,
-        params=params,
-        headers=headers,
-        timeout=timeout,
-        cache=cache,
-        backend=backend,
-        cache_dir=cache_dir,
-        cache_ttl=cache_ttl,
-        api_key=api_key,
-        auth_type=auth_type,
-        auth_username=auth_username,
-        auth_header_name=auth_header_name,
-    )
+    response = await post(url, json=json_data, **kwargs)
     data = await response.json()
     return validate_json_data(data, return_type)
 
@@ -862,37 +707,16 @@ def post_json_sync[T](
     url: str,
     json_data: Any,
     *,
-    params: ParamsType | None = None,
-    headers: HeaderType | None = None,
-    timeout: float | None = None,
-    cache: bool = False,
-    backend: BackendType | None = None,
-    cache_dir: StrPath | None = None,
-    cache_ttl: int | str | None = None,
     return_type: type[T] | None = None,
-    api_key: str | SecretStr | None = None,
-    auth_type: AuthType = "bearer",
-    auth_username: str | None = None,
-    auth_header_name: str | None = None,
+    **kwargs: Unpack[DataRetrievalOptions],
 ) -> T:
     """Synchronous version of post_json."""
     from anyenv.async_run import run_sync
 
-    return run_sync(
-        post_json(
-            url,
-            json_data,
-            params=params,
-            headers=headers,
-            timeout=timeout,
-            cache=cache,
-            backend=backend,
-            cache_dir=cache_dir,
-            cache_ttl=cache_ttl,
-            return_type=return_type,
-            api_key=api_key,
-            auth_type=auth_type,
-            auth_username=auth_username,
-            auth_header_name=auth_header_name,
-        )
-    )
+    return run_sync(post_json(url, json_data, return_type=return_type, **kwargs))
+
+
+if __name__ == "__main__":
+    import asyncio
+
+    asyncio.run(post_json("https://example.com", {"key": "value"}))
