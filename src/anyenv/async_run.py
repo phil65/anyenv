@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import contextvars
 import threading
-from typing import TYPE_CHECKING, Any, Literal, overload
+from typing import TYPE_CHECKING, Any, Literal, TypeVarTuple, overload
 
 import anyio
 from anyio import to_thread
@@ -12,6 +12,9 @@ from anyio import to_thread
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable, Coroutine, Sequence
+
+
+PosArgsT = TypeVarTuple("PosArgsT")
 
 
 def run_sync[T](coro: Coroutine[Any, Any, T]) -> T:
@@ -146,14 +149,14 @@ async def gather[T](
     return results
 
 
-async def run_in_thread[T](
-    func: Callable[..., T],
-    *args: Any,
+async def run_in_thread[T_Retval, *PosArgsT](
+    func: Callable[[*PosArgsT], T_Retval],
+    *args: *PosArgsT,
     abandon_on_cancel: bool = False,
     cancellable: bool | None = None,
     limiter: Any = None,
     **kwargs: Any,
-) -> T:
+) -> T_Retval:
     """Run a function in a separate thread using anyio.
 
     Args:
@@ -169,7 +172,7 @@ async def run_in_thread[T](
     """
     from functools import partial
 
-    fn = partial(func, **kwargs) if kwargs else func
+    fn = partial(func, **kwargs) if kwargs else func  # type: ignore[call-arg]
     return await to_thread.run_sync(
         fn,
         *args,
