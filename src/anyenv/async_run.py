@@ -174,7 +174,7 @@ async def run_in_thread[T_Retval, *PosArgsT](
 
     fn = partial(func, **kwargs) if kwargs else func  # type: ignore[call-arg]
     return await to_thread.run_sync(
-        fn,
+        fn,  # type: ignore[arg-type]
         *args,
         abandon_on_cancel=abandon_on_cancel,
         cancellable=cancellable,
