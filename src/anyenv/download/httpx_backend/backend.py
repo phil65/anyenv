@@ -112,7 +112,7 @@ class HttpxSession(Session):
         data: Any = None,
         files: FilesType | None = None,
         timeout: float | None = None,
-        cache: bool = False,
+        cache: bool | None = None,
     ) -> HttpResponse:
         """Request implementation using HTTPX."""
         import httpx
@@ -121,11 +121,21 @@ class HttpxSession(Session):
             url = f"{self._base_url.rstrip('/')}/{url.lstrip('/')}"
 
         try:
+            request_headers = dict(headers or {})
+
+            # Only modify caching behavior if explicitly specified
+            if cache is False:
+                # Add cache control header to disable caching for this request
+                request_headers["Cache-Control"] = "no-store"
+            elif cache is True:
+                # Force caching for this request
+                request_headers["Cache-Control"] = "max-age=3600"
+
             response = await self._client.request(
                 method,
                 url,
                 params=params,
-                headers=headers,
+                headers=request_headers,
                 json=json,
                 data=data,
                 files=files,

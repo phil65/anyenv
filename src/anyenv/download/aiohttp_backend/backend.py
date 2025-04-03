@@ -11,6 +11,7 @@ from anyenv.download.base import (
     Method,
     ProgressCallback,
     Session,
+    StrPath,
 )
 from anyenv.download.exceptions import RequestError, check_response
 
@@ -19,9 +20,30 @@ if TYPE_CHECKING:
     import os
 
     import aiohttp
-    from aiohttp_client_cache import CachedSession
+    from aiohttp_client_cache import CacheBackend, CachedSession
 
     from anyenv.download.http_types import CacheType, FilesType, HeaderType, ParamsType
+
+
+def get_storage(
+    cache_backend: CacheType,
+    cache_dir: StrPath,
+    cache_ttl: int,
+) -> CacheBackend:
+    """Get storage backend."""
+    from aiohttp_client_cache import CacheBackend, FileBackend, SQLiteBackend
+
+    match cache_backend:
+        case "sqlite":
+            path = str(Path(cache_dir) / "http_cache.db")
+            return SQLiteBackend(cache_name=path, expire_after=cache_ttl)
+        case "file":
+            return FileBackend(cache_name=str(cache_dir), expire_after=cache_ttl)
+        case "memory":
+            return CacheBackend(expire_after=cache_ttl)
+        case _:
+            msg = f"Invalid cache backend: {cache_backend}"
+            raise ValueError(msg)
 
 
 class AiohttpResponse(HttpResponse):
@@ -78,7 +100,7 @@ class AiohttpSession(Session):
         data: Any = None,
         files: FilesType | None = None,
         timeout: float | None = None,
-        cache: bool = False,
+        cache: bool | None = None,  # Changed default to None
     ) -> HttpResponse:
         """Make a request using aiohttp session."""
         import aiohttp
@@ -88,16 +110,11 @@ class AiohttpSession(Session):
             url = f"{self._base_url.rstrip('/')}/{url.lstrip('/')}"
 
         try:
-            # Handle file uploads if present
             if files:
                 form = FormData()
-
-                # Add regular form data if any
                 if isinstance(data, dict):
                     for key, value in data.items():
                         form.add_field(key, str(value))
-
-                # Add files
                 for field_name, file_info in files.items():
                     match file_info:
                         case str() | bytes() as content:
@@ -115,23 +132,32 @@ class AiohttpSession(Session):
                             msg = f"Invalid file specification for field {field_name!r}"
                             raise ValueError(msg)
                 data = form
+            request_headers = dict(headers or {})
+            kwargs = {}
+            if cache is not None:
+                # The aiohttp_client_cache accepts cache_disabled parameter
+                kwargs["cache_disabled"] = not cache
 
-            # The CachedSession from aiohttp_client_cache honors cache_disabled parameter
+                if cache is False:
+                    request_headers["Cache-Control"] = "no-store"
+                elif cache is True:
+                    request_headers["Cache-Control"] = "max-age=3600"
+
             response = await self._session.request(
                 method,
                 url,
                 params=params,  # type: ignore
-                headers=headers,
+                headers=request_headers,
                 json=json,
                 data=data,
                 timeout=aiohttp.ClientTimeout(total=timeout) if timeout else None,
+                **kwargs,  # type: ignore
             )
             aiohttp_response = AiohttpResponse(response)
         except aiohttp.ClientError as exc:
             error_msg = f"Request failed: {exc!s}"
             raise RequestError(error_msg) from exc
 
-        # Check for HTTP status errors
         return check_response(aiohttp_response)
 
     async def close(self):
@@ -149,31 +175,12 @@ class AiohttpBackend(HttpBackend):
         headers: HeaderType | None = None,
         cache_backend: CacheType = "file",
     ) -> CachedSession:
-        from aiohttp_client_cache import (
-            CacheBackend,
-            CachedSession,
-            FileBackend,
-            SQLiteBackend,
-        )
+        from aiohttp_client_cache import CachedSession
 
         from anyenv import dump_json
 
         if cache:
-            match cache_backend:
-                case "sqlite":
-                    path = str(self.cache_dir / "http_cache.db")
-                    cache_client: CacheBackend = SQLiteBackend(
-                        cache_name=path, expire_after=self.cache_ttl
-                    )
-                case "file":
-                    cache_client = FileBackend(
-                        cache_name=str(self.cache_dir), expire_after=self.cache_ttl
-                    )
-                case "memory":
-                    cache_client = CacheBackend(expire_after=self.cache_ttl)
-                case _:
-                    msg = f"Invalid cache backend: {cache_backend}"
-                    raise ValueError(msg)
+            cache_client = get_storage(cache_backend, self.cache_dir, self.cache_ttl)
             return CachedSession(
                 cache=cache_client,
                 headers=headers,
