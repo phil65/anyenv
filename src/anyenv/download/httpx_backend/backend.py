@@ -11,6 +11,7 @@ from anyenv.download.base import (
     Method,
     ProgressCallback,
     Session,
+    StrPath,
 )
 from anyenv.download.exceptions import RequestError, check_response
 
@@ -18,9 +19,43 @@ from anyenv.download.exceptions import RequestError, check_response
 if TYPE_CHECKING:
     import os
 
+    import hishel
     import httpx
 
     from anyenv.download.http_types import CacheType, FilesType, HeaderType, ParamsType
+
+
+def get_storage(
+    cache_backend: CacheType,
+    cache_dir: StrPath,
+    cache_ttl: int,
+) -> hishel.AsyncBaseStorage:
+    """Get storage backend."""
+    import hishel
+
+    from anyenv.download.httpx_backend.serializer import AnyEnvSerializer
+
+    match cache_backend:
+        case "sqlite":
+            return hishel.AsyncSQLiteStorage(
+                serializer=AnyEnvSerializer(),
+                connection=...,
+                ttl=cache_ttl,
+            )
+        case "file":
+            return hishel.AsyncFileStorage(
+                serializer=AnyEnvSerializer(),
+                base_path=Path(cache_dir),
+                ttl=cache_ttl,
+            )
+        case "memory":
+            return hishel.AsyncInMemoryStorage(
+                serializer=AnyEnvSerializer(),
+                ttl=cache_ttl,
+            )
+        case _:
+            msg = f"Invalid cache backend: {cache_backend}"
+            raise ValueError(msg)
 
 
 class HttpxResponse(HttpResponse):
@@ -124,29 +159,7 @@ class HttpxBackend(HttpBackend):
 
         url = base_url or ""
         if cache:
-            from anyenv.download.httpx_backend.serializer import AnyEnvSerializer
-
-            match cache_backend:
-                case "sqlite":
-                    storage: hishel.AsyncBaseStorage = hishel.AsyncSQLiteStorage(
-                        serializer=AnyEnvSerializer(),
-                        connection=...,
-                        ttl=self.cache_ttl,
-                    )
-                case "file":
-                    storage = hishel.AsyncFileStorage(
-                        serializer=AnyEnvSerializer(),
-                        base_path=self.cache_dir,
-                        ttl=self.cache_ttl,
-                    )
-                case "memory":
-                    storage = hishel.AsyncInMemoryStorage(
-                        serializer=AnyEnvSerializer(),
-                        ttl=self.cache_ttl,
-                    )
-                case _:
-                    msg = f"Invalid cache backend: {cache_backend}"
-                    raise ValueError(msg)
+            storage = get_storage(cache_backend, self.cache_dir, self.cache_ttl)
 
             ctl = hishel.Controller(
                 cacheable_methods=["GET"],
