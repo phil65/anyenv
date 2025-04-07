@@ -671,6 +671,7 @@ async def post_json[T](  # noqa: D417
     url: str,
     json_data: Any,
     *,
+    files: FilesType | None = None,
     return_type: type[T] | None = None,
     **kwargs: Unpack[DataRetrievalOptions],
 ) -> T:
@@ -679,6 +680,7 @@ async def post_json[T](  # noqa: D417
     Args:
         url: URL to request
         json_data: Data to send as JSON in the request body
+        files: Optional files to send in the request body
         params: Optional query parameters
         headers: Optional request headers
         timeout: Optional request timeout in seconds
@@ -698,7 +700,7 @@ async def post_json[T](  # noqa: D417
     """
     from anyenv.validate import validate_json_data
 
-    response = await post(url, json=json_data, **kwargs)
+    response = await post(url, json=json_data, files=files, **kwargs)
     data = await response.json()
     return validate_json_data(data, return_type)
 
@@ -707,13 +709,16 @@ def post_json_sync[T](
     url: str,
     json_data: Any,
     *,
+    files: FilesType | None = None,
     return_type: type[T] | None = None,
     **kwargs: Unpack[DataRetrievalOptions],
 ) -> T:
     """Synchronous version of post_json."""
     from anyenv.async_run import run_sync
 
-    return run_sync(post_json(url, json_data, return_type=return_type, **kwargs))
+    return run_sync(
+        post_json(url, json_data, files=files, return_type=return_type, **kwargs)
+    )
 
 
 if __name__ == "__main__":
