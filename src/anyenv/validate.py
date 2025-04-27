@@ -46,32 +46,26 @@ def validate_json_data[T](data: Any, return_type: type[T] | None = None) -> T:  
 
     # For Pydantic validation path
     if _has_pydantic:
-        try:
-            # First check for Pydantic model with model_validate method (direct instance)
-            if hasattr(return_type, "model_validate"):
-                from pydantic import ValidationError
-
-                try:
-                    return return_type.model_validate(data)  # type: ignore
-                except ValidationError as e:
-                    error_msg = f"Validation error for {return_type.__name__}: {e}"
-                    raise TypeError(error_msg) from e
-
-            # Otherwise use TypeAdapter for advanced typing constructs
-            from pydantic import TypeAdapter
+        # First check for Pydantic model with model_validate method (direct instance)
+        if hasattr(return_type, "model_validate"):
+            from pydantic import ValidationError
 
             try:
-                adapter = TypeAdapter(return_type)
-                return adapter.validate_python(data)
-            except Exception as e:
-                expected = getattr(return_type, "__name__", str(return_type))
-                error_msg = f"Data doesn't match type {expected}: {e}"
+                return return_type.model_validate(data)  # type: ignore
+            except ValidationError as e:
+                error_msg = f"Validation error for {return_type.__name__}: {e}"
                 raise TypeError(error_msg) from e
 
-        except ImportError:
-            # This would only happen if Pydantic is partially/incorrectly installed
-            # We already checked _has_pydantic, so this is a fallback safety
-            pass
+        # Otherwise use TypeAdapter for advanced typing constructs
+        from pydantic import TypeAdapter
+
+        try:
+            adapter = TypeAdapter(return_type)
+            return adapter.validate_python(data)
+        except Exception as e:
+            expected = getattr(return_type, "__name__", str(return_type))
+            error_msg = f"Data doesn't match type {expected}: {e}"
+            raise TypeError(error_msg) from e
 
     # Fallback path when Pydantic isn't available or for other types
 

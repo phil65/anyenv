@@ -112,8 +112,7 @@ def load_json[T](
         from anyenv.validate import validate_json_data
 
         return validate_json_data(parsed_data, return_type)
-
-    return parsed_data  # type: ignore
+    return parsed_data
 
 
 def dump_json(
