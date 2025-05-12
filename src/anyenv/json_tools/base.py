@@ -25,6 +25,7 @@ class JsonProviderBase(abc.ABC):
         indent: bool = False,
         naive_utc: bool = False,
         serialize_numpy: bool = False,
+        sort_keys: bool = False,
     ) -> str:
         """Dump Python objects to JSON string."""
 

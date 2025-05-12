@@ -33,6 +33,7 @@ class OrJsonProvider(JsonProviderBase):
         indent: bool = False,
         naive_utc: bool = False,
         serialize_numpy: bool = False,
+        sort_keys: bool = False,
     ) -> str:
         """Dump data to JSON string using orjson."""
         import orjson
@@ -45,6 +46,8 @@ class OrJsonProvider(JsonProviderBase):
                 options |= orjson.OPT_NAIVE_UTC
             if serialize_numpy:
                 options |= orjson.OPT_SERIALIZE_NUMPY
+            if sort_keys:
+                options |= orjson.OPT_SORT_KEYS
             result = orjson.dumps(data, option=options)
             return result.decode()
         except (TypeError, ValueError) as exc:

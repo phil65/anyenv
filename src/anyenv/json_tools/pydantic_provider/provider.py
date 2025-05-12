@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 from io import TextIOWrapper
+import logging
 from typing import Any
 
 from anyenv.json_tools.base import JsonDumpError, JsonLoadError, JsonProviderBase
 from anyenv.json_tools.utils import handle_datetimes, prepare_numpy_arrays
+
+
+logger = logging.getLogger(__name__)
 
 
 class PydanticProvider(JsonProviderBase):
@@ -32,10 +36,14 @@ class PydanticProvider(JsonProviderBase):
         indent: bool = False,
         naive_utc: bool = False,
         serialize_numpy: bool = False,
+        sort_keys: bool = False,
     ) -> str:
         """Dump data to JSON string using pydantic_core."""
         from pydantic_core import to_json
 
+        if sort_keys:
+            # https://github.com/pydantic/pydantic-core/pull/1637
+            logger.warning("Sorting dicts not yet supported with pydantic serializer")
         try:
             # Handle datetime objects first
             data = handle_datetimes(data, naive_utc)

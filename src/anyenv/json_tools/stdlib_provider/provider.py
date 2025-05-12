@@ -35,6 +35,7 @@ class StdLibProvider(JsonProviderBase):
         indent: bool = False,
         naive_utc: bool = False,
         serialize_numpy: bool = False,
+        sort_keys: bool = False,
     ) -> str:
         """Dump data to JSON string using stdlib json."""
         import json
@@ -55,7 +56,12 @@ class StdLibProvider(JsonProviderBase):
                         return obj.isoformat()
                     return super().default(obj)
 
-            return json.dumps(data, indent=2 if indent else None, cls=CustomEncoder)
+            return json.dumps(
+                data,
+                indent=2 if indent else None,
+                cls=CustomEncoder,
+                sort_keys=sort_keys,
+            )
         except (TypeError, ValueError) as exc:
             error_msg = f"Cannot serialize to JSON: {exc}"
             raise JsonDumpError(error_msg) from exc

@@ -120,6 +120,7 @@ def dump_json(
     indent: bool = False,
     naive_utc: bool = False,
     serialize_numpy: bool = False,
+    sort_keys: bool = False,
     backend: BackendType = "auto",
 ) -> str:
     """Serialize data to a JSON string.
@@ -129,6 +130,7 @@ def dump_json(
         indent: Whether to format the output with indentation
         naive_utc: Whether to interpret naive datetime objects as UTC
         serialize_numpy: Whether to serialize numpy arrays
+        sort_keys: Sort dictionary keys
         backend: JSON backend to use for serialization
 
     Returns:
@@ -143,6 +145,7 @@ def dump_json(
         indent=indent,
         naive_utc=naive_utc,
         serialize_numpy=serialize_numpy,
+        sort_keys=sort_keys,
     )
 
 
