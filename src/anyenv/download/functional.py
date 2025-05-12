@@ -700,7 +700,10 @@ async def post_json[T](  # noqa: D417
     """
     from anyenv.validate import validate_json_data
 
-    response = await post(url, json=json_data, files=files, **kwargs)
+    if files:
+        response = await post(url, data=json_data, files=files, **kwargs)
+    else:
+        response = await post(url, json=json_data, **kwargs)
     data = await response.json()
     return validate_json_data(data, return_type)
 
