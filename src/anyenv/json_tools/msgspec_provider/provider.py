@@ -44,8 +44,7 @@ class MsgSpecProvider(JsonProviderBase):
             # Then process numpy arrays if requested
             if serialize_numpy:
                 data = prepare_numpy_arrays(data)
-            order = "sorted" if sort_keys else None
-            result = msgspec.json.encode(data, order=order)
+            result = msgspec.json.encode(data, order="sorted" if sort_keys else None)
             if indent:
                 return msgspec.json.format(result, indent=2).decode()
             return result.decode()
