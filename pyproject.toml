@@ -42,6 +42,7 @@ dependencies = [
 [project.optional-dependencies]
 aiohttp = ["aiohttp", "aiohttp-client-cache"]
 httpx = ["httpx", "hishel"]
+msgspec = ["msgspec"]
 
 [tool.uv]
 default-groups = ["dev", "lint", "docs"]
