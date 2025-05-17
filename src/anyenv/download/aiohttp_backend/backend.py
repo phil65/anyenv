@@ -58,6 +58,11 @@ class AiohttpResponse(HttpResponse):
         return self._response.status
 
     @property
+    def reason(self) -> str:
+        """Status code of the response."""
+        return self._response.reason or ""
+
+    @property
     def url(self) -> str:
         """URL of the response."""
         return str(self._response.url)

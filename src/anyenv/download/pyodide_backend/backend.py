@@ -35,6 +35,12 @@ class PyodideResponse(HttpResponse):
         return self._response.status
 
     @property
+    def reason(self) -> str:
+        """Status code of the response."""
+        # TODO
+        return ""
+
+    @property
     def url(self) -> str:
         """URL of the response."""
         return self._response.url

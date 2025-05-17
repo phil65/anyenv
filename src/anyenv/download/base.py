@@ -73,6 +73,12 @@ class HttpResponse(abc.ABC):
 
     @property
     @abc.abstractmethod
+    def reason(self) -> str:
+        """Status code of the response."""
+        raise NotImplementedError
+
+    @property
+    @abc.abstractmethod
     def url(self) -> str:
         """URL of the response."""
         raise NotImplementedError

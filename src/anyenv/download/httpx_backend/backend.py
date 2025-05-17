@@ -70,6 +70,11 @@ class HttpxResponse(HttpResponse):
         return self._response.status_code
 
     @property
+    def reason(self) -> str:
+        """Status code of the response."""
+        return self._response.reason_phrase
+
+    @property
     def url(self) -> str:
         """URL of the response."""
         return str(self._response.url)
