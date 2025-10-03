@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from duty import duty
+from duty import duty  # pyright: ignore[reportMissingImports]
 
 
 @duty(capture=False)

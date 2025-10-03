@@ -2,8 +2,6 @@
 
 [![PyPI License](https://img.shields.io/pypi/l/anyenv.svg)](https://pypi.org/project/anyenv/)
 [![Package status](https://img.shields.io/pypi/status/anyenv.svg)](https://pypi.org/project/anyenv/)
-[![Daily downloads](https://img.shields.io/pypi/dd/anyenv.svg)](https://pypi.org/project/anyenv/)
-[![Weekly downloads](https://img.shields.io/pypi/dw/anyenv.svg)](https://pypi.org/project/anyenv/)
 [![Monthly downloads](https://img.shields.io/pypi/dm/anyenv.svg)](https://pypi.org/project/anyenv/)
 [![Distribution format](https://img.shields.io/pypi/format/anyenv.svg)](https://pypi.org/project/anyenv/)
 [![Wheel availability](https://img.shields.io/pypi/wheel/anyenv.svg)](https://pypi.org/project/anyenv/)
@@ -21,12 +19,8 @@
 [![Github last commit](https://img.shields.io/github/last-commit/phil65/anyenv)](https://github.com/phil65/anyenv/commits)
 [![Github release date](https://img.shields.io/github/release-date/phil65/anyenv)](https://github.com/phil65/anyenv/releases)
 [![Github language count](https://img.shields.io/github/languages/count/phil65/anyenv)](https://github.com/phil65/anyenv)
-[![Github commits this week](https://img.shields.io/github/commit-activity/w/phil65/anyenv)](https://github.com/phil65/anyenv)
 [![Github commits this month](https://img.shields.io/github/commit-activity/m/phil65/anyenv)](https://github.com/phil65/anyenv)
-[![Github commits this year](https://img.shields.io/github/commit-activity/y/phil65/anyenv)](https://github.com/phil65/anyenv)
 [![Package status](https://codecov.io/gh/phil65/anyenv/branch/main/graph/badge.svg)](https://codecov.io/gh/phil65/anyenv/)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![PyUp](https://pyup.io/repos/github/phil65/anyenv/shield.svg)](https://pyup.io/repos/github/phil65/anyenv/)
 
 [Read the documentation!](https://phil65.github.io/anyenv/)
-
