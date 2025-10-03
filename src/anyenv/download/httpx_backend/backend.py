@@ -5,14 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from anyenv.anypath import Path
-from anyenv.download.base import (
-    HttpBackend,
-    HttpResponse,
-    Method,
-    ProgressCallback,
-    Session,
-    StrPath,
-)
+from anyenv.download.base import HttpBackend, HttpResponse, Session
 from anyenv.download.exceptions import RequestError, check_response
 
 
@@ -22,6 +15,7 @@ if TYPE_CHECKING:
     import hishel
     import httpx
 
+    from anyenv.download.base import Method, ProgressCallback, StrPath
     from anyenv.download.http_types import CacheType, FilesType, HeaderType, ParamsType
 
 

@@ -6,13 +6,7 @@ import pathlib
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urljoin
 
-from anyenv.download.base import (
-    HttpBackend,
-    HttpResponse,
-    Method,
-    ProgressCallback,
-    Session,
-)
+from anyenv.download.base import HttpBackend, HttpResponse, Session
 
 
 if TYPE_CHECKING:
@@ -20,6 +14,7 @@ if TYPE_CHECKING:
 
     from pyodide.http import FetchResponse  # pyright:ignore[reportMissingImports]
 
+    from anyenv.download.base import Method, ProgressCallback
     from anyenv.download.http_types import CacheType, FilesType, HeaderType, ParamsType
 
 

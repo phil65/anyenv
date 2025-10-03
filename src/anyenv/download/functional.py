@@ -7,7 +7,7 @@ import importlib.util
 import os
 from typing import TYPE_CHECKING, Any, Unpack
 
-from anyenv.download.http_types import AuthType, SecretStr
+from anyenv.download.http_types import SecretStr
 
 
 StrPath = str | os.PathLike[str]
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
         Method,
         ProgressCallback,
     )
-    from anyenv.download.http_types import FilesType, HeaderType, ParamsType
+    from anyenv.download.http_types import AuthType, FilesType, HeaderType, ParamsType
 
 
 def get_default_backend() -> HttpBackend:
