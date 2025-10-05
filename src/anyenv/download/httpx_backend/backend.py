@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from anyenv.anypath import Path
 from anyenv.download.base import HttpBackend, HttpResponse, Session
 from anyenv.download.exceptions import RequestError, check_response
 
