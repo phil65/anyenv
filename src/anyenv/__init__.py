@@ -1,6 +1,10 @@
 """AnyEnv: A library for environment management and utility functions."""
 
-__version__ = "0.4.17"
+from __future__ import annotations
+
+from importlib.metadata import version
+
+__version__ = version("anyenv")
 
 from anyenv.async_run import run_sync, run_sync_in_thread, gather, run_in_thread
 from anyenv.download.functional import (
@@ -30,6 +34,7 @@ from anyenv.json_tools import load_json, JsonLoadError, dump_json, JsonDumpError
 from anyenv.download.base import HttpBackend, HttpResponse, Session
 
 __all__ = [
+    "__version__",
     "HttpBackend",
     "HttpError",
     "HttpResponse",
