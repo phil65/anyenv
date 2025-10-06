@@ -1,10 +1,18 @@
-"""AnyEnv: A library for environment management and utility functions."""
+"""AnyEnv: Compatibility layer for some basic operations to allow painless operation in PyOdide and Python pre-releases"""
 
 from __future__ import annotations
 
 from importlib.metadata import version
 
 __version__ = version("anyenv")
+__title__ = "AnyEnv"
+__description__ = "Compatibility layer for some basic operations to allow painless operation in PyOdide and Python pre-releases"
+__author__ = "Philipp Temminghoff"
+__author_email__ = "philipptemminghoff@googlemail.com"
+__copyright__ = "Copyright (c) 2025 Philipp Temminghoff"
+__license__ = "MIT"
+__url__ = "https://github.com/phil65/anyenv"
+
 
 from anyenv.async_run import run_sync, run_sync_in_thread, gather, run_in_thread
 from anyenv.download.functional import (
