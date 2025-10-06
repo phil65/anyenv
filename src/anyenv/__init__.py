@@ -34,7 +34,6 @@ from anyenv.json_tools import load_json, JsonLoadError, dump_json, JsonDumpError
 from anyenv.download.base import HttpBackend, HttpResponse, Session
 
 __all__ = [
-    "__version__",
     "HttpBackend",
     "HttpError",
     "HttpResponse",
@@ -44,6 +43,7 @@ __all__ = [
     "ResponseError",
     "Session",
     "ThreadGroup",
+    "__version__",
     "download",
     "download_sync",
     "dump_json",
