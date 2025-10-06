@@ -1,4 +1,8 @@
-"""AnyEnv: Compatibility layer for some basic operations to allow painless operation in PyOdide and Python pre-releases"""
+"""AnyEnv: main package.
+
+Compatibility layer for some basic operations to allow painless operation in PyOdide
+and Python pre-releases.
+"""
 
 from __future__ import annotations
 
@@ -6,7 +10,7 @@ from importlib.metadata import version
 
 __version__ = version("anyenv")
 __title__ = "AnyEnv"
-__description__ = "Compatibility layer for some basic operations to allow painless operation in PyOdide and Python pre-releases"
+
 __author__ = "Philipp Temminghoff"
 __author_email__ = "philipptemminghoff@googlemail.com"
 __copyright__ = "Copyright (c) 2025 Philipp Temminghoff"
