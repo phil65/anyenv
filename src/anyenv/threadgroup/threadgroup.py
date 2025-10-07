@@ -5,9 +5,7 @@ from __future__ import annotations
 import concurrent.futures
 import contextvars
 import logging
-from typing import TYPE_CHECKING, Any
-
-from typing_extensions import TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 
 if TYPE_CHECKING:
