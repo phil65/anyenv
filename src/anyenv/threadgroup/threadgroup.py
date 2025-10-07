@@ -5,14 +5,11 @@ from __future__ import annotations
 import concurrent.futures
 import contextvars
 import logging
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any
 
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
-
-R = TypeVar("R", default=Any)
 
 
 class ContextExecutor(concurrent.futures.ThreadPoolExecutor):
@@ -37,7 +34,7 @@ class ContextExecutor(concurrent.futures.ThreadPoolExecutor):
             var.set(value)
 
 
-class ThreadGroup[R]:
+class ThreadGroup[R = Any]:
     """Class that executes functions in parallel, with TaskGroup-like API."""
 
     def __init__(
