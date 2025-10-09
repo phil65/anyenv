@@ -50,10 +50,8 @@ class PipInstaller(PackageInstaller):
         try:
             # When check=True, run_process raises CalledProcessError on non-zero exit
             process = await anyio.run_process(cmd, check=True)
-
             # Output is available in process.stdout
             print(process.stdout.decode())
-
             # Reload the package if it was upgraded
             if upgrade:
                 self._reload_package(package_name)
@@ -67,14 +65,14 @@ class PipInstaller(PackageInstaller):
         """Attempt to reload a package's modules after installation."""
         try:
             dist = importlib.metadata.distribution(package_name)
-            top_level_content = dist.read_text("top_level.txt")
-            if top_level_content:
+            if top_level_content := dist.read_text("top_level.txt"):
                 top_level_modules = top_level_content.splitlines()
                 for mod in top_level_modules:
-                    if mod in sys.modules:
-                        try:
-                            importlib.reload(sys.modules[mod])
-                        except Exception as e:  # noqa: BLE001
-                            print(f"Warning: Failed to reload module {mod}: {e}")
+                    if mod not in sys.modules:
+                        continue
+                    try:
+                        importlib.reload(sys.modules[mod])
+                    except Exception as e:  # noqa: BLE001
+                        print(f"Warning: Failed to reload module {mod}: {e}")
         except Exception as e:  # noqa: BLE001
             print(f"Warning: Failed to reload package {package_name}: {e}")

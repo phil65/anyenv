@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from anyenv import dump_json, load_json
 from anyenv.anypath import Path
 from anyenv.download.base import HttpBackend, HttpResponse, Session
 from anyenv.download.exceptions import RequestError, ResponseError, check_response
@@ -72,8 +73,6 @@ class AiohttpResponse(HttpResponse):
 
     async def json(self) -> Any:
         """JSON content of the response."""
-        from anyenv import load_json
-
         return await self._response.json(loads=load_json)
 
     async def bytes(self) -> bytes:
@@ -175,8 +174,6 @@ class AiohttpBackend(HttpBackend):
         cache_backend: CacheType = "file",
     ) -> CachedSession:
         from aiohttp_client_cache import CachedSession
-
-        from anyenv import dump_json
 
         if cache:
             cache_client = get_storage(cache_backend, self.cache_dir, self.cache_ttl)
