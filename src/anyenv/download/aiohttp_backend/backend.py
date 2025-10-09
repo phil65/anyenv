@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 from anyenv.anypath import Path
 from anyenv.download.base import HttpBackend, HttpResponse, Session
-from anyenv.download.exceptions import RequestError, check_response
+from anyenv.download.exceptions import RequestError, ResponseError, check_response
 
 
 if TYPE_CHECKING:
@@ -213,8 +213,6 @@ class AiohttpBackend(HttpBackend):
         import aiohttp
         from aiohttp import FormData
 
-        from anyenv.download.exceptions import RequestError, check_response
-
         session = await self._create_session(cache=cache, cache_backend=cache_backend)
         try:
             try:
@@ -279,8 +277,6 @@ class AiohttpBackend(HttpBackend):
     ):
         """Download implementation using aiohttp."""
         import aiohttp
-
-        from anyenv.download.exceptions import RequestError, ResponseError
 
         session = await self._create_session(cache=cache, cache_backend=cache_backend)
         try:

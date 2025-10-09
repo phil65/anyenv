@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from anyenv.download.base import HttpBackend, HttpResponse, Session
-from anyenv.download.exceptions import RequestError, check_response
+from anyenv.download.exceptions import RequestError, ResponseError, check_response
 
 
 if TYPE_CHECKING:
@@ -231,8 +231,6 @@ class HttpxBackend(HttpBackend):
     ):
         """Download implementation using HTTPX."""
         import httpx
-
-        from anyenv.download.exceptions import RequestError, ResponseError
 
         try:
             async with self._create_client(  # noqa: SIM117

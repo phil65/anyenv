@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import urljoin
 
 from anyenv.download.base import HttpBackend, HttpResponse, Session
+from anyenv.download.exceptions import RequestError, ResponseError, check_response
 
 
 if TYPE_CHECKING:
@@ -89,7 +90,6 @@ class PyodideSession(Session):
         from pyodide.http import pyfetch  # pyright:ignore[reportMissingImports]
 
         from anyenv import dump_json
-        from anyenv.download.exceptions import RequestError, check_response
 
         request_headers = self._headers.copy()
         if headers:
@@ -116,27 +116,23 @@ class PyodideSession(Session):
             # Add files
             for field_name, file_info in files.items():
                 match file_info:
-                    case str() | bytes() as content:
-                        # Convert bytes to Blob if necessary
-                        if isinstance(content, bytes):
-                            blob = Blob.new([Array.from_buffer(content)])
-                            form_data.append(field_name, blob)
-                        else:
-                            form_data.append(field_name, content)
-                    case tuple([filename, content]):
-                        if isinstance(content, bytes):
-                            blob = Blob.new([Array.from_buffer(content)])
-                            form_data.append(field_name, blob, filename)
-                        else:
-                            form_data.append(field_name, content, filename)
-                    case tuple([filename, content, content_type]):
-                        if isinstance(content, bytes):
-                            blob = Blob.new(
-                                [Array.from_buffer(content)], {"type": content_type}
-                            )
-                            form_data.append(field_name, blob, filename)
-                        else:
-                            form_data.append(field_name, content, filename)
+                    case str() as content:
+                        form_data.append(field_name, content)
+                    case bytes() as content:
+                        blob = Blob.new([Array.from_buffer(content)])
+                        form_data.append(field_name, blob)
+                    case tuple([filename, str() as content]):
+                        form_data.append(field_name, content, filename)
+                    case tuple([filename, bytes() as content]):
+                        blob = Blob.new([Array.from_buffer(content)])
+                        form_data.append(field_name, blob, filename)
+                    case tuple([filename, str() as content, content_type]):
+                        form_data.append(field_name, content, filename)
+                    case tuple([filename, bytes() as content, content_type]):
+                        blob = Blob.new(
+                            [Array.from_buffer(content)], {"type": content_type}
+                        )
+                        form_data.append(field_name, blob, filename)
 
             options["body"] = form_data
         # Handle regular data
@@ -181,8 +177,6 @@ class PyodideBackend(HttpBackend):
         cache_backend: CacheType = "file",
     ) -> HttpResponse:
         """Request implementation for Pyodide."""
-        from anyenv.download.exceptions import RequestError, check_response
-
         try:
             session = PyodideSession()
             response = await session.request(
@@ -219,8 +213,6 @@ class PyodideBackend(HttpBackend):
     ):
         """Download implementation for Pyodide."""
         from pyodide.http import pyfetch  # pyright:ignore[reportMissingImports]
-
-        from anyenv.download.exceptions import RequestError, ResponseError
 
         try:
             # In browser environment, we need to get the full response first
