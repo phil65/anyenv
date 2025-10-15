@@ -6,7 +6,7 @@ import asyncio
 import concurrent.futures
 from functools import wraps
 import inspect
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Concatenate
 import warnings
 
 
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 class AsyncExecutor[**P, T]:
     """Wrapper that provides both async __call__ and sync() methods."""
 
-    def __init__(self, func: Callable[P, Awaitable[T]], *, is_bound: bool) -> None:
+    def __init__(self, func: Callable[..., Awaitable[T]], *, is_bound: bool) -> None:
         self._func = func
         self._instance: Any = None
         self._is_bound = is_bound
@@ -28,34 +28,13 @@ class AsyncExecutor[**P, T]:
         """Descriptor protocol for method binding."""
         if instance is None:
             return self
-        # Always create bound wrapper to track instance for validation
+        # Always create bound wrapper to track instance
         bound = type(self)(self._func, is_bound=self._is_bound)
         bound._instance = instance  # noqa: SLF001
         return bound
 
     async def __call__(self, *args: P.args, **kwargs: P.kwargs) -> T:
         """Async call - normal behavior."""
-        # Validate bound/unbound usage before making the call
-        if self._instance is not None and not self._is_bound:
-            # Error: method used but declared as unbound function
-            msg = (
-                f"Method {self._func.__name__} was decorated with bound=False "
-                "but is being called as a bound method. Use bound=True for methods."
-            )
-            raise TypeError(msg)
-        if self._instance is None and self._is_bound:
-            # Check if this looks like a method signature but no instance
-            sig = inspect.signature(self._func)
-            params = list(sig.parameters.values())
-            if params and params[0].name in ("self", "cls"):
-                msg = (
-                    f"Function {self._func.__name__} was decorated with bound=True "
-                    "but is being called as a standalone function. Use bound=False "
-                    "for standalone functions."
-                )
-                raise TypeError(msg)
-
-        # Make the actual call
         if self._instance is not None and self._is_bound:
             # We're bound to an instance, prepend it to args
             return await self._func(self._instance, *args, **kwargs)
@@ -83,40 +62,69 @@ class AsyncExecutor[**P, T]:
                 future = executor.submit(asyncio.run, coro)
                 return future.result()
 
+    def task(self, *args: P.args, **kwargs: P.kwargs) -> asyncio.Task[T]:
+        """Create a Task for concurrent execution."""
+        return asyncio.create_task(self(*args, **kwargs))
+
+    def submit(self, *args: P.args, **kwargs: P.kwargs) -> asyncio.Task[T]:
+        """Fire-and-forget execution, returns Task but doesn't need to be awaited."""
+        task = self.task(*args, **kwargs)
+        # Suppress task result retrieval warning
+        task.add_done_callback(lambda t: t.exception() if not t.cancelled() else None)
+        return task
+
+    async def timeout(self, timeout_sec: float, *args: P.args, **kwargs: P.kwargs) -> T:
+        """Call with timeout."""
+        return await asyncio.wait_for(self(*args, **kwargs), timeout_sec)
+
     def __getattr__(self, name: str) -> Any:
         """Delegate attribute access to the wrapped function."""
         return getattr(self._func, name)
 
 
-def async_executor(*, bound: bool):
-    """Decorator factory to add sync() method to async functions.
-
-    Args:
-        bound: True for methods (have self parameter), False for standalone functions
+def method_spawner[**P, T](
+    func: Callable[Concatenate[Any, P], Awaitable[T]],
+) -> AsyncExecutor[P, T]:
+    """Decorator for async methods.
 
     Usage:
-        # For standalone functions
-        @async_executor(bound=False)
-        async def my_func(x: int) -> str:
-            return str(x)
-
-        # For methods
         class MyClass:
-            @async_executor(bound=True)
+            @method_spawner
             async def my_method(self, x: int) -> str:
                 return str(x)
 
-        # Both work:
-        result = await my_func(42)
-        result = my_func.sync(42)
-        result = await obj.my_method(42)
-        result = obj.my_method.sync(42)
+        # Usage:
+        obj = MyClass()
+        result = await obj.my_method(42)           # Async
+        result = obj.my_method.sync(42)            # Sync
+        task = obj.my_method.task(42)              # Task
+        obj.my_method.submit(42)                   # Fire-and-forget
+        result = await obj.my_method.timeout(5.0, 42)  # With timeout
     """
+    if not inspect.iscoroutinefunction(func):
+        msg = f"@method_spawner can only be applied to async methods, got {func}"
+        raise TypeError(msg)
+    return AsyncExecutor(func, is_bound=True)
 
-    def decorator[**P, T](func: Callable[P, Awaitable[T]]) -> AsyncExecutor[P, T]:
-        if not inspect.iscoroutinefunction(func):
-            msg = f"@async_executor can only be applied to async functions, got {func}"
-            raise TypeError(msg)
-        return AsyncExecutor(func, is_bound=bound)
 
-    return decorator
+def function_spawner[**P, T](
+    func: Callable[P, Awaitable[T]],
+) -> AsyncExecutor[P, T]:
+    """Decorator for standalone async functions.
+
+    Usage:
+        @async_executor_function
+        async def my_func(x: int) -> str:
+            return str(x)
+
+        # Usage:
+        result = await my_func(42)           # Async
+        result = my_func.sync(42)            # Sync
+        task = my_func.task(42)              # Task
+        my_func.submit(42)                   # Fire-and-forget
+        result = await my_func.timeout(5.0, 42)  # With timeout
+    """
+    if not inspect.iscoroutinefunction(func):
+        msg = f"@function_spawner can only be applied to async functions, got {func}"
+        raise TypeError(msg)
+    return AsyncExecutor(func, is_bound=False)

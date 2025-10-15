@@ -39,7 +39,7 @@ from anyenv.download.functional import (
     post_json_sync,
 )
 from anyenv.download.exceptions import RequestError, ResponseError, HttpError
-from anyenv.calling import ThreadGroup, async_executor
+from anyenv.calling import ThreadGroup, method_spawner, function_spawner
 from anyenv.package_install.functional import install, install_sync
 from anyenv.testing import open_in_playground
 from anyenv.json_tools import load_json, JsonLoadError, dump_json, JsonDumpError
@@ -56,10 +56,10 @@ __all__ = [
     "Session",
     "ThreadGroup",
     "__version__",
-    "async_executor",
     "download",
     "download_sync",
     "dump_json",
+    "function_spawner",
     "gather",
     "get",
     "get_backend",
@@ -73,6 +73,7 @@ __all__ = [
     "install",
     "install_sync",
     "load_json",
+    "method_spawner",
     "open_in_playground",
     "post",
     "post_json",
