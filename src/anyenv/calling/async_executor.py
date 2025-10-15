@@ -30,7 +30,7 @@ class AsyncExecutor[**P, T]:
             return self
         # Always create bound wrapper to track instance for validation
         bound = type(self)(self._func, is_bound=self._is_bound)
-        bound._instance = instance
+        bound._instance = instance  # noqa: SLF001
         return bound
 
     async def __call__(self, *args: P.args, **kwargs: P.kwargs) -> T:

@@ -33,7 +33,7 @@ def get_storage(
         case "sqlite":
             return hishel.AsyncSQLiteStorage(
                 serializer=AnyEnvSerializer(),
-                connection=...,
+                connection=None,
                 ttl=cache_ttl,
             )
         case "file":
