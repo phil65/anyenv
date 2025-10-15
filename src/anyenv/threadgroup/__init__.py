@@ -1,1 +1,0 @@
-"""ThreadGroup package."""

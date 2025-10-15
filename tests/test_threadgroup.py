@@ -6,7 +6,7 @@ import contextvars
 
 import pytest
 
-from anyenv.threadgroup.threadgroup import ThreadGroup
+from anyenv.calling import ThreadGroup
 
 
 def test_threadgroup():
