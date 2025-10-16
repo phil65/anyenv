@@ -18,7 +18,13 @@ __license__ = "MIT"
 __url__ = "https://github.com/phil65/anyenv"
 
 
-from anyenv.async_run import run_sync, run_sync_in_thread, gather, run_in_thread
+from anyenv.async_run import (
+    run_sync,
+    run_sync_in_thread,
+    gather,
+    run_in_thread,
+    call_and_gather,
+)
 from anyenv.download.functional import (
     download,
     download_sync,
@@ -39,7 +45,7 @@ from anyenv.download.functional import (
     post_json_sync,
 )
 from anyenv.download.exceptions import RequestError, ResponseError, HttpError
-from anyenv.calling import ThreadGroup, method_spawner, function_spawner, merge_streams
+from anyenv.calling import ThreadGroup, method_spawner, function_spawner
 from anyenv.package_install.functional import install, install_sync
 from anyenv.testing import open_in_playground
 from anyenv.json_tools import load_json, JsonLoadError, dump_json, JsonDumpError
@@ -56,6 +62,7 @@ __all__ = [
     "Session",
     "ThreadGroup",
     "__version__",
+    "call_and_gather",
     "download",
     "download_sync",
     "dump_json",
@@ -73,7 +80,6 @@ __all__ = [
     "install",
     "install_sync",
     "load_json",
-    "merge_streams",
     "method_spawner",
     "open_in_playground",
     "post",

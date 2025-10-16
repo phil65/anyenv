@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 import contextvars
 import threading
-from typing import TYPE_CHECKING, Any, Literal, TypeVarTuple, overload
+from typing import TYPE_CHECKING, Any, Literal, TypeVarTuple, cast, overload
 
 import anyio
 from anyio import to_thread
 
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable, Coroutine, Sequence
+    from collections.abc import Awaitable, Callable, Coroutine
 
 
 PosArgsT = TypeVarTuple("PosArgsT")
@@ -137,7 +138,7 @@ async def gather[T](
             async def run_and_store(idx: int = i, awaitable: Awaitable[T] = coro):
                 try:
                     results[idx] = await awaitable
-                except Exception as exc:
+                except BaseException as exc:
                     if return_exceptions:
                         results[idx] = exc
                     else:
@@ -179,3 +180,123 @@ async def run_in_thread[T_Retval, *PosArgsT](
         cancellable=cancellable,
         limiter=limiter,
     )
+
+
+@overload
+async def call_and_gather[T](
+    callables: Sequence[Callable[..., Awaitable[T]]],
+    args: tuple[Any, ...] | Sequence[tuple[Any, ...]],
+    kwargs: dict[str, Any] | Sequence[dict[str, Any]] | None,
+    return_exceptions: Literal[True],
+    limit: int | None = None,
+) -> Sequence[T | BaseException]: ...
+
+
+@overload
+async def call_and_gather[T](
+    callables: Sequence[Callable[..., Awaitable[T]]],
+    args: tuple[Any, ...] | Sequence[tuple[Any, ...]] = (),
+    kwargs: dict[str, Any] | Sequence[dict[str, Any]] | None = None,
+    *,
+    return_exceptions: Literal[True],
+    limit: int | None = None,
+) -> Sequence[T | BaseException]: ...
+
+
+@overload
+async def call_and_gather[T](
+    callables: Sequence[Callable[..., Awaitable[T]]],
+    args: tuple[Any, ...] | Sequence[tuple[Any, ...]] = (),
+    kwargs: dict[str, Any] | Sequence[dict[str, Any]] | None = None,
+    return_exceptions: Literal[False] = False,
+    limit: int | None = None,
+) -> Sequence[T]: ...
+
+
+async def call_and_gather[T](
+    callables: Sequence[Callable[..., Awaitable[T]]],
+    args: tuple[Any, ...] | Sequence[tuple[Any, ...]] = (),
+    kwargs: dict[str, Any] | Sequence[dict[str, Any]] | None = None,
+    return_exceptions: bool = False,
+    limit: int | None = None,
+) -> Sequence[T | BaseException]:
+    """Call multiple callables and gather their results concurrently.
+
+    This is a helper for the common pattern of calling multiple handlers/functions
+    and gathering their results concurrently. Supports two modes:
+
+    1. Broadcast mode: Same args/kwargs for all callables
+    2. Per-callable mode: Different args/kwargs for each callable
+
+    Uses aioitertools.asyncio.gather if available for limit support,
+    falls back to the local gather implementation otherwise.
+
+    Args:
+        callables: Sequence of callable objects that return awaitables
+        args: Single tuple (broadcast) or sequence of tuples (per-callable)
+        kwargs: Single dict (broadcast) or sequence of dicts (per-callable)
+        return_exceptions: If True, exceptions are returned instead of raised
+        limit: Maximum concurrent tasks (None for unlimited, only with aioitertools)
+
+    Returns:
+        A sequence of results in the same order as the input callables
+    """
+    from aioitertools.asyncio import gather as aioitertools_gather
+
+    if kwargs is None:
+        kwargs = {}
+
+    # Detect mode based on types
+    args_is_broadcast = isinstance(args, tuple)
+    kwargs_is_broadcast = isinstance(kwargs, dict)
+
+    # Validate consistent mode
+    if args_is_broadcast and not kwargs_is_broadcast:
+        msg = (
+            "Mixed modes: args is broadcast (tuple) but kwargs is per-callable (sequence)"
+        )
+        raise ValueError(msg)
+    if not args_is_broadcast and kwargs_is_broadcast:
+        msg = (
+            "Mixed modes: args is per-callable (sequence) but kwargs is broadcast (dict)"
+        )
+        raise ValueError(msg)
+
+    if args_is_broadcast and kwargs_is_broadcast:
+        # Broadcast mode: same args/kwargs for all
+
+        args_tuple = cast(tuple[Any, ...], args)
+        kwargs_dict = cast(dict[str, Any], kwargs)
+        coros = [callable_obj(*args_tuple, **kwargs_dict) for callable_obj in callables]
+    else:
+        # Per-callable mode: different args/kwargs for each
+
+        args_seq = cast(Sequence[tuple[Any, ...]], args)
+        kwargs_seq = cast(Sequence[dict[str, Any]], kwargs)
+
+        if not (len(args_seq) == len(kwargs_seq) == len(callables)):
+            msg = (
+                f"Length mismatch: callables({len(callables)}), "
+                f"args({len(args_seq)}), kwargs({len(kwargs_seq)}) must all be equal"
+            )
+            raise ValueError(msg)
+
+        coros = [
+            callable_obj(*call_args, **call_kwargs)
+            for callable_obj, call_args, call_kwargs in zip(
+                callables,
+                args_seq,
+                kwargs_seq,
+                strict=True,
+            )
+        ]
+
+    if limit is not None:
+        # Use aioitertools.asyncio.gather with limit support
+        return await aioitertools_gather(
+            *coros, return_exceptions=return_exceptions, limit=limit
+        )
+    # Fall back to our local gather implementation
+    if return_exceptions:
+        return await gather(*coros, return_exceptions=True)
+    return await gather(*coros, return_exceptions=False)
