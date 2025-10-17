@@ -40,7 +40,11 @@ Source = "https://github.com/phil65/anyenv"
 
 [project.optional-dependencies]
 aiohttp = ["aiohttp", "aiohttp-client-cache"]
+docker = ["testcontainers"]
+# e2b = ["e2b-code-interpreter"]
+# daytona = ["daytona"]
 httpx = ["httpx", "hishel"]
+mcp = ["fastmcp", "mcp-run-python"]
 msgspec = ["msgspec"]
 
 [dependency-groups]
