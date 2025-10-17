@@ -60,6 +60,7 @@ async def main():
     assert result.success is False
     assert result.result is None
     assert result.duration >= 0
+    assert result.error
     assert "Subprocess test error" in result.error
     assert result.error_type == "RuntimeError"
     assert result.stdout is not None
