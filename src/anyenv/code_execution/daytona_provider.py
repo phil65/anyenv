@@ -134,7 +134,7 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
                 result=None,
                 duration=duration,
                 success=False,
-                error="Command execution failed",
+                error=response.result if response.result else "Command execution failed",
                 error_type="CommandError",
                 stdout=response.result,
                 stderr="",

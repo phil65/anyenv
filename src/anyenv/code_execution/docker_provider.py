@@ -68,15 +68,37 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
             from testcontainers.core.container import DockerContainer
 
             self.container = DockerContainer(self.image)
-            self.container = self.container.with_command([
-                "sh",
-                "-c",
-                "pip install httpx && sleep infinity",
-            ]).with_kwargs(network_mode="host")  # Allow access to host for HTTP calls
+            if self.server_info:
+                # Install httpx if we have a tool server
+                self.container = self.container.with_command([
+                    "sh",
+                    "-c",
+                    "pip install httpx && sleep infinity",
+                ]).with_kwargs(network_mode="host")  # Allow access to host for HTTP calls
+            else:
+                # Just start the container for simple execution
+                self.container = self.container.with_command([
+                    "sh",
+                    "-c",
+                    "sleep infinity",
+                ])
 
             self.container.start()
             wrapped_code = self._wrap_code_for_docker(code)  # Create execution script
-            command = self._get_execution_command(wrapped_code)
+
+            # Write code to a temporary file in the container using Python
+            self.container.exec("mkdir -p /tmp/anyenv")
+
+            # Use Python to write the file to avoid shell quoting issues
+            import base64
+
+            encoded_code = base64.b64encode(wrapped_code.encode()).decode()
+            self.container.exec(
+                f"python -c \"import base64; open('/tmp/anyenv/script.py', 'w').write(base64.b64decode('{encoded_code}').decode())\""
+            )
+
+            # Execute the script
+            command = self._get_execution_command()
             result = self.container.exec(command)
             duration = time.time() - start_time
             # Parse output
@@ -116,17 +138,17 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
                 error_type=type(e).__name__,
             )
 
-    def _get_execution_command(self, wrapped_code: str) -> str:
+    def _get_execution_command(self) -> str:
         """Get the appropriate execution command based on language."""
         match self.language:
             case "python":
-                return f"python -c '{wrapped_code}'"
+                return "python /tmp/anyenv/script.py"
             case "javascript":
-                return f"node -e '{wrapped_code}'"
+                return "node /tmp/anyenv/script.js"
             case "typescript":
-                return f"npx ts-node -e '{wrapped_code}'"
+                return "npx ts-node /tmp/anyenv/script.ts"
             case _:
-                return f"python -c '{wrapped_code}'"
+                return "python /tmp/anyenv/script.py"
 
     def _wrap_code_for_docker(self, code: str) -> str:
         """Wrap user code for Docker execution with HTTP tool calls."""
@@ -144,7 +166,9 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
 
     def _wrap_python_code(self, code: str, server_url: str) -> str:
         """Wrap Python code for execution."""
-        return f"""
+        if self.server_info:
+            # With tool server
+            return f"""
 import asyncio
 import httpx
 import json
@@ -161,6 +185,45 @@ async def http_tool_call(tool_name: str, **kwargs):
         if result.get("error"):
             raise RuntimeError(f"Tool " + tool_name + f" failed: " + result["error"])
         return result.get("result")
+
+# User code
+{code}
+
+# Execution wrapper
+async def _execute_main():
+    try:
+        if "main" in globals():
+            result = await main()
+        else:
+            result = globals().get("_result")
+        return {{"result": result, "success": True}}
+    except Exception as e:
+        return {{
+            "success": False,
+            "error": str(e),
+            "type": type(e).__name__,
+            "traceback": traceback.format_exc()
+        }}
+
+# Run and output result
+if __name__ == "__main__":
+    try:
+        execution_result = asyncio.run(_execute_main())
+        print("__EXECUTION_RESULT__", json.dumps(execution_result, default=str))
+    except Exception as e:
+        error_result = {{
+            "success": False,
+            "error": str(e),
+            "type": type(e).__name__,
+            "traceback": traceback.format_exc()
+        }}
+        print("__EXECUTION_RESULT__", json.dumps(error_result, default=str))
+"""
+        # Without tool server
+        return f"""
+import asyncio
+import json
+import traceback
 
 # User code
 {code}
