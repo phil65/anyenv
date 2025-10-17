@@ -321,23 +321,25 @@ executeMain().then(result => {{
             )
 
             # Send code to stdin and close it
-            process.stdin.write(wrapped_code.encode())
-            process.stdin.close()
+            if process.stdin is not None:
+                process.stdin.write(wrapped_code.encode())
+                process.stdin.close()
 
             # Stream output line by line
-            while True:
-                try:
-                    line = await asyncio.wait_for(
-                        process.stdout.readline(), timeout=self.timeout
-                    )
-                    if not line:
+            if process.stdout is not None:
+                while True:
+                    try:
+                        line = await asyncio.wait_for(
+                            process.stdout.readline(), timeout=self.timeout
+                        )
+                        if not line:
+                            break
+                        yield line.decode().rstrip("\n\r")
+                    except TimeoutError:
+                        process.kill()
+                        await process.wait()
+                        yield f"ERROR: Execution timed out after {self.timeout} seconds"
                         break
-                    yield line.decode().rstrip("\n\r")
-                except TimeoutError:
-                    process.kill()
-                    await process.wait()
-                    yield f"ERROR: Execution timed out after {self.timeout} seconds"
-                    break
 
             # Wait for process to complete
             await process.wait()
