@@ -50,6 +50,7 @@ from anyenv.package_install.functional import install, install_sync
 from anyenv.testing import open_in_playground
 from anyenv.json_tools import load_json, JsonLoadError, dump_json, JsonDumpError
 from anyenv.download.base import HttpBackend, HttpResponse, Session
+from anyenv.code_execution import get_environment
 
 __all__ = [
     "HttpBackend",
@@ -72,6 +73,7 @@ __all__ = [
     "get_backend",
     "get_bytes",
     "get_bytes_sync",
+    "get_environment",
     "get_json",
     "get_json_sync",
     "get_sync",

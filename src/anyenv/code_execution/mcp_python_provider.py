@@ -25,15 +25,18 @@ class McpPythonExecutionEnvironment(ExecutionEnvironment):
         self,
         dependencies: list[str] | None = None,
         allow_networking: bool = True,
+        timeout: float = 30.0,
     ):
         """Initialize MCP Python execution environment.
 
         Args:
             dependencies: List of Python packages to install via micropip
             allow_networking: Whether to allow network access during code execution
+            timeout: Execution timeout in seconds
         """
         self.dependencies = dependencies or []
         self.allow_networking = allow_networking
+        self.timeout = timeout
         self._client: Client | None = None
         self._server_config = self._build_server_config()
 
@@ -102,8 +105,12 @@ class McpPythonExecutionEnvironment(ExecutionEnvironment):
             if global_vars:
                 tool_args["global_variables"] = global_vars
 
-            # Call the run_python_code tool
-            result = await self._client.call_tool("run_python_code", tool_args)
+            # Call the run_python_code tool with timeout
+            import asyncio
+
+            result = await asyncio.wait_for(
+                self._client.call_tool("run_python_code", tool_args), timeout=self.timeout
+            )
             duration = time.time() - start_time
 
             # Parse the result content
@@ -158,6 +165,17 @@ class McpPythonExecutionEnvironment(ExecutionEnvironment):
                     error_type=None,
                 )
 
+        except TimeoutError:
+            duration = time.time() - start_time
+            return ExecutionResult(
+                result=None,
+                duration=duration,
+                success=False,
+                stdout=None,
+                stderr=None,
+                error=f"Execution timed out after {self.timeout} seconds",
+                error_type="TimeoutError",
+            )
         except Exception as e:  # noqa: BLE001
             duration = time.time() - start_time
             return ExecutionResult(

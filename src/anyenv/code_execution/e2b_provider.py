@@ -20,7 +20,7 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
     def __init__(
         self,
         template: str | None = None,
-        timeout: int = 300,
+        timeout: float = 300.0,
         keep_alive: bool = False,
     ):
         """Initialize E2B environment.
@@ -43,10 +43,10 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
         if self.template:
             self.sandbox = Sandbox.create(
                 template=self.template,
-                timeout=self.timeout,
+                timeout=int(self.timeout),
             )
         else:
-            self.sandbox = Sandbox.create(timeout=self.timeout)
+            self.sandbox = Sandbox.create(timeout=int(self.timeout))
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:

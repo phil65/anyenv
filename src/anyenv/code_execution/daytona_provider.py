@@ -62,7 +62,7 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
             language=CodeLanguage.PYTHON,
         )
         self.sandbox = await self.daytona.create(params)
-
+        assert self.sandbox, "Failed to create sandbox"
         # Start the sandbox and wait for it to be ready
         await self.sandbox.start(timeout=120)
 
