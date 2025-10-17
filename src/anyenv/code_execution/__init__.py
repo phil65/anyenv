@@ -1,6 +1,8 @@
 """Code execution environments for remote code execution."""
 
-from typing import Literal, overload
+from __future__ import annotations
+
+from typing import Literal, overload, TYPE_CHECKING
 
 from anyenv.code_execution.base import ExecutionEnvironment
 
@@ -19,6 +21,9 @@ from anyenv.code_execution.models import (
 # from anyenv.code_execution.server import fastapi_tool_server
 from anyenv.code_execution.subprocess_provider import SubprocessExecutionEnvironment
 
+if TYPE_CHECKING:
+    from anyenv.code_execution.models import Language
+
 
 @overload
 def get_environment(
@@ -32,8 +37,9 @@ def get_environment(
 def get_environment(
     provider: Literal["subprocess"],
     *,
-    python_executable: str = "python",
+    executable: str = "python",
     timeout: float = 30.0,
+    language: Language = "python",
 ) -> SubprocessExecutionEnvironment: ...
 
 
@@ -44,6 +50,7 @@ def get_environment(
     lifespan_handler,  # AbstractAsyncContextManager[ServerInfo]
     image: str = "python:3.13-slim",
     timeout: float = 60.0,
+    language: Language = "python",
 ) -> DockerExecutionEnvironment: ...
 
 
@@ -77,6 +84,7 @@ def get_environment(
     template: str | None = None,
     timeout: float = 300.0,
     keep_alive: bool = False,
+    language: Language = "python",
 ) -> E2bExecutionEnvironment: ...
 
 
@@ -104,10 +112,10 @@ def get_environment(
         # Daytona with specific config
         env = get_environment("daytona", api_url="https://api.daytona.io", timeout=600.0)
 
-        # E2B with template
-        env = get_environment("e2b", template="python", timeout=600.0)
+        # E2B with template and language
+        env = get_environment("e2b", template="python", timeout=600.0, language="javascript")
         ```
-    """
+    """  # noqa: E501
     match provider:
         case "local":
             return LocalExecutionEnvironment(**kwargs)

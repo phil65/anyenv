@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
     from testcontainers.core.container import DockerContainer
 
-    from anyenv.code_execution.models import ServerInfo
+    from anyenv.code_execution.models import Language, ServerInfo
 
 
 class DockerExecutionEnvironment(ExecutionEnvironment):
@@ -27,6 +27,7 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
         lifespan_handler: AbstractAsyncContextManager[ServerInfo],
         image: str = "python:3.13-slim",
         timeout: float = 60.0,
+        language: Language = "python",
     ):
         """Initialize Docker environment.
 
@@ -34,10 +35,12 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
             lifespan_handler: Async context manager for tool server
             image: Docker image to use
             timeout: Execution timeout in seconds
+            language: Programming language to use
         """
         self.lifespan_handler = lifespan_handler
         self.image = image
         self.timeout = timeout
+        self.language = language
         self.server_info: ServerInfo | None = None
         self.container: DockerContainer | None = None
 
@@ -71,7 +74,8 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
 
             self.container.start()
             wrapped_code = self._wrap_code_for_docker(code)  # Create execution script
-            result = self.container.exec(f"python -c '{wrapped_code}'")
+            command = self._get_execution_command(wrapped_code)
+            result = self.container.exec(command)
             duration = time.time() - start_time
             # Parse output
             execution_result, error_info = self._parse_docker_output(
@@ -110,9 +114,34 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
                 error_type=type(e).__name__,
             )
 
+    def _get_execution_command(self, wrapped_code: str) -> str:
+        """Get the appropriate execution command based on language."""
+        match self.language:
+            case "python":
+                return f"python -c '{wrapped_code}'"
+            case "javascript":
+                return f"node -e '{wrapped_code}'"
+            case "typescript":
+                return f"npx ts-node -e '{wrapped_code}'"
+            case _:
+                return f"python -c '{wrapped_code}'"
+
     def _wrap_code_for_docker(self, code: str) -> str:
         """Wrap user code for Docker execution with HTTP tool calls."""
         server_url = self.server_info.url if self.server_info else "http://localhost:8000"
+
+        match self.language:
+            case "python":
+                return self._wrap_python_code(code, server_url)
+            case "javascript":
+                return self._wrap_javascript_code(code, server_url)
+            case "typescript":
+                return self._wrap_typescript_code(code, server_url)
+            case _:
+                return self._wrap_python_code(code, server_url)
+
+    def _wrap_python_code(self, code: str, server_url: str) -> str:
+        """Wrap Python code for execution."""
         return f"""
 import asyncio
 import httpx
@@ -164,6 +193,122 @@ if __name__ == "__main__":
         }}
         print("__EXECUTION_RESULT__", json.dumps(error_result, default=str))
 """
+
+    def _wrap_javascript_code(self, code: str, server_url: str) -> str:
+        """Wrap JavaScript code for execution."""
+        return f"""
+const axios = require('axios');
+
+// Simple HTTP proxy for tools
+async function httpToolCall(toolName, kwargs) {{
+    try {{
+        const response = await axios.post(
+            `{server_url}/api/tools/${{toolName}}`,
+            {{ params: kwargs }}
+        );
+        if (response.data.error) {{
+            throw new Error(`Tool ${{toolName}} failed: ${{response.data.error}}`);
+        }}
+        return response.data.result;
+    }} catch (error) {{
+        throw error;
+    }}
+}}
+
+// User code
+{code}
+
+// Execution wrapper
+async function executeMain() {{
+    try {{
+        let result;
+        if (typeof main === 'function') {{
+            result = await main();
+        }} else if (typeof _result !== 'undefined') {{
+            result = _result;
+        }}
+        return {{ result: result, success: true }};
+    }} catch (error) {{
+        return {{
+            success: false,
+            error: error.message,
+            type: error.name,
+            traceback: error.stack
+        }};
+    }}
+}}
+
+// Run and output result
+executeMain().then(result => {{
+    console.log('__EXECUTION_RESULT__', JSON.stringify(result));
+}}).catch(error => {{
+    const errorResult = {{
+        success: false,
+        error: error.message,
+        type: error.name,
+        traceback: error.stack
+    }};
+    console.log('__EXECUTION_RESULT__', JSON.stringify(errorResult));
+}});
+"""
+
+    def _wrap_typescript_code(self, code: str, server_url: str) -> str:
+        """Wrap TypeScript code for execution."""
+        return f"""
+import axios from 'axios';
+
+// Simple HTTP proxy for tools
+async function httpToolCall(toolName: string, kwargs: any): Promise<any> {{
+    try {{
+        const response = await axios.post(
+            `{server_url}/api/tools/${{toolName}}`,
+            {{ params: kwargs }}
+        );
+        if (response.data.error) {{
+            throw new Error(`Tool ${{toolName}} failed: ${{response.data.error}}`);
+        }}
+        return response.data.result;
+    }} catch (error) {{
+        throw error;
+    }}
+}}
+
+// User code
+{code}
+
+// Execution wrapper
+async function executeMain(): Promise<{{ result: any; success: boolean; error?: string; type?: string; traceback?: string }}> {{
+    try {{
+        let result: any;
+        if (typeof main === 'function') {{
+            result = await main();
+        }} else if (typeof _result !== 'undefined') {{
+            result = (global as any)._result;
+        }}
+        return {{ result: result, success: true }};
+    }} catch (error: any) {{
+        return {{
+            success: false,
+            error: error.message,
+            type: error.name,
+            traceback: error.stack
+        }};
+    }}
+}}
+
+// Run and output result
+executeMain().then(result => {{
+    console.log('__EXECUTION_RESULT__', JSON.stringify(result));
+}}).catch(error => {{
+    const errorResult = {{
+        success: false,
+        error: error.message,
+        type: error.name,
+        traceback: error.stack
+    }};
+    console.log('__EXECUTION_RESULT__', JSON.stringify(errorResult));
+}});
+"""  # noqa: E501
 
     def _parse_docker_output(self, output: str) -> tuple[Any, dict | None]:
         """Parse result from Docker container output."""

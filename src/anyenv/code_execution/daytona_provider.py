@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.models import ExecutionResult
+
+
+if TYPE_CHECKING:
+    from anyenv.code_execution.models import Language
 
 
 class DaytonaExecutionEnvironment(ExecutionEnvironment):
@@ -20,6 +24,7 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
         image: str = "python:3.13-slim",
         timeout: float = 300.0,
         keep_alive: bool = False,
+        language: Language = "python",
     ):
         """Initialize Daytona environment.
 
@@ -30,20 +35,18 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
             image: Docker image to use for the sandbox
             timeout: Execution timeout in seconds
             keep_alive: Keep sandbox running after execution
+            language: Programming language to use for execution
         """
         from daytona import AsyncDaytona, DaytonaConfig
 
         self.image = image
         self.timeout = timeout
         self.keep_alive = keep_alive
+        self.language = language
 
         # Create configuration
         if api_url or api_key or target:
-            config = DaytonaConfig(
-                api_url=api_url,
-                api_key=api_key,
-                target=target,
-            )
+            config = DaytonaConfig(api_url=api_url, api_key=api_key, target=target)
             self.daytona = AsyncDaytona(config)
         else:
             # Use environment variables
@@ -56,10 +59,18 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
         # Create sandbox with Python image
         from daytona.common.daytona import CodeLanguage, CreateSandboxFromImageParams
 
+        match self.language:
+            case "python":
+                language = CodeLanguage.PYTHON
+            case "javascript":
+                language = CodeLanguage.JAVASCRIPT
+            case "typescript":
+                language = CodeLanguage.TYPESCRIPT
+            case _:
+                msg = f"Unsupported language: {self.language}"
+                raise ValueError(msg)
         params = CreateSandboxFromImageParams(
-            name=f"anyenv-exec-{int(time.time())}",
-            image=self.image,
-            language=CodeLanguage.PYTHON,
+            name=f"anyenv-exec-{int(time.time())}", image=self.image, language=language
         )
         self.sandbox = await self.daytona.create(params)
         assert self.sandbox, "Failed to create sandbox"
