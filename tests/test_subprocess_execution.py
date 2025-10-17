@@ -81,6 +81,7 @@ async def main():
 
     assert result.success is False
     assert result.result is None
+    assert result.error
     assert "timed out" in result.error.lower()
     assert result.error_type == "TimeoutError"
 
@@ -100,3 +101,24 @@ async def main():
     assert result.success is True
     assert isinstance(result.result, int)
     assert result.result >= MIN_PYTHON_MAJOR_VERSION
+
+
+@pytest.mark.asyncio
+async def test_subprocess_execution_streaming():
+    """Test streaming subprocess execution."""
+    code = """
+import time
+for i in range(3):
+    print(f"Line {i + 1}")
+    time.sleep(0.1)
+"""
+
+    async with SubprocessExecutionEnvironment() as env:
+        lines = [line async for line in env.execute_stream(code)]
+
+    # Should get the three print lines
+    output_lines = [line for line in lines if line.startswith("Line")]
+    assert len(output_lines) == 3  # noqa: PLR2004
+    assert "Line 1" in output_lines[0]
+    assert "Line 2" in output_lines[1]
+    assert "Line 3" in output_lines[2]

@@ -251,6 +251,40 @@ env = get_environment(
 )
 ```
 
+### Streaming Output
+
+Some providers support streaming output line by line, useful for long-running processes:
+
+```python
+from anyenv import get_environment
+
+# Stream output from subprocess execution
+env = get_environment("subprocess")
+
+async with env:
+    async for line in env.execute_stream("""
+    import time
+    for i in range(5):
+        print(f"Processing step {i+1}...")
+        time.sleep(1)
+    print("Done!")
+    """):
+        print(f"Live output: {line}")
+
+# Also works with Docker execution
+env = get_environment("docker")
+async with env:
+    async for line in env.execute_stream(code):
+        # Process each line as it's produced
+        if "ERROR" in line:
+            print(f"⚠️  {line}")
+        else:
+            print(f"✓ {line}")
+```
+
+**Supported providers:** `subprocess`, `docker`  
+**Use cases:** Progress monitoring, real-time feedback, large output processing
+
 ## HTTP Downloads
 
 AnyEnv provides a unified interface for HTTP requests that works across different environments (including PyOdide):

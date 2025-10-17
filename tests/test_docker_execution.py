@@ -66,6 +66,7 @@ async def main():
     assert result.success is False
     assert result.result is None
     assert result.duration >= 0
+    assert result.error
     assert "Docker test error" in result.error
     assert result.error_type == "ConnectionError"
 
@@ -106,3 +107,23 @@ async def main():
     assert result.success is True
     assert result.result == "Tool integration test"
     assert result.duration >= 0
+
+
+@pytest.mark.asyncio
+async def test_docker_execution_streaming():
+    """Test streaming Docker execution."""
+    pytest.importorskip("testcontainers", reason="testcontainers not installed")
+
+    code = """
+import time
+for i in range(3):
+    print(f"Line {i + 1}")
+    time.sleep(0.1)
+"""
+
+    async with DockerExecutionEnvironment() as env:
+        lines = [line async for line in env.execute_stream(code)]
+
+    # Should get the three print lines
+    output_lines = [line for line in lines if line.startswith("Line") or "Line" in line]
+    assert len(output_lines) >= 3  # noqa: PLR2004

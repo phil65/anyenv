@@ -12,6 +12,7 @@ from anyenv.code_execution.models import ExecutionResult
 
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
     from contextlib import AbstractAsyncContextManager
 
     from testcontainers.core.container import DockerContainer
@@ -403,3 +404,67 @@ executeMain().then(result => {{
             return None, {"error": str(e), "type": type(e).__name__}
         else:
             return None, {"error": "No execution result found", "type": "ParseError"}
+
+    async def execute_stream(self, code: str) -> AsyncIterator[str]:
+        """Execute code in Docker container and stream output line by line.
+
+        Args:
+            code: Code to execute
+
+        Yields:
+            Lines of output as they are produced
+        """
+        try:
+            from testcontainers.core.container import DockerContainer
+
+            self.container = DockerContainer(self.image)
+            if self.server_info:
+                # Install httpx if we have a tool server
+                self.container = self.container.with_command([
+                    "sh",
+                    "-c",
+                    "pip install httpx && sleep infinity",
+                ]).with_kwargs(network_mode="host")
+            else:
+                # Just start the container for simple execution
+                self.container = self.container.with_command([
+                    "sh",
+                    "-c",
+                    "sleep infinity",
+                ])
+
+            self.container.start()
+            wrapped_code = self._wrap_code_for_docker(code)
+
+            # Write code to container
+            self.container.exec("mkdir -p /tmp/anyenv")
+            import base64
+
+            encoded_code = base64.b64encode(wrapped_code.encode()).decode()
+            cmd = (
+                f'python -c "import base64; '
+                f"open('/tmp/anyenv/script.py', 'w').write("
+                f"base64.b64decode('{encoded_code}').decode())\""
+            )
+            self.container.exec(cmd)
+
+            # Execute and stream output
+            command = self._get_execution_command()
+
+            # Use exec_run for streaming (if available in testcontainers)
+            try:
+                result = self.container.exec(command, stream=True)
+                for line in result:
+                    if isinstance(line, bytes):
+                        line = line.decode()
+                    yield line.rstrip("\n\r")
+            except TypeError:
+                # Fallback if streaming not supported
+                result = self.container.exec(command)
+                output = result.output.decode() if result.output else ""
+                for line in output.split("\n"):
+                    if line.strip():
+                        yield line
+
+        except Exception as e:  # noqa: BLE001
+            yield f"ERROR: {e}"

@@ -12,6 +12,8 @@ from anyenv.code_execution.models import ExecutionResult
 
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
+
     from anyenv.code_execution.models import Language
 
 
@@ -295,3 +297,50 @@ executeMain().then(result => {{
             return None, {"error": str(e), "type": type(e).__name__}
         else:
             return None, {"error": "No execution result found", "type": "ParseError"}
+
+    async def execute_stream(self, code: str) -> AsyncIterator[str]:
+        """Execute code and stream output line by line.
+
+        Args:
+            code: Python code to execute
+
+        Yields:
+            Lines of output as they are produced
+        """
+        try:
+            # Wrap code for execution
+            wrapped_code = self._wrap_code_for_subprocess(code)
+
+            # Create subprocess
+            args = self._get_subprocess_args()
+            process = await asyncio.create_subprocess_exec(
+                *args,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,  # Merge stderr into stdout
+                stdin=asyncio.subprocess.PIPE,
+            )
+
+            # Send code to stdin and close it
+            process.stdin.write(wrapped_code.encode())
+            process.stdin.close()
+
+            # Stream output line by line
+            while True:
+                try:
+                    line = await asyncio.wait_for(
+                        process.stdout.readline(), timeout=self.timeout
+                    )
+                    if not line:
+                        break
+                    yield line.decode().rstrip("\n\r")
+                except TimeoutError:
+                    process.kill()
+                    await process.wait()
+                    yield f"ERROR: Execution timed out after {self.timeout} seconds"
+                    break
+
+            # Wait for process to complete
+            await process.wait()
+
+        except Exception as e:  # noqa: BLE001
+            yield f"ERROR: {e}"
