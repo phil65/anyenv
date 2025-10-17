@@ -24,7 +24,7 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
 
     def __init__(
         self,
-        lifespan_handler: AbstractAsyncContextManager[ServerInfo],
+        lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
         image: str = "python:3.13-slim",
         timeout: float = 60.0,
         language: Language = "python",
@@ -32,7 +32,7 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
         """Initialize Docker environment.
 
         Args:
-            lifespan_handler: Async context manager for tool server
+            lifespan_handler: Async context manager for tool server (optional)
             image: Docker image to use
             timeout: Execution timeout in seconds
             language: Programming language to use
@@ -45,8 +45,9 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
         self.container: DockerContainer | None = None
 
     async def __aenter__(self) -> ExecutionEnvironment:
-        # Start tool server
-        self.server_info = await self.lifespan_handler.__aenter__()
+        # Start tool server if provided
+        if self.lifespan_handler:
+            self.server_info = await self.lifespan_handler.__aenter__()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -55,8 +56,9 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
             with contextlib.suppress(Exception):
                 self.container.stop()
 
-        # Cleanup server
-        await self.lifespan_handler.__aexit__(exc_type, exc_val, exc_tb)
+        # Cleanup server if provided
+        if self.lifespan_handler:
+            await self.lifespan_handler.__aexit__(exc_type, exc_val, exc_tb)
 
     async def execute(self, code: str) -> ExecutionResult:
         """Execute code in Docker container."""

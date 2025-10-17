@@ -60,7 +60,6 @@ class SubprocessExecutionEnvironment(ExecutionEnvironment):
             args = self._get_subprocess_args()
             self.process = await asyncio.create_subprocess_exec(
                 *args,
-                wrapped_code,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
                 stdin=asyncio.subprocess.PIPE,
@@ -69,7 +68,8 @@ class SubprocessExecutionEnvironment(ExecutionEnvironment):
             # Wait for completion with timeout
             try:
                 stdout_data, stderr_data = await asyncio.wait_for(
-                    self.process.communicate(), timeout=self.timeout
+                    self.process.communicate(input=wrapped_code.encode()),
+                    timeout=self.timeout,
                 )
             except TimeoutError:
                 self.process.kill()
@@ -122,11 +122,14 @@ class SubprocessExecutionEnvironment(ExecutionEnvironment):
         """Get subprocess arguments based on language."""
         match self.language:
             case "python":
-                return [self.executable, "-u"]  # Unbuffered output
+                return [
+                    self.executable,
+                    "-u",
+                ]  # Unbuffered output
             case "javascript":
-                return [self.executable, "-e"]  # Execute inline
+                return [self.executable]  # Read from stdin
             case "typescript":
-                return ["npx", "ts-node", "-e"]  # Execute TypeScript inline
+                return ["npx", "ts-node"]  # Read TypeScript from stdin
             case _:
                 return [self.executable, "-u"]
 
