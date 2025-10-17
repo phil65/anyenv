@@ -1,8 +1,15 @@
 """Tests for DockerExecutionEnvironment."""
 
+import platform
+
 import pytest
 
 from anyenv.code_execution import DockerExecutionEnvironment
+
+
+pytestmark = pytest.mark.skipif(
+    platform.system() == "Windows", reason="Docker tests not supported on Windows"
+)
 
 
 @pytest.mark.asyncio
