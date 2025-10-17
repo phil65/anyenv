@@ -275,12 +275,14 @@ executeMain().then(result => {{
 
     def _parse_subprocess_output(self, stdout: str) -> tuple[Any, dict | None]:
         """Parse result from subprocess output."""
+        import anyenv
+
         try:
             lines = stdout.strip().split("\n")
             for line in lines:
                 if line.startswith("__SUBPROCESS_RESULT__"):
                     result_json = line[len("__SUBPROCESS_RESULT__") :].strip()
-                    result_data = json.loads(result_json)
+                    result_data = anyenv.load_json(result_json, return_type=dict)
 
                     if result_data.get("success", False):
                         return result_data.get("result"), None

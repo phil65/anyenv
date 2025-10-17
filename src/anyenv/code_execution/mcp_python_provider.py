@@ -190,8 +190,9 @@ class McpPythonExecutionEnvironment(ExecutionEnvironment):
 
     def _parse_xml_result(self, xml_content: str, duration: float) -> ExecutionResult:
         """Parse XML-formatted result from MCP server."""
-        import json
         import re
+
+        import anyenv
 
         # Extract status
         status_match = re.search(r"<status>(.*?)</status>", xml_content, re.DOTALL)
@@ -209,8 +210,8 @@ class McpPythonExecutionEnvironment(ExecutionEnvironment):
         if return_match:
             return_text = return_match.group(1).strip()
             try:
-                return_value = json.loads(return_text)
-            except json.JSONDecodeError:
+                return_value = anyenv.load_json(return_text, return_type=dict)
+            except anyenv.JsonLoadError:
                 return_value = return_text
 
         # Extract error

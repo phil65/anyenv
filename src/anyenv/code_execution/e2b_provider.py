@@ -281,15 +281,15 @@ executeMain().then(result => {{
 
     def _parse_e2b_output(self, output: str) -> tuple[Any, dict | None]:
         """Parse result from E2B sandbox output."""
+        import anyenv
+
         try:
             lines = output.strip().split("\n")
             for line in lines:
                 if line.startswith("__E2B_RESULT__"):
                     result_json = line[len("__E2B_RESULT__") :].strip()
 
-                    import json
-
-                    result_data = json.loads(result_json)
+                    result_data = anyenv.load_json(result_json, return_type=dict)
 
                     if result_data.get("success", False):
                         return result_data.get("result"), None

@@ -204,9 +204,9 @@ if __name__ == "__main__":
                 if line.startswith("__DAYTONA_RESULT__"):
                     result_json = line[len("__DAYTONA_RESULT__") :].strip()
 
-                    import json
+                    import anyenv
 
-                    result_data = json.loads(result_json)
+                    result_data = anyenv.load_json(result_json, return_type=dict)
 
                     if result_data.get("success", False):
                         return result_data.get("result"), None
@@ -214,7 +214,7 @@ if __name__ == "__main__":
                         "error": result_data.get("error", "Unknown error"),
                         "type": result_data.get("type", "Unknown"),
                     }
-        except json.JSONDecodeError as e:
+        except anyenv.JsonLoadError as e:
             return None, {
                 "error": f"Failed to parse result: {e}",
                 "type": "JSONDecodeError",

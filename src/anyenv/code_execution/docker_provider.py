@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import contextlib
-import json
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -381,12 +380,14 @@ executeMain().then(result => {{
 
     def _parse_docker_output(self, output: str) -> tuple[Any, dict | None]:
         """Parse result from Docker container output."""
+        import anyenv
+
         try:
             lines = output.strip().split("\n")
             for line in lines:
                 if line.startswith("__EXECUTION_RESULT__"):
                     result_json = line[len("__EXECUTION_RESULT__") :].strip()
-                    result_data = json.loads(result_json)
+                    result_data = anyenv.load_json(result_json)
 
                     if result_data.get("success", False):
                         return result_data.get("result"), None
@@ -395,7 +396,7 @@ executeMain().then(result => {{
                         "type": result_data.get("type", "Unknown"),
                     }
 
-        except json.JSONDecodeError as e:
+        except anyenv.JsonLoadError as e:
             return None, {
                 "error": f"Failed to parse result: {e}",
                 "type": "JSONDecodeError",
