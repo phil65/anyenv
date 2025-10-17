@@ -75,3 +75,31 @@ print("This should not be the result")
     assert result.result is None
     assert result.duration >= 0
     assert result.error is None
+
+
+@pytest.mark.asyncio
+async def test_local_execution_streaming():
+    """Test streaming execution with print statements."""
+    code = """
+import time
+import asyncio
+
+async def main():
+    print("Starting execution")
+    await asyncio.sleep(0.1)
+    print("Middle of execution")
+    await asyncio.sleep(0.1)
+    print("Ending execution")
+    return "Stream test complete"
+"""
+
+    async with LocalExecutionEnvironment() as env:
+        output_lines = [line async for line in env.execute_stream(code)]
+
+    # Check that we got the expected output lines
+    min_expected_lines = 3
+    assert len(output_lines) >= min_expected_lines
+    assert any("Starting execution" in line for line in output_lines)
+    assert any("Middle of execution" in line for line in output_lines)
+    assert any("Ending execution" in line for line in output_lines)
+    assert any("Result: Stream test complete" in line for line in output_lines)
