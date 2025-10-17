@@ -425,7 +425,7 @@ executeMain().then(result => {{
                     "sh",
                     "-c",
                     "pip install httpx && sleep infinity",
-                ]).with_kwargs(network_mode="host")
+                ]).with_kwargs(network_mode="host")  # Allow access to host for HTTP calls
             else:
                 # Just start the container for simple execution
                 self.container = self.container.with_command([
@@ -435,10 +435,12 @@ executeMain().then(result => {{
                 ])
 
             self.container.start()
-            wrapped_code = self._wrap_code_for_docker(code)
+            wrapped_code = self._wrap_code_for_docker(code)  # Create execution script
 
-            # Write code to container
+            # Write code to a temporary file in the container using Python
             self.container.exec("mkdir -p /tmp/anyenv")
+
+            # Use Python to write the file to avoid shell quoting issues
             import base64
 
             encoded_code = base64.b64encode(wrapped_code.encode()).decode()
@@ -449,22 +451,98 @@ executeMain().then(result => {{
             )
             self.container.exec(cmd)
 
-            # Execute and stream output
+            # Execute the script with streaming using underlying docker container
             command = self._get_execution_command()
+            docker_container = self.container.get_wrapped_container()
+            result = docker_container.exec_run(command, stream=True)
 
-            # Use exec_run for streaming (if available in testcontainers)
-            try:
-                result = self.container.exec(command, stream=True)
-                for line in result:
-                    if isinstance(line, bytes):
-                        line = line.decode()
-                    yield line.rstrip("\n\r")
-            except TypeError:
-                # Fallback if streaming not supported
-                result = self.container.exec(command)
-                output = result.output.decode() if result.output else ""
-                for line in output.split("\n"):
-                    if line.strip():
+            # Stream output line by line
+            for chunk in result.output:
+                if isinstance(chunk, bytes):
+                    chunk = chunk.decode()
+                for line in chunk.split("\n"):
+                    if line.strip():  # Only yield non-empty lines
+                        yield line
+
+        except Exception as e:  # noqa: BLE001
+            yield f"ERROR: {e}"
+
+    async def execute_command(self, command: str) -> ExecutionResult:
+        """Execute a terminal command in Docker container and return result."""
+        start_time = time.time()
+
+        try:
+            from testcontainers.core.container import DockerContainer
+
+            self.container = DockerContainer(self.image)
+            self.container = self.container.with_command([
+                "sh",
+                "-c",
+                "sleep infinity",
+            ])
+
+            self.container.start()
+
+            # Execute the command directly
+            result = self.container.exec(command)
+            duration = time.time() - start_time
+
+            stdout = result.output.decode() if result.output else ""
+            success = result.exit_code == 0
+
+            return ExecutionResult(
+                result=stdout if success else None,
+                duration=duration,
+                success=success,
+                error=stdout
+                if not success
+                else None,  # Docker exec puts errors in stdout
+                error_type="CommandError" if not success else None,
+                stdout=stdout,
+                stderr="",
+            )
+
+        except Exception as e:  # noqa: BLE001
+            duration = time.time() - start_time
+            return ExecutionResult(
+                result=None,
+                duration=duration,
+                success=False,
+                error=str(e),
+                error_type=type(e).__name__,
+            )
+
+    async def execute_command_stream(self, command: str) -> AsyncIterator[str]:
+        """Execute a terminal command in Docker container and stream output line by line.
+
+        Args:
+            command: Terminal command to execute
+
+        Yields:
+            Lines of output as they are produced
+        """
+        try:
+            from testcontainers.core.container import DockerContainer
+
+            self.container = DockerContainer(self.image)
+            self.container = self.container.with_command([
+                "sh",
+                "-c",
+                "sleep infinity",
+            ])
+
+            self.container.start()
+
+            # Execute and stream output using underlying docker container
+            docker_container = self.container.get_wrapped_container()
+            result = docker_container.exec_run(command, stream=True)
+
+            # Stream output line by line
+            for chunk in result.output:
+                if isinstance(chunk, bytes):
+                    chunk = chunk.decode()
+                for line in chunk.split("\n"):
+                    if line.strip():  # Only yield non-empty lines
                         yield line
 
         except Exception as e:  # noqa: BLE001

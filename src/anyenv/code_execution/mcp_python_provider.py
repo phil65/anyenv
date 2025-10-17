@@ -228,6 +228,20 @@ class McpPythonExecutionEnvironment(ExecutionEnvironment):
             error_type=status if status != "success" else None,
         )
 
+    async def execute_command(self, command: str) -> ExecutionResult:
+        """Execute a terminal command (not supported in MCP Python environment)."""
+        msg = "Terminal command execution is not supported in MCP Python environment"
+        raise NotImplementedError(msg)
+
+    async def execute_command_stream(self, command: str):
+        """Execute a terminal command and stream output.
+
+        (not supported in MCP Python environment).
+        """
+        msg = "Terminal command streaming is not supported in MCP Python environment"
+        raise NotImplementedError(msg)
+        yield
+
 
 if __name__ == "__main__":
     import asyncio

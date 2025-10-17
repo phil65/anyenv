@@ -48,3 +48,34 @@ class ExecutionEnvironment(ABC):
         msg = f"{self.__class__.__name__} does not support streaming"
         raise NotImplementedError(msg)
         yield
+
+    @abstractmethod
+    async def execute_command(self, command: str) -> ExecutionResult:
+        """Execute a terminal command and return result with metadata.
+
+        Args:
+            command: Terminal command to execute
+
+        Returns:
+            ExecutionResult with command output and metadata
+        """
+        ...
+
+    async def execute_command_stream(self, command: str) -> AsyncIterator[str]:
+        """Execute a terminal command and stream output line by line (optional).
+
+        Not all execution environments support streaming commands.
+        Default implementation raises NotImplementedError.
+
+        Args:
+            command: Terminal command to execute
+
+        Yields:
+            Lines of output as they are produced
+
+        Raises:
+            NotImplementedError: If command streaming is not supported
+        """
+        msg = f"{self.__class__.__name__} does not support command streaming"
+        raise NotImplementedError(msg)
+        yield

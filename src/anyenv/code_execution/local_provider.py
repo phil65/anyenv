@@ -195,3 +195,93 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
 
         except Exception as e:  # noqa: BLE001
             yield f"ERROR: {e}"
+
+    async def execute_command(self, command: str) -> ExecutionResult:
+        """Execute a terminal command and return result with metadata."""
+        start_time = time.time()
+
+        try:
+            # Execute command using subprocess
+            process = await asyncio.create_subprocess_shell(
+                command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+
+            stdout_data, stderr_data = await asyncio.wait_for(
+                process.communicate(), timeout=self.timeout
+            )
+
+            duration = time.time() - start_time
+            stdout = stdout_data.decode() if stdout_data else ""
+            stderr = stderr_data.decode() if stderr_data else ""
+
+            success = process.returncode == 0
+
+            return ExecutionResult(
+                result=stdout if success else None,
+                duration=duration,
+                success=success,
+                error=stderr if not success else None,
+                error_type="CommandError" if not success else None,
+                stdout=stdout,
+                stderr=stderr,
+            )
+
+        except TimeoutError:
+            duration = time.time() - start_time
+            return ExecutionResult(
+                result=None,
+                duration=duration,
+                success=False,
+                error=f"Command timed out after {self.timeout} seconds",
+                error_type="TimeoutError",
+            )
+        except Exception as e:  # noqa: BLE001
+            duration = time.time() - start_time
+            return ExecutionResult(
+                result=None,
+                duration=duration,
+                success=False,
+                error=str(e),
+                error_type=type(e).__name__,
+            )
+
+    async def execute_command_stream(self, command: str) -> AsyncIterator[str]:
+        """Execute a terminal command and stream output line by line.
+
+        Args:
+            command: Terminal command to execute
+
+        Yields:
+            Lines of output as they are produced
+        """
+        try:
+            # Create subprocess
+            process = await asyncio.create_subprocess_shell(
+                command,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,  # Merge stderr into stdout
+            )
+
+            # Stream output line by line
+            if process.stdout is not None:
+                while True:
+                    try:
+                        line = await asyncio.wait_for(
+                            process.stdout.readline(), timeout=self.timeout
+                        )
+                        if not line:
+                            break
+                        yield line.decode().rstrip("\n\r")
+                    except TimeoutError:
+                        process.kill()
+                        await process.wait()
+                        yield f"ERROR: Command timed out after {self.timeout} seconds"
+                        break
+
+            # Wait for process to complete
+            await process.wait()
+
+        except Exception as e:  # noqa: BLE001
+            yield f"ERROR: {e}"

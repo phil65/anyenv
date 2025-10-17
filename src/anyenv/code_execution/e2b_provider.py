@@ -301,3 +301,80 @@ executeMain().then(result => {{
             return None, {"error": str(e), "type": type(e).__name__}
         else:
             return None, {"error": "No execution result found", "type": "ParseError"}
+
+    async def execute_command(self, command: str) -> ExecutionResult:
+        """Execute a terminal command in the E2B sandbox."""
+        if not self.sandbox:
+            error_msg = "E2B environment not properly initialized"
+            raise RuntimeError(error_msg)
+
+        start_time = time.time()
+
+        try:
+            # Execute command using E2B's commands.run() method
+            result = self.sandbox.commands.run(command, timeout=self.timeout)
+            duration = time.time() - start_time
+
+            success = result.exit_code == 0
+
+            return ExecutionResult(
+                result=result.stdout if success else None,
+                duration=duration,
+                success=success,
+                error=result.stderr if not success else None,
+                error_type="CommandError" if not success else None,
+                stdout=result.stdout,
+                stderr=result.stderr,
+            )
+
+        except Exception as e:  # noqa: BLE001
+            duration = time.time() - start_time
+            return ExecutionResult(
+                result=None,
+                duration=duration,
+                success=False,
+                error=str(e),
+                error_type=type(e).__name__,
+            )
+
+    async def execute_command_stream(self, command: str):
+        """Execute a terminal command and stream output in the E2B sandbox."""
+        if not self.sandbox:
+            error_msg = "E2B environment not properly initialized"
+            raise RuntimeError(error_msg)
+
+        try:
+            # Stream output using E2B's commands.run() with callbacks
+            stdout_lines = []
+            stderr_lines = []
+
+            def on_stdout(data):
+                line = data.line.rstrip("\n\r")
+                if line:
+                    stdout_lines.append(line)
+
+            def on_stderr(data):
+                line = data.line.rstrip("\n\r")
+                if line:
+                    stderr_lines.append(line)
+
+            # Execute command with streaming callbacks
+            result = self.sandbox.commands.run(
+                command,
+                timeout=self.timeout,
+                on_stdout=on_stdout,
+                on_stderr=on_stderr,
+            )
+
+            # Yield all collected output lines
+            for line in stdout_lines:
+                yield line
+            for line in stderr_lines:
+                yield f"STDERR: {line}"
+
+            # Yield final result info
+            if result.exit_code != 0:
+                yield f"ERROR: Command exited with code {result.exit_code}"
+
+        except Exception as e:  # noqa: BLE001
+            yield f"ERROR: {e}"

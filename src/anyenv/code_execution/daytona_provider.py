@@ -223,3 +223,61 @@ if __name__ == "__main__":
             return None, {"error": str(e), "type": type(e).__name__}
         else:
             return None, {"error": "No execution result found", "type": "ParseError"}
+
+    async def execute_command(self, command: str) -> ExecutionResult:
+        """Execute a terminal command in the Daytona sandbox."""
+        if not self.sandbox:
+            error_msg = "Daytona environment not properly initialized"
+            raise RuntimeError(error_msg)
+
+        start_time = time.time()
+
+        try:
+            # Execute command using Daytona's process.exec() method
+            response = await self.sandbox.process.exec(command, timeout=int(self.timeout))
+            duration = time.time() - start_time
+
+            success = response.exit_code == 0
+
+            return ExecutionResult(
+                result=response.result if success else None,
+                duration=duration,
+                success=success,
+                error=response.result if not success else None,
+                error_type="CommandError" if not success else None,
+                stdout=response.result,
+                stderr="",  # Daytona combines stdout/stderr in result
+            )
+
+        except Exception as e:  # noqa: BLE001
+            duration = time.time() - start_time
+            return ExecutionResult(
+                result=None,
+                duration=duration,
+                success=False,
+                error=str(e),
+                error_type=type(e).__name__,
+            )
+
+    async def execute_command_stream(self, command: str):
+        """Execute a terminal command and stream output in the Daytona sandbox."""
+        if not self.sandbox:
+            error_msg = "Daytona environment not properly initialized"
+            raise RuntimeError(error_msg)
+
+        try:
+            # Execute command and collect output
+            response = await self.sandbox.process.exec(command, timeout=int(self.timeout))
+
+            # Split result into lines and yield them
+            if response.result:
+                for line in response.result.split("\n"):
+                    if line.strip():  # Only yield non-empty lines
+                        yield line
+
+            # Yield exit code info if command failed
+            if response.exit_code != 0:
+                yield f"ERROR: Command exited with code {response.exit_code}"
+
+        except Exception as e:  # noqa: BLE001
+            yield f"ERROR: {e}"
