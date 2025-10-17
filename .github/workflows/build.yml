@@ -27,6 +27,11 @@ jobs:
           cache-dependency-glob: pyproject.toml
           cache-suffix: py${{ matrix.python_version }}
 
+      - name: Set up Docker
+        uses: docker/setup-docker-action@v3
+        if: runner.os != 'Windows' # Skip on Windows due to limited support
+        continue-on-error: true
+
       - name: Install dependencies (uv sync)
         run: uv sync --all-extras --no-group docs --no-group lint
 
