@@ -93,9 +93,12 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
             import base64
 
             encoded_code = base64.b64encode(wrapped_code.encode()).decode()
-            self.container.exec(
-                f"python -c \"import base64; open('/tmp/anyenv/script.py', 'w').write(base64.b64decode('{encoded_code}').decode())\""
+            cmd = (
+                f'python -c "import base64; '
+                f"open('/tmp/anyenv/script.py', 'w').write("
+                f"base64.b64decode('{encoded_code}').decode())\""
             )
+            self.container.exec(cmd)
 
             # Execute the script
             command = self._get_execution_command()
