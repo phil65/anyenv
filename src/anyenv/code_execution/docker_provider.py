@@ -387,7 +387,7 @@ executeMain().then(result => {{
             for line in lines:
                 if line.startswith("__EXECUTION_RESULT__"):
                     result_json = line[len("__EXECUTION_RESULT__") :].strip()
-                    result_data = anyenv.load_json(result_json)
+                    result_data = anyenv.load_json(result_json, return_type=dict)
 
                     if result_data.get("success", False):
                         return result_data.get("result"), None

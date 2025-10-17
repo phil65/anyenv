@@ -203,7 +203,7 @@ class McpPythonExecutionEnvironment(ExecutionEnvironment):
         output = output_match.group(1).strip() if output_match else None
 
         # Extract return value
-        return_value = None
+        return_value: Any = None
         return_match = re.search(
             r"<return_value>(.*?)</return_value>", xml_content, re.DOTALL
         )
