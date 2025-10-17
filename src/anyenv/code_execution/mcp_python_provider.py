@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import time
-from typing import Any, Self
-
-from fastmcp import Client
-from mcp.types import TextContent
+from typing import TYPE_CHECKING, Any, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.models import ExecutionResult
+
+
+if TYPE_CHECKING:
+    from fastmcp import Client
 
 
 class McpPythonExecutionEnvironment(ExecutionEnvironment):
@@ -61,6 +62,8 @@ class McpPythonExecutionEnvironment(ExecutionEnvironment):
 
     async def __aenter__(self) -> Self:
         """Setup the MCP Python environment."""
+        from fastmcp import Client
+
         self._client = Client(self._server_config)
         await self._client.__aenter__()
 
@@ -85,6 +88,8 @@ class McpPythonExecutionEnvironment(ExecutionEnvironment):
         Returns:
             ExecutionResult with output, return value, and execution metadata
         """
+        from mcp.types import TextContent
+
         if not self._client:
             msg = "Environment not initialized. Use 'async with' to setup."
             raise RuntimeError(msg)
