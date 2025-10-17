@@ -8,7 +8,7 @@ from anyenv.code_execution import DockerExecutionEnvironment
 
 
 pytestmark = pytest.mark.skipif(
-    platform.system() == "Windows", reason="Docker tests not supported on Windows"
+    platform.system() != "Linux", reason="Docker tests only supported on Linux"
 )
 
 
