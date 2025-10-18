@@ -15,6 +15,8 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
     from contextlib import AbstractAsyncContextManager
 
+    from beam import Sandbox
+
     from anyenv.code_execution.models import Language, ServerInfo
 
 
@@ -46,7 +48,7 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
         self.keep_warm_seconds = keep_warm_seconds
         self.timeout = timeout
         self.language = language
-        self.sandbox = None
+        self.sandbox: Sandbox | None = None
         self.instance = None
 
     async def __aenter__(self) -> Self:
@@ -72,6 +74,7 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
             image=image,
             keep_warm_seconds=self.keep_warm_seconds,
         )
+        assert self.sandbox
         self.instance = self.sandbox.create()
 
         if not self.instance.ok:
