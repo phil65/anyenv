@@ -41,7 +41,7 @@ from anyenv.code_execution import get_environment
 # Local execution (same process)
 env = get_environment("local")
 
-# Subprocess execution (separate Python process)  
+# Subprocess execution (separate Python process)
 env = get_environment("subprocess")
 
 # Docker execution (containerized)
@@ -75,7 +75,7 @@ Executes code in a separate Python process for basic isolation.
 
 ```python
 env = get_environment(
-    "subprocess", 
+    "subprocess",
     executable="python3",
     timeout=60.0,
     language="python"
@@ -84,7 +84,7 @@ env = get_environment(
 
 **Parameters:**
 - `executable` (str): Python executable to use (default: "python")
-- `timeout` (float): Execution timeout in seconds (default: 30.0)  
+- `timeout` (float): Execution timeout in seconds (default: 30.0)
 - `language` (Language): Programming language (default: "python")
 
 **Use cases:** Isolated execution, testing with different Python versions
@@ -132,7 +132,7 @@ env = get_environment(
 
 **Use cases:** Remote development, cloud-based CI/CD, collaborative coding
 
-### E2B Provider  
+### E2B Provider
 Executes code in E2B sandboxes for secure, ephemeral execution environments.
 
 ```python
@@ -185,7 +185,7 @@ async def main():
 """
 ```
 
-### 2. Result Variable Pattern  
+### 2. Result Variable Pattern
 ```python
 code = """
 import math
@@ -216,7 +216,7 @@ Some providers support multiple programming languages:
 # JavaScript execution
 env = get_environment("subprocess", language="javascript", executable="node")
 
-# TypeScript execution  
+# TypeScript execution
 env = get_environment("docker", language="typescript", image="node:18")
 ```
 
@@ -245,7 +245,7 @@ env = get_environment(
 
 # Subprocess with specific Python version
 env = get_environment(
-    "subprocess", 
+    "subprocess",
     executable="/usr/bin/python3.11",
     timeout=120.0
 )
@@ -282,7 +282,7 @@ async with env:
             print(f"✓ {line}")
 ```
 
-**Supported providers:** `subprocess`, `docker`  
+**Supported providers:** `subprocess`, `docker`, `local`, `beam`
 **Use cases:** Progress monitoring, real-time feedback, large output processing
 
 ## HTTP Downloads
@@ -354,7 +354,7 @@ data = load_json('{"key": "value"}')  # From string
 data = load_json(Path("config.json"))  # From file
 data = load_json(b'{"key": "value"}')  # From bytes
 
-# Dump JSON to various targets  
+# Dump JSON to various targets
 json_str = dump_json(data)  # To string
 dump_json(data, Path("output.json"))  # To file
 json_bytes = dump_json(data, return_bytes=True)  # To bytes
@@ -407,7 +407,7 @@ result = await run_sync_in_thread(sync_function, arg1, arg2)
 # Enhanced gather with better error handling
 results = await gather(
     async_func1(),
-    async_func2(), 
+    async_func2(),
     async_func3(),
     return_exceptions=True
 )
@@ -432,7 +432,7 @@ async with ThreadGroup() as group:
     # Add functions to run concurrently
     group.spawn(some_function, arg1, arg2)
     group.spawn(another_function, arg3)
-    
+
     # Wait for all to complete
     results = await group.gather()
 
@@ -441,7 +441,7 @@ spawner = function_spawner(my_function, max_workers=10)
 results = await spawner([arg1, arg2, arg3, arg4])
 
 # Method spawner for object methods
-obj_spawner = method_spawner(my_object.method, max_workers=5)  
+obj_spawner = method_spawner(my_object.method, max_workers=5)
 results = await obj_spawner([data1, data2, data3])
 ```
 
@@ -476,7 +476,7 @@ response = await backend.get("https://example.com")
 All functionality automatically adapts to the execution environment:
 
 - **PyOdide**: Uses browser-compatible implementations
-- **Standard Python**: Uses optimal libraries (httpx, etc.)  
+- **Standard Python**: Uses optimal libraries (httpx, etc.)
 - **Limited environments**: Falls back to stdlib implementations
 - **Async contexts**: Provides async implementations
 - **Sync contexts**: Provides synchronous alternatives
