@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.models import ExecutionResult
@@ -38,7 +38,7 @@ class SubprocessExecutionEnvironment(ExecutionEnvironment):
         self.language = language
         self.process: asyncio.subprocess.Process | None = None
 
-    async def __aenter__(self) -> ExecutionEnvironment:
+    async def __aenter__(self) -> Self:
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:

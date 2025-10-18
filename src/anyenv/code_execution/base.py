@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Self
 
 
 if TYPE_CHECKING:
@@ -16,7 +16,7 @@ class ExecutionEnvironment(ABC):
     """Abstract base class for code execution environments."""
 
     @abstractmethod
-    async def __aenter__(self) -> ExecutionEnvironment:
+    async def __aenter__(self) -> Self:
         """Setup environment (start server, spawn process, etc.)."""
         ...
 

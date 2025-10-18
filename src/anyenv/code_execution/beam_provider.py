@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.models import ExecutionResult
@@ -44,7 +44,7 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
         self.sandbox = None
         self.instance = None
 
-    async def __aenter__(self) -> ExecutionEnvironment:
+    async def __aenter__(self) -> Self:
         """Setup Beam sandbox."""
         # Configure image based on language
         from beam import Image, Sandbox

@@ -8,7 +8,7 @@ import inspect
 import io
 import sys
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.models import ExecutionResult
@@ -29,7 +29,7 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
         """
         self.timeout = timeout
 
-    async def __aenter__(self) -> ExecutionEnvironment:
+    async def __aenter__(self) -> Self:
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:

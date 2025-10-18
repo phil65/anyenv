@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.models import ExecutionResult
@@ -44,7 +44,7 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
         self.server_info: ServerInfo | None = None
         self.container: DockerContainer | None = None
 
-    async def __aenter__(self) -> ExecutionEnvironment:
+    async def __aenter__(self) -> Self:
         # Start tool server if provided
         if self.lifespan_handler:
             self.server_info = await self.lifespan_handler.__aenter__()

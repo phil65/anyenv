@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.models import ExecutionResult
@@ -54,7 +54,7 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
 
         self.sandbox = None
 
-    async def __aenter__(self) -> ExecutionEnvironment:
+    async def __aenter__(self) -> Self:
         """Setup Daytona client and create sandbox."""
         # Create sandbox with Python image
         from daytona.common.daytona import CodeLanguage, CreateSandboxFromImageParams
