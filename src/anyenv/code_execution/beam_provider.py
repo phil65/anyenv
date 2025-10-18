@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import contextlib
-import json
 import time
 from typing import TYPE_CHECKING, Any, Self
 
@@ -267,6 +266,8 @@ async function executeMain() {{
 
     def _parse_beam_output(self, output: str) -> tuple[Any, dict | None]:
         """Parse the execution output to extract result and error information."""
+        import anyenv
+
         if not output:
             return None, None
 
@@ -276,7 +277,7 @@ async function executeMain() {{
             if "__BEAM_RESULT__" in line:
                 try:
                     json_part = line.split("__BEAM_RESULT__", 1)[1].strip()
-                    result_data = json.loads(json_part)
+                    result_data = anyenv.load_json(json_part)
 
                     if result_data.get("success"):
                         return result_data.get("result"), None
@@ -285,7 +286,7 @@ async function executeMain() {{
                         "type": result_data.get("type"),
                         "traceback": result_data.get("traceback"),
                     }
-                except (json.JSONDecodeError, IndexError, ValueError):
+                except (anyenv.JsonLoadError, IndexError, ValueError):
                     continue
 
         # If no structured result found, check for common patterns
