@@ -23,6 +23,8 @@ from anyenv.code_execution.models import (
 from anyenv.code_execution.subprocess_provider import SubprocessExecutionEnvironment
 
 if TYPE_CHECKING:
+    from contextlib import AbstractAsyncContextManager
+
     from anyenv.code_execution.models import Language
 
 
@@ -30,6 +32,7 @@ if TYPE_CHECKING:
 def get_environment(
     provider: Literal["local"],
     *,
+    lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
     timeout: float = 30.0,
 ) -> LocalExecutionEnvironment: ...
 
@@ -38,6 +41,7 @@ def get_environment(
 def get_environment(
     provider: Literal["subprocess"],
     *,
+    lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
     executable: str = "python",
     timeout: float = 30.0,
     language: Language = "python",
@@ -59,6 +63,7 @@ def get_environment(
 def get_environment(
     provider: Literal["mcp"],
     *,
+    lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
     dependencies: list[str] | None = None,
     allow_networking: bool = True,
     timeout: float = 30.0,
@@ -69,6 +74,7 @@ def get_environment(
 def get_environment(
     provider: Literal["daytona"],
     *,
+    lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
     api_url: str | None = None,
     api_key: str | None = None,
     target: str | None = None,
@@ -82,6 +88,7 @@ def get_environment(
 def get_environment(
     provider: Literal["e2b"],
     *,
+    lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
     template: str | None = None,
     timeout: float = 300.0,
     keep_alive: bool = False,
@@ -93,6 +100,7 @@ def get_environment(
 def get_environment(
     provider: Literal["beam"],
     *,
+    lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
     cpu: float | str = 1.0,
     memory: int | str = 128,
     keep_warm_seconds: int = 600,

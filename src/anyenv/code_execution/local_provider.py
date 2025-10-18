@@ -16,24 +16,36 @@ from anyenv.code_execution.models import ExecutionResult
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
+    from contextlib import AbstractAsyncContextManager
+
+    from anyenv.code_execution.models import ServerInfo
 
 
 class LocalExecutionEnvironment(ExecutionEnvironment):
     """Executes code in the same process (current behavior)."""
 
-    def __init__(self, timeout: float = 30.0):
+    def __init__(
+        self,
+        lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
+        timeout: float = 30.0,
+    ):
         """Initialize local environment.
 
         Args:
+            lifespan_handler: Async context manager for tool server (optional)
             timeout: Execution timeout in seconds
         """
+        super().__init__(lifespan_handler=lifespan_handler)
         self.timeout = timeout
 
     async def __aenter__(self) -> Self:
+        # Start tool server via base class
+        await super().__aenter__()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        pass
+        # Cleanup server via base class
+        await super().__aexit__(exc_type, exc_val, exc_tb)
 
     async def execute(self, code: str) -> ExecutionResult:
         """Execute code directly in current process."""

@@ -8,22 +8,40 @@ from typing import TYPE_CHECKING, Self
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
+    from contextlib import AbstractAsyncContextManager
 
-    from anyenv.code_execution.models import ExecutionResult
+    from anyenv.code_execution.models import ExecutionResult, ServerInfo
 
 
 class ExecutionEnvironment(ABC):
     """Abstract base class for code execution environments."""
 
-    @abstractmethod
+    def __init__(
+        self,
+        lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
+        **kwargs,
+    ):
+        """Initialize execution environment with optional lifespan handler.
+
+        Args:
+            lifespan_handler: Optional async context manager for tool server
+            **kwargs: Additional keyword arguments for specific providers
+        """
+        self.lifespan_handler = lifespan_handler
+        self.server_info: ServerInfo | None = None
+
     async def __aenter__(self) -> Self:
         """Setup environment (start server, spawn process, etc.)."""
-        ...
+        # Start tool server if provided
+        if self.lifespan_handler:
+            self.server_info = await self.lifespan_handler.__aenter__()
+        return self
 
-    @abstractmethod
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         """Cleanup (stop server, kill process, etc.)."""
-        ...
+        # Cleanup server if provided
+        if self.lifespan_handler:
+            await self.lifespan_handler.__aexit__(exc_type, exc_val, exc_tb)
 
     @abstractmethod
     async def execute(self, code: str) -> ExecutionResult:

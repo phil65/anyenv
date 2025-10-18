@@ -13,8 +13,9 @@ from anyenv.code_execution.models import ExecutionResult
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
+    from contextlib import AbstractAsyncContextManager
 
-    from anyenv.code_execution.models import Language
+    from anyenv.code_execution.models import Language, ServerInfo
 
 
 class BeamExecutionEnvironment(ExecutionEnvironment):
@@ -22,6 +23,7 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
 
     def __init__(
         self,
+        lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
         cpu: float | str = 1.0,
         memory: int | str = 128,
         keep_warm_seconds: int = 600,
@@ -31,12 +33,14 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
         """Initialize Beam environment.
 
         Args:
+            lifespan_handler: Async context manager for tool server (optional)
             cpu: CPU cores allocated to the container
             memory: Memory allocated to the container (MiB or string with units)
             keep_warm_seconds: Seconds to keep sandbox alive (-1 for no timeout)
             timeout: Execution timeout in seconds
             language: Programming language to use
         """
+        super().__init__(lifespan_handler=lifespan_handler)
         self.cpu = cpu
         self.memory = memory
         self.keep_warm_seconds = keep_warm_seconds
@@ -47,6 +51,9 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
 
     async def __aenter__(self) -> Self:
         """Setup Beam sandbox."""
+        # Start tool server via base class
+        await super().__aenter__()
+
         # Configure image based on language
         from beam import Image, Sandbox
 
@@ -78,6 +85,9 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
         if self.instance and not self.instance.terminated:
             with contextlib.suppress(Exception):
                 self.instance.terminate()
+
+        # Cleanup server via base class
+        await super().__aexit__(exc_type, exc_val, exc_tb)
 
     async def execute(self, code: str) -> ExecutionResult:
         """Execute code in the Beam sandbox."""

@@ -13,8 +13,9 @@ from anyenv.code_execution.models import ExecutionResult
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
+    from contextlib import AbstractAsyncContextManager
 
-    from anyenv.code_execution.models import Language
+    from anyenv.code_execution.models import Language, ServerInfo
 
 
 class SubprocessExecutionEnvironment(ExecutionEnvironment):
@@ -22,6 +23,7 @@ class SubprocessExecutionEnvironment(ExecutionEnvironment):
 
     def __init__(
         self,
+        lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
         executable: str = "python",
         timeout: float = 30.0,
         language: Language = "python",
@@ -29,16 +31,20 @@ class SubprocessExecutionEnvironment(ExecutionEnvironment):
         """Initialize subprocess environment.
 
         Args:
+            lifespan_handler: Async context manager for tool server (optional)
             executable: Executable to use (python, node, npx)
             timeout: Execution timeout in seconds
             language: Programming language to use
         """
+        super().__init__(lifespan_handler=lifespan_handler)
         self.executable = executable
         self.timeout = timeout
         self.language = language
         self.process: asyncio.subprocess.Process | None = None
 
     async def __aenter__(self) -> Self:
+        # Start tool server via base class
+        await super().__aenter__()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -49,6 +55,9 @@ class SubprocessExecutionEnvironment(ExecutionEnvironment):
             except TimeoutError:
                 self.process.kill()
                 await self.process.wait()
+
+        # Cleanup server via base class
+        await super().__aexit__(exc_type, exc_val, exc_tb)
 
     async def execute(self, code: str) -> ExecutionResult:
         """Execute code in subprocess."""

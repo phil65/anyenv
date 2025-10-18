@@ -37,17 +37,15 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
             timeout: Execution timeout in seconds
             language: Programming language to use
         """
-        self.lifespan_handler = lifespan_handler
+        super().__init__(lifespan_handler=lifespan_handler)
         self.image = image
         self.timeout = timeout
         self.language = language
-        self.server_info: ServerInfo | None = None
         self.container: DockerContainer | None = None
 
     async def __aenter__(self) -> Self:
-        # Start tool server if provided
-        if self.lifespan_handler:
-            self.server_info = await self.lifespan_handler.__aenter__()
+        # Start tool server via base class
+        await super().__aenter__()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -56,9 +54,8 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
             with contextlib.suppress(Exception):
                 self.container.stop()
 
-        # Cleanup server if provided
-        if self.lifespan_handler:
-            await self.lifespan_handler.__aexit__(exc_type, exc_val, exc_tb)
+        # Cleanup server via base class
+        await super().__aexit__(exc_type, exc_val, exc_tb)
 
     async def execute(self, code: str) -> ExecutionResult:
         """Execute code in Docker container."""

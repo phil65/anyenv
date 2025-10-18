@@ -10,7 +10,11 @@ from anyenv.code_execution.models import ExecutionResult
 
 
 if TYPE_CHECKING:
+    from contextlib import AbstractAsyncContextManager
+
     from fastmcp import Client
+
+    from anyenv.code_execution.models import ServerInfo
 
 
 class McpPythonExecutionEnvironment(ExecutionEnvironment):
@@ -23,6 +27,7 @@ class McpPythonExecutionEnvironment(ExecutionEnvironment):
 
     def __init__(
         self,
+        lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
         dependencies: list[str] | None = None,
         allow_networking: bool = True,
         timeout: float = 30.0,
@@ -30,10 +35,12 @@ class McpPythonExecutionEnvironment(ExecutionEnvironment):
         """Initialize MCP Python execution environment.
 
         Args:
+            lifespan_handler: Async context manager for tool server (optional)
             dependencies: List of Python packages to install via micropip
             allow_networking: Whether to allow network access during code execution
             timeout: Execution timeout in seconds
         """
+        super().__init__(lifespan_handler=lifespan_handler)
         self.dependencies = dependencies or []
         self.allow_networking = allow_networking
         self.timeout = timeout
@@ -65,6 +72,9 @@ class McpPythonExecutionEnvironment(ExecutionEnvironment):
 
     async def __aenter__(self) -> Self:
         """Setup the MCP Python environment."""
+        # Start tool server via base class
+        await super().__aenter__()
+
         from fastmcp import Client
 
         self._client = Client(self._server_config)
@@ -78,6 +88,9 @@ class McpPythonExecutionEnvironment(ExecutionEnvironment):
         """Cleanup the MCP Python environment."""
         if self._client:
             await self._client.__aexit__(exc_type, exc_val, exc_tb)
+
+        # Cleanup server via base class
+        await super().__aexit__(exc_type, exc_val, exc_tb)
 
     async def execute(
         self, code: str, global_vars: dict[str, Any] | None = None

@@ -10,7 +10,9 @@ from anyenv.code_execution.models import ExecutionResult
 
 
 if TYPE_CHECKING:
-    from anyenv.code_execution.models import Language
+    from contextlib import AbstractAsyncContextManager
+
+    from anyenv.code_execution.models import Language, ServerInfo
 
 
 class DaytonaExecutionEnvironment(ExecutionEnvironment):
@@ -18,6 +20,7 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
 
     def __init__(
         self,
+        lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
         api_url: str | None = None,
         api_key: str | None = None,
         target: str | None = None,
@@ -29,6 +32,7 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
         """Initialize Daytona environment.
 
         Args:
+            lifespan_handler: Async context manager for tool server (optional)
             api_url: Daytona API server URL (uses DAYTONA_API_URL env var if None)
             api_key: API key for authentication (uses DAYTONA_API_KEY env var if None)
             target: Target location (uses DAYTONA_TARGET env var if None)
@@ -39,6 +43,7 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
         """
         from daytona import AsyncDaytona, DaytonaConfig
 
+        super().__init__(lifespan_handler=lifespan_handler)
         self.image = image
         self.timeout = timeout
         self.keep_alive = keep_alive
@@ -56,6 +61,8 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
 
     async def __aenter__(self) -> Self:
         """Setup Daytona client and create sandbox."""
+        # Start tool server via base class
+        await super().__aenter__()
         # Create sandbox with Python image
         from daytona.common.daytona import CodeLanguage, CreateSandboxFromImageParams
 
@@ -88,6 +95,9 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
             except Exception:  # noqa: BLE001
                 # Best effort cleanup
                 pass
+
+        # Cleanup server via base class
+        await super().__aexit__(exc_type, exc_val, exc_tb)
 
     async def execute(self, code: str) -> ExecutionResult:
         """Execute code in the Daytona sandbox."""

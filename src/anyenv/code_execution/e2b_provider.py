@@ -11,9 +11,11 @@ from anyenv.code_execution.models import ExecutionResult
 
 
 if TYPE_CHECKING:
+    from contextlib import AbstractAsyncContextManager
+
     from e2b import Sandbox
 
-    from anyenv.code_execution.models import Language
+    from anyenv.code_execution.models import Language, ServerInfo
 
 
 class E2bExecutionEnvironment(ExecutionEnvironment):
@@ -21,6 +23,7 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
 
     def __init__(
         self,
+        lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
         template: str | None = None,
         timeout: float = 300.0,
         keep_alive: bool = False,
@@ -29,11 +32,13 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
         """Initialize E2B environment.
 
         Args:
+            lifespan_handler: Async context manager for tool server (optional)
             template: E2B template name/ID (uses 'base' if None)
             timeout: Sandbox timeout in seconds
             keep_alive: Keep sandbox running after execution
             language: Programming language to use
         """
+        super().__init__(lifespan_handler=lifespan_handler)
         self.template = template
         self.timeout = timeout
         self.keep_alive = keep_alive
@@ -42,6 +47,9 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
 
     async def __aenter__(self) -> Self:
         """Setup E2B sandbox."""
+        # Start tool server via base class
+        await super().__aenter__()
+
         # Create sandbox (uses E2B_API_KEY environment variable)
         from e2b import Sandbox
 
@@ -59,6 +67,9 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
         if self.sandbox and not self.keep_alive:
             with contextlib.suppress(Exception):
                 self.sandbox.kill()
+
+        # Cleanup server via base class
+        await super().__aexit__(exc_type, exc_val, exc_tb)
 
     async def execute(self, code: str) -> ExecutionResult:
         """Execute code in the E2B sandbox."""
