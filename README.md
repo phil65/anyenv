@@ -153,6 +153,29 @@ env = get_environment(
 
 **Use cases:** Secure code execution, AI code generation, online code runners
 
+### Beam Provider
+Executes code in Beam cloud sandboxes for scalable, serverless execution environments.
+
+```python
+env = get_environment(
+    "beam",
+    cpu=1.0,
+    memory=128,
+    keep_warm_seconds=600,
+    timeout=300.0,
+    language="python"
+)
+```
+
+**Parameters:**
+- `cpu` (float | str): CPU cores allocated to the container (default: 1.0)
+- `memory` (int | str): Memory allocated to the container in MiB (default: 128)
+- `keep_warm_seconds` (int): Seconds to keep sandbox alive, -1 for no timeout (default: 600)
+- `timeout` (float): Execution timeout in seconds (default: 300.0)
+- `language` (Language): Programming language (default: "python")
+
+**Use cases:** Serverless execution, auto-scaling workloads, GPU-accelerated computing
+
 ### MCP Provider
 Executes Python code with Model Context Protocol support for AI integrations.
 

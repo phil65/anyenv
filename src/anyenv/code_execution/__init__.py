@@ -6,6 +6,7 @@ from typing import Literal, overload, TYPE_CHECKING
 
 from anyenv.code_execution.base import ExecutionEnvironment
 
+from anyenv.code_execution.beam_provider import BeamExecutionEnvironment
 from anyenv.code_execution.daytona_provider import DaytonaExecutionEnvironment
 from anyenv.code_execution.docker_provider import DockerExecutionEnvironment
 from anyenv.code_execution.local_provider import LocalExecutionEnvironment
@@ -88,8 +89,20 @@ def get_environment(
 ) -> E2bExecutionEnvironment: ...
 
 
+@overload
 def get_environment(
-    provider: Literal["local", "subprocess", "docker", "mcp", "daytona", "e2b"],
+    provider: Literal["beam"],
+    *,
+    cpu: float | str = 1.0,
+    memory: int | str = 128,
+    keep_warm_seconds: int = 600,
+    timeout: float = 300.0,
+    language: Language = "python",
+) -> BeamExecutionEnvironment: ...
+
+
+def get_environment(
+    provider: Literal["local", "subprocess", "docker", "mcp", "daytona", "e2b", "beam"],
     **kwargs,
 ) -> ExecutionEnvironment:
     """Get an execution environment based on provider name.
@@ -114,6 +127,9 @@ def get_environment(
 
         # E2B with template and language
         env = get_environment("e2b", template="python", timeout=600.0, language="javascript")
+
+        # Beam with custom resources
+        env = get_environment("beam", cpu=2.0, memory=512, timeout=600.0)
         ```
     """  # noqa: E501
     match provider:
@@ -129,12 +145,15 @@ def get_environment(
             return DaytonaExecutionEnvironment(**kwargs)
         case "e2b":
             return E2bExecutionEnvironment(**kwargs)
+        case "beam":
+            return BeamExecutionEnvironment(**kwargs)
         case _:
             error_msg = f"Unknown provider: {provider}"
             raise ValueError(error_msg)
 
 
 __all__ = [
+    "BeamExecutionEnvironment",
     "DaytonaExecutionEnvironment",
     "DockerExecutionEnvironment",
     "E2bExecutionEnvironment",
