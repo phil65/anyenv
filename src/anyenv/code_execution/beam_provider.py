@@ -277,7 +277,7 @@ async function executeMain() {{
             if "__BEAM_RESULT__" in line:
                 try:
                     json_part = line.split("__BEAM_RESULT__", 1)[1].strip()
-                    result_data = anyenv.load_json(json_part)
+                    result_data = anyenv.load_json(json_part, return_type=dict)
 
                     if result_data.get("success"):
                         return result_data.get("result"), None
