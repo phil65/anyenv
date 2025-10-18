@@ -18,7 +18,6 @@ from typing import (
 
 
 if TYPE_CHECKING:
-    from os import PathLike
     import types
 
     from anyenv.download.http_types import (
@@ -189,7 +188,7 @@ class HttpBackend(abc.ABC):
 
     def __init__(
         self,
-        cache_dir: str | PathLike[str] | None = None,
+        cache_dir: StrPath | None = None,
         cache_ttl: int | str | None = None,
     ):
         """Initialize HTTP backend.
@@ -267,7 +266,7 @@ class HttpBackend(abc.ABC):
     async def download(
         self,
         url: str,
-        path: str | PathLike[str],
+        path: StrPath,
         *,
         headers: HeaderType | None = None,
         progress_callback: ProgressCallback | None = None,
@@ -280,7 +279,7 @@ class HttpBackend(abc.ABC):
     def download_sync(
         self,
         url: str,
-        path: str | PathLike[str],
+        path: StrPath,
         *,
         headers: HeaderType | None = None,
         progress_callback: ProgressCallback | None = None,

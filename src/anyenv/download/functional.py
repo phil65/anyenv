@@ -324,7 +324,7 @@ async def post(
 
 async def download(
     url: str,
-    path: str | os.PathLike[str],
+    path: StrPath,
     *,
     headers: HeaderType | None = None,
     progress_callback: ProgressCallback | None = None,
@@ -621,7 +621,7 @@ def post_sync(
 
 def download_sync(
     url: str,
-    path: str | os.PathLike[str],
+    path: StrPath,
     *,
     headers: HeaderType | None = None,
     progress_callback: ProgressCallback | None = None,
