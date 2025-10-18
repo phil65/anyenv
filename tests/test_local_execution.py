@@ -1,14 +1,11 @@
 """Tests for LocalExecutionEnvironment."""
 
-import pytest
-
 from anyenv.code_execution import LocalExecutionEnvironment
 
 
 EXPECTED_RESULT = 84
 
 
-@pytest.mark.asyncio
 async def test_local_execution_with_main_function():
     """Test execution with main function returning a value."""
     code = """
@@ -26,7 +23,6 @@ async def main():
     assert result.error_type is None
 
 
-@pytest.mark.asyncio
 async def test_local_execution_with_result_variable():
     """Test execution using _result variable."""
     code = """
@@ -42,7 +38,6 @@ _result = 42 * 2
     assert result.error is None
 
 
-@pytest.mark.asyncio
 async def test_local_execution_error_handling():
     """Test error handling in local execution."""
     code = """
@@ -60,7 +55,6 @@ async def main():
     assert result.error_type == "ValueError"
 
 
-@pytest.mark.asyncio
 async def test_local_execution_no_result():
     """Test execution when no result or main function is present."""
     code = """
@@ -77,7 +71,6 @@ print("This should not be the result")
     assert result.error is None
 
 
-@pytest.mark.asyncio
 async def test_local_execution_streaming():
     """Test streaming execution with print statements."""
     code = """

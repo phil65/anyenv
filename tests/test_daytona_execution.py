@@ -24,13 +24,8 @@ PI_RESULT = f'__DAYTONA_RESULT__ {{"result": {math.pi * 2}, "success": true}}'
 class MockSandbox:
     """Mock Daytona sandbox for testing."""
 
-    def __init__(
-        self,
-        sandbox_id: str = "test-sandbox-123",
-        state: str = "started",
-    ):
+    def __init__(self, sandbox_id: str = "test-sandbox-123"):
         self.id = sandbox_id
-        self.state = state
         self.name = f"anyenv-exec-{sandbox_id}"
         self.process = AsyncMock()
 
@@ -53,7 +48,6 @@ def mock_daytona():
     return daytona
 
 
-@pytest.mark.asyncio
 async def test_daytona_execution_basic(mock_daytona):
     """Test basic Daytona execution with successful result."""
     code = """
@@ -85,7 +79,6 @@ async def main():
         assert result.error is None
 
 
-@pytest.mark.asyncio
 async def test_daytona_execution_with_result_variable(mock_daytona):
     """Test Daytona execution using _result variable."""
     code = """
@@ -114,7 +107,6 @@ _result = math.pi * 2
         assert result.duration >= 0
 
 
-@pytest.mark.asyncio
 async def test_daytona_execution_error_handling(mock_daytona):
     """Test error handling in Daytona execution."""
     code = """
@@ -145,7 +137,6 @@ async def main():
         assert result.error_type == "ValueError"
 
 
-@pytest.mark.asyncio
 async def test_daytona_execution_command_failure(mock_daytona):
     """Test handling of command execution failure."""
     code = """
@@ -175,7 +166,6 @@ print("This will fail")
         assert result.error_type == "CommandError"
 
 
-@pytest.mark.asyncio
 async def test_daytona_execution_keep_alive(mock_daytona):
     """Test keep_alive functionality."""
     with patch("daytona.AsyncDaytona", return_value=mock_daytona):
@@ -197,7 +187,6 @@ async def test_daytona_execution_keep_alive(mock_daytona):
         mock_sandbox.delete.assert_not_called()
 
 
-@pytest.mark.asyncio
 async def test_daytona_execution_custom_configuration(mock_daytona):
     """Test Daytona execution with custom configuration."""
     with patch("daytona.AsyncDaytona", return_value=mock_daytona):

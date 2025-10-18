@@ -1,7 +1,5 @@
 """Tests for SubprocessExecutionEnvironment."""
 
-import pytest
-
 from anyenv.code_execution import SubprocessExecutionEnvironment
 
 
@@ -9,7 +7,6 @@ EXPECTED_SQRT_RESULT = 4.0
 MIN_PYTHON_MAJOR_VERSION = 3
 
 
-@pytest.mark.asyncio
 async def test_subprocess_execution_with_main_function():
     """Test subprocess execution with main function returning a value."""
     code = """
@@ -29,7 +26,6 @@ async def main():
     assert result.stderr is not None
 
 
-@pytest.mark.asyncio
 async def test_subprocess_execution_with_result_variable():
     """Test subprocess execution using _result variable."""
     code = """
@@ -46,7 +42,6 @@ _result = math.sqrt(16)
     assert result.error is None
 
 
-@pytest.mark.asyncio
 async def test_subprocess_execution_error_handling():
     """Test error handling in subprocess execution."""
     code = """
@@ -67,7 +62,6 @@ async def main():
     assert result.stderr is not None
 
 
-@pytest.mark.asyncio
 async def test_subprocess_execution_timeout():
     """Test timeout handling in subprocess execution."""
     code = """
@@ -87,7 +81,6 @@ async def main():
     assert result.error_type == "TimeoutError"
 
 
-@pytest.mark.asyncio
 async def test_subprocess_execution_custom_python():
     """Test subprocess execution with custom Python executable."""
     code = """
@@ -104,7 +97,6 @@ async def main():
     assert result.result >= MIN_PYTHON_MAJOR_VERSION
 
 
-@pytest.mark.asyncio
 async def test_subprocess_execution_streaming():
     """Test streaming subprocess execution."""
     code = """

@@ -12,7 +12,6 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-@pytest.mark.asyncio
 async def test_docker_execution_with_main_function():
     """Test Docker execution with main function returning a value."""
     pytest.importorskip("testcontainers", reason="testcontainers not installed")
@@ -32,7 +31,6 @@ async def main():
     assert result.error_type is None
 
 
-@pytest.mark.asyncio
 async def test_docker_execution_with_result_variable():
     """Test Docker execution using _result variable."""
     pytest.importorskip("testcontainers", reason="testcontainers not installed")
@@ -50,7 +48,6 @@ _result = "Docker environment"
     assert result.duration >= 0
 
 
-@pytest.mark.asyncio
 async def test_docker_execution_error_handling():
     """Test error handling in Docker execution."""
     pytest.importorskip("testcontainers", reason="testcontainers not installed")
@@ -71,7 +68,6 @@ async def main():
     assert result.error_type == "ConnectionError"
 
 
-@pytest.mark.asyncio
 async def test_docker_execution_with_custom_image():
     """Test Docker execution with custom image."""
     pytest.importorskip("testcontainers", reason="testcontainers not installed")
@@ -90,7 +86,6 @@ async def main():
     assert result.duration >= 0
 
 
-@pytest.mark.asyncio
 async def test_docker_execution_with_tools():
     """Test Docker execution with tool calls."""
     pytest.importorskip("testcontainers", reason="testcontainers not installed")
@@ -109,7 +104,6 @@ async def main():
     assert result.duration >= 0
 
 
-@pytest.mark.asyncio
 async def test_docker_execution_streaming():
     """Test streaming Docker execution."""
     pytest.importorskip("testcontainers", reason="testcontainers not installed")

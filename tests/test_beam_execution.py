@@ -9,7 +9,6 @@ EXPECTED_RESULT = 42
 EXPECTED_MATH_RESULT = 3.141592653589793
 
 
-@pytest.mark.asyncio
 @pytest.mark.integration
 async def test_beam_execution_with_main_function():
     """Test beam execution with main function returning a value."""
@@ -29,7 +28,6 @@ async def main():
     assert result.stdout is not None
 
 
-@pytest.mark.asyncio
 @pytest.mark.integration
 async def test_beam_execution_with_result_variable():
     """Test beam execution using _result variable."""
@@ -46,7 +44,6 @@ _result = 21 * 2
     assert result.error is None
 
 
-@pytest.mark.asyncio
 @pytest.mark.integration
 async def test_beam_execution_error_handling():
     """Test error handling in beam execution."""
@@ -67,7 +64,6 @@ async def main():
     assert result.stdout is not None
 
 
-@pytest.mark.asyncio
 @pytest.mark.integration
 async def test_beam_execution_with_imports():
     """Test beam execution with Python imports."""
@@ -86,7 +82,6 @@ async def main():
     assert result.error is None
 
 
-@pytest.mark.asyncio
 @pytest.mark.integration
 async def test_beam_execution_streaming():
     """Test streaming beam execution."""
@@ -108,7 +103,6 @@ for i in range(3):
     assert any("Stream line 3" in line for line in output_lines)
 
 
-@pytest.mark.asyncio
 @pytest.mark.integration
 async def test_beam_execution_custom_config():
     """Test beam execution with custom configuration."""
@@ -130,7 +124,6 @@ async def main():
         assert env.keep_warm_seconds == 300  # noqa: PLR2004
 
 
-@pytest.mark.asyncio
 @pytest.mark.integration
 async def test_beam_execute_command():
     """Test executing terminal commands in beam environment."""
@@ -144,7 +137,6 @@ async def test_beam_execute_command():
     assert result.stdout is not None
 
 
-@pytest.mark.asyncio
 @pytest.mark.integration
 async def test_beam_execute_command_error():
     """Test command execution error handling."""
@@ -163,7 +155,6 @@ async def test_beam_execute_command_error():
     )
 
 
-@pytest.mark.asyncio
 @pytest.mark.integration
 async def test_beam_execute_command_streaming():
     """Test streaming command execution."""
@@ -180,7 +171,6 @@ async def test_beam_execute_command_streaming():
     assert "Line 2" in output_text
 
 
-@pytest.mark.asyncio
 @pytest.mark.integration
 async def test_beam_execution_javascript():
     """Test beam execution with JavaScript language."""
@@ -194,7 +184,6 @@ async def test_beam_execution_javascript():
     assert env.language == "javascript"
 
 
-@pytest.mark.asyncio
 @pytest.mark.integration
 async def test_beam_execution_no_result():
     """Test execution when no result or main function is present."""
@@ -212,7 +201,6 @@ print("This should not be the result")
     assert result.duration >= 0
 
 
-@pytest.mark.asyncio
 @pytest.mark.integration
 async def test_beam_execution_multiple_commands():
     """Test multiple consecutive executions in same environment."""
