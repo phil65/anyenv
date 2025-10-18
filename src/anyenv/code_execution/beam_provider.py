@@ -93,10 +93,7 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
             # This returns a SandboxProcessResponse with result and exit_code
             response = self.instance.process.run_code(code, blocking=True)
             duration = time.time() - start_time
-
             success = response.exit_code == 0
-
-            # Response from run_code(blocking=True) returns SandboxProcessResponse
             assert isinstance(response, SandboxProcessResponse)
             output = response.result
 
@@ -129,12 +126,8 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
             raise RuntimeError(error_msg)
 
         try:
-            # Start process without blocking - this returns a SandboxProcess
             process = self.instance.process.run_code(code, blocking=False)
-
-            # Stream output as it happens using Beam's real-time logs iterator
             assert isinstance(process, SandboxProcess)
-
             for line in process.logs:
                 yield line.rstrip("\n\r")
 
@@ -162,10 +155,7 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
             process = self.instance.process.exec(*cmd_parts)
             exit_code = process.wait()
             duration = time.time() - start_time
-
-            # Collect all output from logs
             output_lines = [line.rstrip("\n\r") for line in process.logs]
-
             output = "\n".join(output_lines)
             success = exit_code == 0
 
@@ -204,15 +194,12 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
                 msg = "Empty command"
                 raise ValueError(msg)  # noqa: TRY301
 
-            # Start the process - exec() returns a SandboxProcess
             process = self.instance.process.exec(*cmd_parts)
-
-            # Stream output as it happens using Beam's real-time logs iterator
+            # Stream output as it happens
             for line in process.logs:
                 yield line.rstrip("\n\r")
 
-            # Check final exit code if available
-            if process.exit_code > 0:
+            if process.exit_code > 0:  # Check final exit code if available
                 yield f"ERROR: Command exited with code {process.exit_code}"
 
         except Exception as e:  # noqa: BLE001
