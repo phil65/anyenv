@@ -101,7 +101,7 @@ def get_environment(
 ) -> BeamExecutionEnvironment: ...
 
 
-def get_environment(
+def get_environment(  # noqa: PLR0911
     provider: Literal["local", "subprocess", "docker", "mcp", "daytona", "e2b", "beam"],
     **kwargs,
 ) -> ExecutionEnvironment:

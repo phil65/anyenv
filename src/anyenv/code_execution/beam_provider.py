@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import contextlib
+import json
 import time
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Any, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.models import ExecutionResult
@@ -89,22 +90,40 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
         start_time = time.time()
 
         try:
+            # Wrap code to capture result similar to subprocess provider
+            wrapped_code = self._wrap_code_for_execution(code)
+
             # Execute code using Beam's process.run_code() method (blocking)
             # This returns a SandboxProcessResponse with result and exit_code
-            response = self.instance.process.run_code(code, blocking=True)
+            response = self.instance.process.run_code(wrapped_code, blocking=True)
             duration = time.time() - start_time
-            success = response.exit_code == 0
             assert isinstance(response, SandboxProcessResponse)
             output = response.result
 
+            # Parse result from output
+            result, error_info = self._parse_beam_output(output)
+            success = response.exit_code == 0 and error_info is None
+
+            if success:
+                return ExecutionResult(
+                    result=result,
+                    duration=duration,
+                    success=True,
+                    error=None,
+                    error_type=None,
+                    stdout=output,
+                    stderr="",  # Beam combines stdout/stderr in result
+                )
             return ExecutionResult(
-                result=output if success else None,
+                result=None,
                 duration=duration,
-                success=success,
-                error=output if not success else None,
-                error_type="CommandError" if not success else None,
+                success=False,
+                error=error_info.get("error", output) if error_info else output,
+                error_type=error_info.get("type", "CommandError")
+                if error_info
+                else "CommandError",
                 stdout=output,
-                stderr="",  # Beam combines stdout/stderr in result
+                stderr="",
             )
 
         except Exception as e:  # noqa: BLE001
@@ -133,6 +152,143 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
 
         except Exception as e:  # noqa: BLE001
             yield f"ERROR: {e}"
+
+    def _wrap_code_for_execution(self, code: str) -> str:
+        """Wrap user code for execution with result capture."""
+        match self.language:
+            case "python":
+                return self._wrap_python_code(code)
+            case "javascript" | "typescript":
+                return self._wrap_javascript_code(code)
+            case _:
+                return self._wrap_python_code(code)
+
+    def _wrap_python_code(self, code: str) -> str:
+        """Wrap Python code for execution."""
+        return f"""
+import asyncio
+import json
+import traceback
+import inspect
+
+# User code
+{code}
+
+# Execution wrapper
+async def _execute_main():
+    try:
+        if "main" in globals() and callable(globals()["main"]):
+            main_func = globals()["main"]
+            if inspect.iscoroutinefunction(main_func):
+                result = await main_func()
+            else:
+                result = main_func()
+        else:
+            result = globals().get("_result")
+        return {{"result": result, "success": True}}
+    except Exception as e:
+        return {{
+            "success": False,
+            "error": str(e),
+            "type": type(e).__name__,
+            "traceback": traceback.format_exc()
+        }}
+
+# Run and output result
+if __name__ == "__main__":
+    try:
+        execution_result = asyncio.run(_execute_main())
+        print("__BEAM_RESULT__", json.dumps(execution_result, default=str))
+    except Exception as e:
+        error_result = {{
+            "success": False,
+            "error": str(e),
+            "type": type(e).__name__,
+            "traceback": traceback.format_exc()
+        }}
+        print("__BEAM_RESULT__", json.dumps(error_result, default=str))
+"""
+
+    def _wrap_javascript_code(self, code: str) -> str:
+        """Wrap JavaScript code for execution."""
+        return f"""
+// User code
+{code}
+
+// Execution wrapper
+async function executeMain() {{
+    try {{
+        let result;
+        if (typeof main === 'function') {{
+            result = await main();
+        }} else if (typeof _result !== 'undefined') {{
+            result = _result;
+        }}
+        return {{ result: result, success: true }};
+    }} catch (error) {{
+        return {{
+            success: false,
+            error: error.message,
+            type: error.name,
+            traceback: error.stack
+        }};
+    }}
+}}
+
+// Run and output result
+(async () => {{
+    try {{
+        const executionResult = await executeMain();
+        console.log("__BEAM_RESULT__", JSON.stringify(executionResult));
+    }} catch (error) {{
+        const errorResult = {{
+            success: false,
+            error: error.message,
+            type: error.name,
+            traceback: error.stack
+        }};
+        console.log("__BEAM_RESULT__", JSON.stringify(errorResult));
+    }}
+}})();
+"""
+
+    def _parse_beam_output(self, output: str) -> tuple[Any, dict | None]:
+        """Parse the execution output to extract result and error information."""
+        if not output:
+            return None, None
+
+        lines = output.strip().split("\n")
+
+        for line in lines:
+            if "__BEAM_RESULT__" in line:
+                try:
+                    json_part = line.split("__BEAM_RESULT__", 1)[1].strip()
+                    result_data = json.loads(json_part)
+
+                    if result_data.get("success"):
+                        return result_data.get("result"), None
+                    return None, {
+                        "error": result_data.get("error"),
+                        "type": result_data.get("type"),
+                        "traceback": result_data.get("traceback"),
+                    }
+                except (json.JSONDecodeError, IndexError, ValueError):
+                    continue
+
+        # If no structured result found, check for common patterns
+        # Look for Python output that might indicate successful execution with no return
+        if output.strip() and not any(
+            keyword in output.lower() for keyword in ["error", "traceback", "exception"]
+        ):
+            # If output looks like print statements, return None
+            # (successful execution, no result)
+            return None, None
+
+        # If we have output but no structured result, it might be an error
+        if output.strip():
+            return None, {"error": output.strip(), "type": "ExecutionError"}
+
+        return None, None
 
     async def execute_command(self, command: str) -> ExecutionResult:
         """Execute a terminal command in the Beam sandbox."""
