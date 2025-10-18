@@ -5,11 +5,11 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from anyenv.code_execution import DaytonaExecutionEnvironment
+
 
 # Skip entire file if daytona package is not available
 daytona = pytest.importorskip("daytona")
-
-from anyenv.code_execution import DaytonaExecutionEnvironment
 
 
 # Constants for mock results to avoid long lines
