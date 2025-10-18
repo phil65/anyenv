@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
     from contextlib import AbstractAsyncContextManager
 
-    from beam import Sandbox
+    from beam import Sandbox, SandboxInstance
 
     from anyenv.code_execution.models import Language, ServerInfo
 
@@ -49,7 +49,7 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
         self.timeout = timeout
         self.language = language
         self.sandbox: Sandbox | None = None
-        self.instance = None
+        self.instance: SandboxInstance | None = None
 
     async def __aenter__(self) -> Self:
         """Setup Beam sandbox."""
@@ -76,7 +76,7 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
         )
         assert self.sandbox
         self.instance = self.sandbox.create()
-
+        assert self.instance
         if not self.instance.ok:
             error_msg = f"Failed to create Beam sandbox: {self.instance.error_msg}"
             raise RuntimeError(error_msg)
