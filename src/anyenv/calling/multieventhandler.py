@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Callable, Sequence
 import contextlib
 import inspect
 from typing import TYPE_CHECKING, Literal
 
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable, Sequence
+    from collections.abc import Awaitable
 
 
 ExecutionMode = Literal["sequential", "parallel"]
@@ -42,13 +43,19 @@ class MultiEventHandler[**P, T]:
 
     def __init__(
         self,
-        handlers: Sequence[Callable[P, T] | Callable[P, Awaitable[T]]] | None = None,
+        handlers: Sequence[Callable[P, T] | Callable[P, Awaitable[T]]]
+        | Callable[P, T]
+        | Callable[P, Awaitable[T]]
+        | None = None,
         mode: ExecutionMode = "sequential",
     ) -> None:
-        self._handlers: list[Callable[P, Awaitable[T]]] = []
-        if handlers:
-            for handler in handlers:
-                self.add_handler(handler)
+        self._handlers: list[Callable[P, T] | Callable[P, Awaitable[T]]] = []
+        match handlers:
+            case Sequence():
+                for handler in handlers:
+                    self.add_handler(handler)
+            case Callable():
+                self.add_handler(handlers)
         self._mode: ExecutionMode = mode
 
     async def __call__(self, *args: P.args, **kwargs: P.kwargs) -> list[T]:
