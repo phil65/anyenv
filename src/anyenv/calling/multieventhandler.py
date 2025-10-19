@@ -49,7 +49,7 @@ class MultiEventHandler[**P, T]:
         | None = None,
         mode: ExecutionMode = "sequential",
     ) -> None:
-        self._handlers: list[Callable[P, T] | Callable[P, Awaitable[T]]] = []
+        self._handlers: list[Callable[P, Awaitable[T]]] = []
         match handlers:
             case Sequence():
                 for handler in handlers:
