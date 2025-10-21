@@ -6,7 +6,7 @@ import asyncio
 from collections.abc import Callable, Sequence
 import contextlib
 import inspect
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal, TypeVar
 
 
 if TYPE_CHECKING:
@@ -15,120 +15,124 @@ if TYPE_CHECKING:
 
 ExecutionMode = Literal["sequential", "parallel"]
 
+# Generic handler type bound to callable returning Any or Awaitable[Any]
+HandlerT = TypeVar("HandlerT", bound=Callable[..., Any])
 
-class MultiEventHandler[**P, T]:
+
+class MultiEventHandler[HandlerT]:
     """Manages multiple callbacks/event handlers with sequential or parallel execution.
 
     Provides a unified interface for executing multiple callbacks either sequentially
-    or in parallel, with support for dynamic handler management. All handlers must
-    have matching signatures enforced by ParamSpec. Sync functions are automatically
-    wrapped to work with the async interface.
+    or in parallel, with support for dynamic handler management. Sync functions are
+    automatically wrapped to work with the async interface.
+
+    The generic parameter HandlerT should be a callable type (function signature).
 
     Args:
-        handlers: Initial list of async or sync callable event handlers
+        handlers: Initial list of async or sync callable event handlers, or single handler
         mode: Execution mode - "sequential" or "parallel"
 
     Example:
         ```python
+        from collections.abc import Awaitable
+        from typing import Callable
+
         async def async_handler(x: int, y: str) -> str:
             return f"Async Handler: {x}, {y}"
 
         def sync_handler(x: int, y: str) -> str:
             return f"Sync Handler: {x}, {y}"
 
-        manager = MultiEventHandler([async_handler, sync_handler])
+        # Handler type specification
+        Handler = Callable[[int, str], str | Awaitable[str]]
+        manager: MultiEventHandler[Handler] = MultiEventHandler([
+            async_handler, sync_handler
+        ])
         results = await manager(42, "test")
         ```
     """
 
     def __init__(
         self,
-        handlers: Sequence[Callable[P, T] | Callable[P, Awaitable[T]]]
-        | Callable[P, T]
-        | Callable[P, Awaitable[T]]
-        | None = None,
-        mode: ExecutionMode = "sequential",
+        handlers: Sequence[HandlerT] | HandlerT | None = None,
+        mode: ExecutionMode = "parallel",
     ) -> None:
-        self._handlers: list[Callable[P, Awaitable[T]]] = []
-        match handlers:
-            case Sequence():
-                for handler in handlers:
-                    self.add_handler(handler)
-            case Callable():
-                self.add_handler(handlers)
+        self._handlers: list[HandlerT] = []
+        self._wrapped_handlers: list[Callable[..., Awaitable[Any]]] = []
+        self._handler_mapping: dict[HandlerT, Callable[..., Awaitable[Any]]] = {}
         self._mode: ExecutionMode = mode
 
-    async def __call__(self, *args: P.args, **kwargs: P.kwargs) -> list[T]:
+        if handlers is not None:
+            match handlers:
+                case Sequence():
+                    for handler in handlers:
+                        self.add_handler(handler)
+                case _:
+                    # Single handler
+                    self.add_handler(handlers)
+
+    async def __call__(self, *args: Any, **kwargs: Any) -> list[Any]:
         """Execute all handlers with the given arguments.
 
         Returns:
             List of results from all handlers.
         """
-        if not self._handlers:
+        if not self._wrapped_handlers:
             return []
 
         if self._mode == "sequential":
             return await self._execute_sequential(*args, **kwargs)
         return await self._execute_parallel(*args, **kwargs)
 
-    async def _execute_sequential(self, *args: P.args, **kwargs: P.kwargs) -> list[T]:
+    async def _execute_sequential(self, *args: Any, **kwargs: Any) -> list[Any]:
         """Execute handlers sequentially."""
-        return [await handler(*args, **kwargs) for handler in self._handlers]
+        return [await handler(*args, **kwargs) for handler in self._wrapped_handlers]
 
-    async def _execute_parallel(self, *args: P.args, **kwargs: P.kwargs) -> list[T]:
+    async def _execute_parallel(self, *args: Any, **kwargs: Any) -> list[Any]:
         """Execute handlers in parallel using asyncio.gather."""
-        tasks = [handler(*args, **kwargs) for handler in self._handlers]
+        tasks = [handler(*args, **kwargs) for handler in self._wrapped_handlers]
         return await asyncio.gather(*tasks)
 
-    def add_handler(self, handler: Callable[P, T] | Callable[P, Awaitable[T]]) -> None:
+    def add_handler(self, handler: HandlerT) -> None:
         """Add a new handler to the manager.
 
-        The handler must match the signature enforced by ParamSpec.
         Both sync and async handlers are supported.
         """
+        if handler in self._handlers:
+            return
+
         # Check if handler is already async
         if inspect.iscoroutinefunction(handler):
-            wrapped_handler = handler  # type: ignore[assignment]
+            wrapped_handler = handler
         else:
             # Wrap sync handler
-            wrapped_handler = self._wrap_sync_handler(handler)  # type: ignore
+            wrapped_handler = self._wrap_sync_handler(handler)  # type: ignore[assignment]
 
-        if wrapped_handler not in self._handlers:
-            self._handlers.append(wrapped_handler)
+        self._handlers.append(handler)
+        self._wrapped_handlers.append(wrapped_handler)
+        self._handler_mapping[handler] = wrapped_handler
 
-    def remove_handler(self, handler: Callable[P, T] | Callable[P, Awaitable[T]]) -> None:
+    def remove_handler(self, handler: HandlerT) -> None:
         """Remove a handler from the manager.
 
         Note: For sync handlers, you must pass the original sync function,
         not the wrapped async version.
         """
-        # Try to find and remove the handler
-        # For sync handlers, we need to find the wrapped version
-        to_remove = None
+        if handler not in self._handlers:
+            return
 
-        if inspect.iscoroutinefunction(handler):
-            # Handler is async, find it directly
-            to_remove = handler  # type: ignore[assignment]
-        else:
-            # Handler is sync, find the wrapped version
-            # We'll compare by checking the __wrapped__ attribute we can add
-            for wrapped in self._handlers:
-                if (
-                    hasattr(wrapped, "_original_handler")
-                    and wrapped._original_handler is handler  # noqa: SLF001
-                ):  # type: ignore[attr-defined]
-                    to_remove = wrapped  # type: ignore
-                    break
+        with contextlib.suppress(ValueError):
+            # Remove from all tracking structures
+            wrapped_handler = self._handler_mapping[handler]
+            self._handlers.remove(handler)
+            self._wrapped_handlers.remove(wrapped_handler)
+            del self._handler_mapping[handler]
 
-        if to_remove:
-            with contextlib.suppress(ValueError):
-                self._handlers.remove(to_remove)
-
-    def _wrap_sync_handler(self, handler: Callable[P, T]) -> Callable[P, Awaitable[T]]:
+    def _wrap_sync_handler(self, handler: HandlerT) -> Callable[..., Awaitable[Any]]:
         """Wrap a synchronous handler to work with async interface."""
 
-        async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
-            return handler(*args, **kwargs)
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+            return handler(*args, **kwargs)  # type: ignore[misc,operator]
 
         # Store reference to original handler for removal
         async_wrapper._original_handler = handler  # type: ignore[attr-defined]  # noqa: SLF001
@@ -137,6 +141,8 @@ class MultiEventHandler[**P, T]:
     def clear(self) -> None:
         """Remove all handlers."""
         self._handlers.clear()
+        self._wrapped_handlers.clear()
+        self._handler_mapping.clear()
 
     @property
     def mode(self) -> ExecutionMode:
