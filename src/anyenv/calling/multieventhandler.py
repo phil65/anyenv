@@ -6,7 +6,7 @@ import asyncio
 from collections.abc import Callable, Sequence
 import contextlib
 import inspect
-from typing import TYPE_CHECKING, Any, Literal, TypeVar
+from typing import TYPE_CHECKING, Any, Literal, ParamSpec
 
 
 if TYPE_CHECKING:
@@ -16,7 +16,8 @@ if TYPE_CHECKING:
 ExecutionMode = Literal["sequential", "parallel"]
 
 # Generic handler type bound to callable returning Any or Awaitable[Any]
-HandlerT = TypeVar("HandlerT", bound=Callable[..., Any])
+P = ParamSpec("P")
+HandlerT = Callable[P, Any]
 
 
 class MultiEventHandler[HandlerT]:
@@ -71,18 +72,23 @@ class MultiEventHandler[HandlerT]:
                     # Single handler
                     self.add_handler(handlers)
 
-    async def __call__(self, *args: Any, **kwargs: Any) -> list[Any]:
+    @property
+    def __call__(self) -> HandlerT:
         """Execute all handlers with the given arguments.
 
         Returns:
             List of results from all handlers.
         """
-        if not self._wrapped_handlers:
-            return []
 
-        if self._mode == "sequential":
-            return await self._execute_sequential(*args, **kwargs)
-        return await self._execute_parallel(*args, **kwargs)
+        async def event_handler(*args, **kwargs):
+            if not self._wrapped_handlers:
+                return []
+
+            if self._mode == "sequential":
+                return await self._execute_sequential(*args, **kwargs)
+            return await self._execute_parallel(*args, **kwargs)
+
+        return event_handler  # type: ignore
 
     async def _execute_sequential(self, *args: Any, **kwargs: Any) -> list[Any]:
         """Execute handlers sequentially."""
@@ -161,3 +167,16 @@ class MultiEventHandler[HandlerT]:
     def __bool__(self) -> bool:
         """Return True if there are handlers registered."""
         return bool(self._handlers)
+
+
+if __name__ == "__main__":
+    type HandlerType = Callable[[int, str], Any]
+
+    def handler(a: int, b: str):
+        """Handler function."""
+
+    def invalid_handler(a: str, b: str):
+        """Invalid handler function."""
+
+    multi_handler = MultiEventHandler[HandlerType]()
+    multi_handler.add_handler(handler)
