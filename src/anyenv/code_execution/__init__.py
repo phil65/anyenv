@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, overload, TYPE_CHECKING
+from typing import Any, Literal, overload, TYPE_CHECKING
 
 from anyenv.code_execution.base import ExecutionEnvironment
 
@@ -12,6 +12,7 @@ from anyenv.code_execution.docker_provider import DockerExecutionEnvironment
 from anyenv.code_execution.local_provider import LocalExecutionEnvironment
 from anyenv.code_execution.mcp_python_provider import McpPythonExecutionEnvironment
 from anyenv.code_execution.e2b_provider import E2bExecutionEnvironment
+from anyenv.code_execution.vercel_provider import VercelExecutionEnvironment
 from anyenv.code_execution.models import (
     ExecutionResult,
     ServerInfo,
@@ -109,8 +110,26 @@ def get_environment(
 ) -> BeamExecutionEnvironment: ...
 
 
+@overload
+def get_environment(
+    provider: Literal["vercel"],
+    *,
+    lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
+    runtime: str | None = None,
+    timeout: int = 300,
+    resources: dict[str, Any] | None = None,
+    ports: list[int] | None = None,
+    language: Language = "python",
+    token: str | None = None,
+    project_id: str | None = None,
+    team_id: str | None = None,
+) -> VercelExecutionEnvironment: ...
+
+
 def get_environment(  # noqa: PLR0911
-    provider: Literal["local", "subprocess", "docker", "mcp", "daytona", "e2b", "beam"],
+    provider: Literal[
+        "local", "subprocess", "docker", "mcp", "daytona", "e2b", "beam", "vercel"
+    ],
     **kwargs,
 ) -> ExecutionEnvironment:
     """Get an execution environment based on provider name.
@@ -138,6 +157,9 @@ def get_environment(  # noqa: PLR0911
 
         # Beam with custom resources
         env = get_environment("beam", cpu=2.0, memory=512, timeout=600.0)
+
+        # Vercel with custom runtime
+        env = get_environment("vercel", runtime="nodejs18.x", timeout=600.0)
         ```
     """  # noqa: E501
     match provider:
@@ -155,6 +177,8 @@ def get_environment(  # noqa: PLR0911
             return E2bExecutionEnvironment(**kwargs)
         case "beam":
             return BeamExecutionEnvironment(**kwargs)
+        case "vercel":
+            return VercelExecutionEnvironment(**kwargs)
         case _:
             error_msg = f"Unknown provider: {provider}"
             raise ValueError(error_msg)
@@ -173,6 +197,7 @@ __all__ = [
     "SubprocessExecutionEnvironment",
     "ToolCallRequest",
     "ToolCallResponse",
+    "VercelExecutionEnvironment",
     "get_environment",
     # "fastapi_tool_server",
 ]

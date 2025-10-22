@@ -47,6 +47,7 @@ e2b = ["e2b-code-interpreter"]
 httpx = ["httpx", "hishel"]
 mcp = ["fastmcp", "mcp-run-python"]
 msgspec = ["msgspec"]
+vercel = ["vercel"]
 
 [dependency-groups]
 dev = [
