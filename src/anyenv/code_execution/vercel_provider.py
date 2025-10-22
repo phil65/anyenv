@@ -28,6 +28,8 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
     from contextlib import AbstractAsyncContextManager
 
+    from vercel.sandbox import AsyncSandbox
+
     from anyenv.code_execution.models import Language, ServerInfo
 
 
@@ -76,7 +78,7 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
         self.token = token
         self.project_id = project_id
         self.team_id = team_id
-        self.sandbox = None
+        self.sandbox: AsyncSandbox | None = None
 
     async def __aenter__(self) -> Self:
         """Setup Vercel sandbox."""

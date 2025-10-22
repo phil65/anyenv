@@ -13,6 +13,8 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
     from contextlib import AbstractAsyncContextManager
 
+    from modal import App, Sandbox
+
     from anyenv.code_execution.models import Language, ServerInfo
 
 
@@ -62,8 +64,8 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
         self.idle_timeout = idle_timeout
         self.workdir = workdir
         self.language = language
-        self.app = None
-        self.sandbox = None
+        self.app: App | None = None
+        self.sandbox: Sandbox | None = None
 
     async def __aenter__(self) -> Self:
         """Setup Modal sandbox."""
