@@ -56,8 +56,10 @@ from anyenv.testing import open_in_playground
 from anyenv.json_tools import load_json, JsonLoadError, dump_json, JsonDumpError
 from anyenv.download.base import HttpBackend, HttpResponse, Session
 from anyenv.code_execution import get_environment
+from anyenv.code_execution.base import ExecutionEnvironment
 
 __all__ = [
+    "ExecutionEnvironment",
     "HttpBackend",
     "HttpError",
     "HttpResponse",
