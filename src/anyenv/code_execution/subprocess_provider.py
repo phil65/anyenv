@@ -58,7 +58,7 @@ class SubprocessExecutionEnvironment(ExecutionEnvironment):
                     stderr=asyncio.subprocess.PIPE,
                 )
                 await asyncio.wait_for(process.communicate(), timeout=self.timeout)
-            except Exception:
+            except Exception:  # noqa: BLE001
                 # Log warning but don't fail - code might still work
                 pass
 
