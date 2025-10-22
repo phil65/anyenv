@@ -54,6 +54,7 @@ from anyenv.calling import (
 from anyenv.package_install.functional import install, install_sync
 from anyenv.testing import open_in_playground
 from anyenv.json_tools import load_json, JsonLoadError, dump_json, JsonDumpError
+from anyenv.toml_tools import load_toml, TomlLoadError, dump_toml, TomlDumpError
 from anyenv.download.base import HttpBackend, HttpResponse, Session
 from anyenv.code_execution import get_environment
 from anyenv.code_execution.base import ExecutionEnvironment
@@ -70,11 +71,14 @@ __all__ = [
     "ResponseError",
     "Session",
     "ThreadGroup",
+    "TomlDumpError",
+    "TomlLoadError",
     "__version__",
     "call_and_gather",
     "download",
     "download_sync",
     "dump_json",
+    "dump_toml",
     "function_spawner",
     "gather",
     "get",
@@ -90,6 +94,7 @@ __all__ = [
     "install",
     "install_sync",
     "load_json",
+    "load_toml",
     "method_spawner",
     "open_in_playground",
     "post",
