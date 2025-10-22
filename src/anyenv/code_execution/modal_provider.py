@@ -101,7 +101,7 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
                 case _:
                     self.image = modal.Image.debian_slim().pip_install("python", "pip")
         # Create sandbox with configuration
-        sandbox_kwargs = {
+        sandbox_kwargs: dict[str, Any] = {
             "app": self.app,
             "image": self.image,
             "timeout": self.timeout,
