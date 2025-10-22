@@ -24,28 +24,27 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
     def __init__(
         self,
         lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
+        dependencies: list[str] | None = None,
         template: str | None = None,
         timeout: float = 300.0,
         keep_alive: bool = False,
         language: Language = "python",
-        dependencies: list[str] | None = None,
     ):
         """Initialize E2B environment.
 
         Args:
             lifespan_handler: Async context manager for tool server (optional)
+            dependencies: List of packages to install via pip / npm
             template: E2B template name/ID (uses 'base' if None)
             timeout: Sandbox timeout in seconds
             keep_alive: Keep sandbox running after execution
             language: Programming language to use
-            dependencies: List of packages to install via pip / npm
         """
-        super().__init__(lifespan_handler=lifespan_handler)
+        super().__init__(lifespan_handler=lifespan_handler, dependencies=dependencies)
         self.template = template
         self.timeout = timeout
         self.keep_alive = keep_alive
         self.language = language
-        self.dependencies = dependencies or []
         self.sandbox: Sandbox | None = None
 
     async def __aenter__(self) -> Self:

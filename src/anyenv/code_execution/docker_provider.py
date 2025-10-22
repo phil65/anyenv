@@ -26,25 +26,24 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
     def __init__(
         self,
         lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
+        dependencies: list[str] | None = None,
         image: str = "python:3.13-slim",
         timeout: float = 60.0,
         language: Language = "python",
-        dependencies: list[str] | None = None,
     ):
         """Initialize Docker environment.
 
         Args:
             lifespan_handler: Async context manager for tool server (optional)
+            dependencies: List of packages to install (pip for Python, npm for JS/TS)
             image: Docker image to use
             timeout: Execution timeout in seconds
             language: Programming language to use
-            dependencies: List of packages to install (pip for Python, npm for JS/TS)
         """
-        super().__init__(lifespan_handler=lifespan_handler)
+        super().__init__(lifespan_handler=lifespan_handler, dependencies=dependencies)
         self.image = image
         self.timeout = timeout
         self.language = language
-        self.dependencies = dependencies or []
         self.container: DockerContainer | None = None
 
     async def __aenter__(self) -> Self:

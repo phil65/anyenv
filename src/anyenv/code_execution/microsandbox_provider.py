@@ -21,6 +21,7 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
     def __init__(
         self,
         lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
+        dependencies: list[str] | None = None,
         server_url: str | None = None,
         namespace: str = "default",
         api_key: str | None = None,
@@ -29,12 +30,12 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
         timeout: float = 180.0,
         language: Language = "python",
         image: str | None = None,
-        dependencies: list[str] | None = None,
     ):
         """Initialize Microsandbox environment.
 
         Args:
             lifespan_handler: Async context manager for tool server (optional)
+            dependencies: List of packages to install via pip / npm
             server_url: Microsandbox server URL (defaults to MSB_SERVER_URL env var)
             namespace: Sandbox namespace
             api_key: API key for authentication (uses MSB_API_KEY env var if None)
@@ -43,9 +44,8 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
             timeout: Sandbox start timeout in seconds
             language: Programming language to use
             image: Custom Docker image (uses default for language if None)
-            dependencies: List of packages to install via pip / npm
         """
-        super().__init__(lifespan_handler=lifespan_handler)
+        super().__init__(lifespan_handler=lifespan_handler, dependencies=dependencies)
         self.server_url = server_url
         self.namespace = namespace
         self.api_key = api_key
@@ -54,7 +54,6 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
         self.timeout = timeout
         self.language = language
         self.image = image
-        self.dependencies = dependencies or []
         self.sandbox = None
 
     async def __aenter__(self) -> Self:

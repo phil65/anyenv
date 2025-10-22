@@ -40,8 +40,7 @@ class McpPythonExecutionEnvironment(ExecutionEnvironment):
             allow_networking: Whether to allow network access during code execution
             timeout: Execution timeout in seconds
         """
-        super().__init__(lifespan_handler=lifespan_handler)
-        self.dependencies = dependencies or []
+        super().__init__(lifespan_handler=lifespan_handler, dependencies=dependencies)
         self.allow_networking = allow_networking
         self.timeout = timeout
         self._client: Client | None = None

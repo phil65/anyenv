@@ -23,6 +23,7 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
     def __init__(
         self,
         lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
+        dependencies: list[str] | None = None,
         api_url: str | None = None,
         api_key: str | None = None,
         target: str | None = None,
@@ -30,12 +31,12 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
         timeout: float = 300.0,
         keep_alive: bool = False,
         language: Language = "python",
-        dependencies: list[str] | None = None,
     ):
         """Initialize Daytona environment.
 
         Args:
             lifespan_handler: Async context manager for tool server (optional)
+            dependencies: List of packages to install via pip / npm
             api_url: Daytona API server URL (uses DAYTONA_API_URL env var if None)
             api_key: API key for authentication (uses DAYTONA_API_KEY env var if None)
             target: Target location (uses DAYTONA_TARGET env var if None)
@@ -43,16 +44,14 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
             timeout: Execution timeout in seconds
             keep_alive: Keep sandbox running after execution
             language: Programming language to use for execution
-            dependencies: List of packages to install via pip / npm
         """
         from daytona import AsyncDaytona, DaytonaConfig
 
-        super().__init__(lifespan_handler=lifespan_handler)
+        super().__init__(lifespan_handler=lifespan_handler, dependencies=dependencies)
         self.image = image
         self.timeout = timeout
         self.keep_alive = keep_alive
         self.language = language
-        self.dependencies = dependencies or []
 
         # Create configuration
         if api_url or api_key or target:

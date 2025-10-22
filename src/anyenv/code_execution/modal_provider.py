@@ -24,6 +24,7 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
     def __init__(
         self,
         lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
+        dependencies: list[str] | None = None,
         app_name: str | None = None,
         image: Image | None = None,
         volumes: dict[str, Any] | None = None,
@@ -35,12 +36,12 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
         idle_timeout: int | None = None,
         workdir: str = "/tmp",
         language: Language = "python",
-        dependencies: list[str] | None = None,
     ):
         """Initialize Modal sandbox environment.
 
         Args:
             lifespan_handler: Async context manager for tool server (optional)
+            dependencies: List of packages to install via pip / npm
             app_name: Modal app name (creates if missing)
             image: Modal Image object (uses default if None)
             volumes: Dict of mount paths to Modal Volume objects
@@ -52,9 +53,8 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
             idle_timeout: Idle timeout in seconds
             workdir: Working directory in sandbox
             language: Programming language to use
-            dependencies: List of packages to install via pip / npm
         """
-        super().__init__(lifespan_handler=lifespan_handler)
+        super().__init__(lifespan_handler=lifespan_handler, dependencies=dependencies)
         self.app_name = app_name or "anyenv-execution"
         self.image = image
         self.volumes = volumes
@@ -66,7 +66,6 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
         self.idle_timeout = idle_timeout
         self.workdir = workdir
         self.language = language
-        self.dependencies = dependencies or []
         self.app: App | None = None
         self.sandbox: Sandbox | None = None
 

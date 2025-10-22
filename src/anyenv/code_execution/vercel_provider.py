@@ -39,6 +39,7 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
     def __init__(
         self,
         lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
+        dependencies: list[str] | None = None,
         runtime: VercelRuntime | None = None,
         timeout: int = DEFAULT_TIMEOUT_SECONDS,
         resources: dict[str, Any] | None = None,
@@ -47,12 +48,12 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
         token: str | None = None,
         project_id: str | None = None,
         team_id: str | None = None,
-        dependencies: list[str] | None = None,
     ):
         """Initialize Vercel sandbox environment.
 
         Args:
             lifespan_handler: Async context manager for tool server (optional)
+            dependencies: List of packages to install via pip / npm
             runtime: Vercel runtime to use (allowed: node22, python3.13,
                 v0-next-shadcn, cua-ubuntu-xfce, walleye-python)
             timeout: Sandbox timeout in seconds (minimum 1)
@@ -62,9 +63,8 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
             token: Vercel API token (uses environment if None)
             project_id: Vercel project ID (uses environment if None)
             team_id: Vercel team ID (uses environment if None)
-            dependencies: List of packages to install via pip / npm
         """
-        super().__init__(lifespan_handler=lifespan_handler)
+        super().__init__(lifespan_handler=lifespan_handler, dependencies=dependencies)
         self.runtime = runtime
         # Convert timeout from seconds to milliseconds for Vercel API
         self.timeout_ms = timeout * 1000
@@ -79,7 +79,6 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
         self.token = token
         self.project_id = project_id
         self.team_id = team_id
-        self.dependencies = dependencies or []
         self.sandbox: AsyncSandbox | None = None
 
     async def __aenter__(self) -> Self:

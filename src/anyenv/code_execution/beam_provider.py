@@ -25,31 +25,30 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
     def __init__(
         self,
         lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
+        dependencies: list[str] | None = None,
         cpu: float | str = 1.0,
         memory: int | str = 128,
         keep_warm_seconds: int = 600,
         timeout: float = 300.0,
         language: Language = "python",
-        dependencies: list[str] | None = None,
     ):
         """Initialize Beam environment.
 
         Args:
             lifespan_handler: Async context manager for tool server (optional)
+            dependencies: List of packages to install via pip / npm
             cpu: CPU cores allocated to the container
             memory: Memory allocated to the container (MiB or string with units)
             keep_warm_seconds: Seconds to keep sandbox alive (-1 for no timeout)
             timeout: Execution timeout in seconds
             language: Programming language to use
-            dependencies: List of packages to install via pip / npm
         """
-        super().__init__(lifespan_handler=lifespan_handler)
+        super().__init__(lifespan_handler=lifespan_handler, dependencies=dependencies)
         self.cpu = cpu
         self.memory = memory
         self.keep_warm_seconds = keep_warm_seconds
         self.timeout = timeout
         self.language = language
-        self.dependencies = dependencies or []
         self.sandbox: Sandbox | None = None
         self.instance: SandboxInstance | None = None
 
