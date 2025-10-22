@@ -46,6 +46,8 @@ docker = ["testcontainers"]
 e2b = ["e2b-code-interpreter"]
 httpx = ["httpx", "hishel"]
 mcp = ["fastmcp", "mcp-run-python"]
+microsandbox = ["microsandbox"]
+modal = ["modal"]
 msgspec = ["msgspec"]
 vercel = ["vercel"]
 

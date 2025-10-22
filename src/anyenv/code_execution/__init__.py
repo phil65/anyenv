@@ -12,6 +12,8 @@ from anyenv.code_execution.docker_provider import DockerExecutionEnvironment
 from anyenv.code_execution.local_provider import LocalExecutionEnvironment
 from anyenv.code_execution.mcp_python_provider import McpPythonExecutionEnvironment
 from anyenv.code_execution.e2b_provider import E2bExecutionEnvironment
+from anyenv.code_execution.microsandbox_provider import MicrosandboxExecutionEnvironment
+from anyenv.code_execution.modal_provider import ModalExecutionEnvironment
 from anyenv.code_execution.vercel_provider import VercelExecutionEnvironment
 from anyenv.code_execution.models import (
     ExecutionResult,
@@ -126,9 +128,53 @@ def get_environment(
 ) -> VercelExecutionEnvironment: ...
 
 
+@overload
+def get_environment(
+    provider: Literal["microsandbox"],
+    *,
+    lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
+    server_url: str | None = None,
+    namespace: str = "default",
+    api_key: str | None = None,
+    memory: int = 512,
+    cpus: float = 1.0,
+    timeout: float = 180.0,
+    language: Language = "python",
+    image: str | None = None,
+) -> MicrosandboxExecutionEnvironment: ...
+
+
+@overload
+def get_environment(
+    provider: Literal["modal"],
+    *,
+    lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
+    app_name: str | None = None,
+    image: Any | None = None,
+    volumes: dict[str, Any] | None = None,
+    secrets: list[Any] | None = None,
+    cpu: float | None = None,
+    memory: int | None = None,
+    gpu: str | None = None,
+    timeout: int = 300,
+    idle_timeout: int | None = None,
+    workdir: str = "/tmp",
+    language: Language = "python",
+) -> ModalExecutionEnvironment: ...
+
+
 def get_environment(  # noqa: PLR0911
     provider: Literal[
-        "local", "subprocess", "docker", "mcp", "daytona", "e2b", "beam", "vercel"
+        "local",
+        "subprocess",
+        "docker",
+        "mcp",
+        "daytona",
+        "e2b",
+        "beam",
+        "vercel",
+        "microsandbox",
+        "modal",
     ],
     **kwargs,
 ) -> ExecutionEnvironment:
@@ -160,6 +206,12 @@ def get_environment(  # noqa: PLR0911
 
         # Vercel with custom runtime
         env = get_environment("vercel", runtime="nodejs18.x", timeout=600.0)
+
+        # Microsandbox with custom resources
+        env = get_environment("microsandbox", memory=1024, cpus=2.0, language="javascript")
+
+        # Modal with GPU and volumes
+        env = get_environment("modal", gpu="T4", memory=2048, app_name="my-app")
         ```
     """  # noqa: E501
     match provider:
@@ -179,6 +231,10 @@ def get_environment(  # noqa: PLR0911
             return BeamExecutionEnvironment(**kwargs)
         case "vercel":
             return VercelExecutionEnvironment(**kwargs)
+        case "microsandbox":
+            return MicrosandboxExecutionEnvironment(**kwargs)
+        case "modal":
+            return ModalExecutionEnvironment(**kwargs)
         case _:
             error_msg = f"Unknown provider: {provider}"
             raise ValueError(error_msg)
@@ -193,6 +249,8 @@ __all__ = [
     "ExecutionResult",
     "LocalExecutionEnvironment",
     "McpPythonExecutionEnvironment",
+    "MicrosandboxExecutionEnvironment",
+    "ModalExecutionEnvironment",
     "ServerInfo",
     "SubprocessExecutionEnvironment",
     "ToolCallRequest",
