@@ -12,6 +12,8 @@ from anyenv.code_execution.models import ExecutionResult
 if TYPE_CHECKING:
     from contextlib import AbstractAsyncContextManager
 
+    from daytona._async.sandbox import AsyncSandbox
+
     from anyenv.code_execution.models import Language, ServerInfo
 
 
@@ -57,7 +59,7 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
             # Use environment variables
             self.daytona = AsyncDaytona()
 
-        self.sandbox = None
+        self.sandbox: AsyncSandbox | None = None
 
     async def __aenter__(self) -> Self:
         """Setup Daytona client and create sandbox."""
