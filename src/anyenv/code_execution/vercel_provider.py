@@ -3,10 +3,25 @@
 from __future__ import annotations
 
 import time
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, Any, Literal, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.models import ExecutionResult
+
+
+# Vercel runtime options based on the API error message
+VercelRuntime = Literal[
+    "node22",
+    "python3.13",
+    "v0-next-shadcn",
+    "cua-ubuntu-xfce",
+    "walleye-python",
+]
+
+# Vercel API minimum timeout requirement (1 second in milliseconds)
+MIN_TIMEOUT_MILLISECONDS = 1000
+# Default timeout in seconds (1 minute, converted to milliseconds for API)
+DEFAULT_TIMEOUT_SECONDS = 60
 
 
 if TYPE_CHECKING:
@@ -22,8 +37,8 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
     def __init__(
         self,
         lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
-        runtime: str | None = None,
-        timeout: int = 300,
+        runtime: VercelRuntime | None = None,
+        timeout: int = DEFAULT_TIMEOUT_SECONDS,
         resources: dict[str, Any] | None = None,
         ports: list[int] | None = None,
         language: Language = "python",
@@ -35,8 +50,9 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
 
         Args:
             lifespan_handler: Async context manager for tool server (optional)
-            runtime: Vercel runtime to use (e.g., 'nodejs18.x', 'python3.9')
-            timeout: Sandbox timeout in seconds
+            runtime: Vercel runtime to use (allowed: node22, python3.13,
+                v0-next-shadcn, cua-ubuntu-xfce, walleye-python)
+            timeout: Sandbox timeout in seconds (minimum 1)
             resources: Resource configuration for the sandbox
             ports: List of ports to expose
             language: Programming language to use
@@ -46,10 +62,17 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
         """
         super().__init__(lifespan_handler=lifespan_handler)
         self.runtime = runtime
-        self.timeout = timeout
+        # Convert timeout from seconds to milliseconds for Vercel API
+        self.timeout_ms = timeout * 1000
+        # Validate timeout meets Vercel's minimum requirement (1 second = 1000ms)
+        if self.timeout_ms < MIN_TIMEOUT_MILLISECONDS:
+            error_msg = f"Vercel requires timeout >= 1 second, got {timeout} seconds"
+            raise ValueError(error_msg)
+
         self.resources = resources
         self.ports = ports or [3000]
         self.language = language
+
         self.token = token
         self.project_id = project_id
         self.team_id = team_id
@@ -66,7 +89,7 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
         # Create sandbox with specified configuration
         self.sandbox = await AsyncSandbox.create(
             runtime=self.runtime or self._get_default_runtime(),
-            timeout=self.timeout,
+            timeout=self.timeout_ms,
             resources=self.resources,
             ports=self.ports,
             token=self.token,
@@ -86,17 +109,17 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
         # Cleanup server via base class
         await super().__aexit__(exc_type, exc_val, exc_tb)
 
-    def _get_default_runtime(self) -> str:
+    def _get_default_runtime(self) -> VercelRuntime:
         """Get default runtime based on language."""
         match self.language:
             case "python":
-                return "python3.9"
+                return "python3.13"
             case "javascript":
-                return "nodejs18.x"
+                return "node22"
             case "typescript":
-                return "nodejs18.x"
+                return "node22"
             case _:
-                return "python3.9"
+                return "python3.13"
 
     async def execute(self, code: str) -> ExecutionResult:
         """Execute code in the Vercel sandbox."""
@@ -116,8 +139,8 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
             ])
 
             # Execute the script
-            command = self._get_execution_command(script_path)
-            result = await self.sandbox.run_command(command)
+            cmd, args = self._get_execution_command(script_path)
+            result = await self.sandbox.run_command(cmd, args)
 
             duration = time.time() - start_time
 
@@ -177,15 +200,19 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
             ])
 
             # Execute the script in detached mode for streaming
-            command = self._get_execution_command(script_path)
-            cmd = await self.sandbox.run_command_detached(command)
+            cmd_name, args = self._get_execution_command(script_path)
+            cmd = await self.sandbox.run_command_detached(cmd_name, args)
 
             # Stream logs from the command
             async for log_line in self.sandbox.client.get_logs(
                 sandbox_id=self.sandbox.sandbox_id, cmd_id=cmd.cmd_id
             ):
                 # LogLine has stream and data attributes
-                yield log_line.data
+                # Split batched content into individual lines
+                if log_line.data:
+                    for line in log_line.data.splitlines():
+                        if line.strip():  # Skip empty lines
+                            yield line
 
             # Wait for command completion and yield final status
             finished = await cmd.wait()
@@ -204,8 +231,19 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
         start_time = time.time()
 
         try:
+            # Parse command into cmd and args
+            import shlex
+
+            parts = shlex.split(command)
+            if not parts:
+                error_msg = "Empty command provided"
+                raise ValueError(error_msg)
+
+            cmd = parts[0]
+            args = parts[1:] if len(parts) > 1 else None
+
             # Execute command using sandbox's run_command method
-            result = await self.sandbox.run_command(command)
+            result = await self.sandbox.run_command(cmd, args)
             duration = time.time() - start_time
 
             # Get stdout and stderr from the finished command
@@ -241,15 +279,30 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
             raise RuntimeError(error_msg)
 
         try:
+            # Parse command into cmd and args
+            import shlex
+
+            parts = shlex.split(command)
+            if not parts:
+                yield "ERROR: Empty command provided"
+                return
+
+            cmd_name = parts[0]
+            args = parts[1:] if len(parts) > 1 else None
+
             # Execute command in detached mode for streaming
-            cmd = await self.sandbox.run_command_detached(command)
+            cmd = await self.sandbox.run_command_detached(cmd_name, args)
 
             # Stream logs from the command
             async for log_line in self.sandbox.client.get_logs(
                 sandbox_id=self.sandbox.sandbox_id, cmd_id=cmd.cmd_id
             ):
                 # LogLine has stream and data attributes
-                yield log_line.data
+                # Split batched content into individual lines
+                if log_line.data:
+                    for line in log_line.data.splitlines():
+                        if line.strip():  # Skip empty lines
+                            yield line
 
             # Wait for command completion and yield final status
             finished = await cmd.wait()
@@ -277,17 +330,31 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
             case _:
                 return "/tmp/vercel_execution_script.py"
 
-    def _get_execution_command(self, script_path: str) -> str:
-        """Get execution command based on language."""
+    def _get_execution_command(self, script_path: str) -> tuple[str, list[str]]:  # noqa: PLR0911
+        """Get execution command based on language and runtime.
+
+        Returns:
+            Tuple of (cmd, args) where cmd is the executable and args is the arg list.
+        """
+        runtime = self.runtime or self._get_default_runtime()
+
         match self.language:
             case "python":
-                return f"python {script_path}"
+                if runtime == "python3.13":
+                    return ("python3", [script_path])
+                if runtime == "walleye-python":
+                    return ("python", [script_path])
+                return ("python3", [script_path])
             case "javascript":
-                return f"node {script_path}"
+                return ("node", [script_path])
             case "typescript":
-                return f"npx ts-node {script_path}"
+                return ("npx", ["ts-node", script_path])
             case _:
-                return f"python {script_path}"
+                if runtime == "python3.13":
+                    return ("python3", [script_path])
+                if runtime == "walleye-python":
+                    return ("python", [script_path])
+                return ("python3", [script_path])
 
     def _wrap_code_for_vercel(self, code: str) -> str:
         """Wrap user code for Vercel execution with result capture."""

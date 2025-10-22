@@ -14,7 +14,11 @@ from anyenv.code_execution.mcp_python_provider import McpPythonExecutionEnvironm
 from anyenv.code_execution.e2b_provider import E2bExecutionEnvironment
 from anyenv.code_execution.microsandbox_provider import MicrosandboxExecutionEnvironment
 from anyenv.code_execution.modal_provider import ModalExecutionEnvironment
-from anyenv.code_execution.vercel_provider import VercelExecutionEnvironment
+from anyenv.code_execution.vercel_provider import (
+    DEFAULT_TIMEOUT_SECONDS,
+    VercelExecutionEnvironment,
+    VercelRuntime,
+)
 from anyenv.code_execution.models import (
     ExecutionResult,
     ServerInfo,
@@ -117,8 +121,8 @@ def get_environment(
     provider: Literal["vercel"],
     *,
     lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
-    runtime: str | None = None,
-    timeout: int = 300,
+    runtime: VercelRuntime | None = None,
+    timeout: int = DEFAULT_TIMEOUT_SECONDS,
     resources: dict[str, Any] | None = None,
     ports: list[int] | None = None,
     language: Language = "python",
@@ -205,7 +209,7 @@ def get_environment(  # noqa: PLR0911
         env = get_environment("beam", cpu=2.0, memory=512, timeout=600.0)
 
         # Vercel with custom runtime
-        env = get_environment("vercel", runtime="nodejs18.x", timeout=600.0)
+        env = get_environment("vercel", runtime="node22", timeout=600.0)
 
         # Microsandbox with custom resources
         env = get_environment("microsandbox", memory=1024, cpus=2.0, language="javascript")
@@ -256,6 +260,7 @@ __all__ = [
     "ToolCallRequest",
     "ToolCallResponse",
     "VercelExecutionEnvironment",
+    "VercelRuntime",
     "get_environment",
     # "fastapi_tool_server",
 ]
