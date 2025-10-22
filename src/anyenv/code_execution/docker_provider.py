@@ -28,6 +28,7 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
         image: str = "python:3.13-slim",
         timeout: float = 60.0,
         language: Language = "python",
+        dependencies: list[str] | None = None,
     ):
         """Initialize Docker environment.
 
@@ -36,16 +37,54 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
             image: Docker image to use
             timeout: Execution timeout in seconds
             language: Programming language to use
+            dependencies: List of packages to install (pip for Python, npm for JS/TS)
         """
         super().__init__(lifespan_handler=lifespan_handler)
         self.image = image
         self.timeout = timeout
         self.language = language
+        self.dependencies = dependencies or []
         self.container: DockerContainer | None = None
 
     async def __aenter__(self) -> Self:
         # Start tool server via base class
         await super().__aenter__()
+
+        # Create and setup Docker container
+        from testcontainers.core.container import DockerContainer
+
+        self.container = DockerContainer(self.image)
+
+        # Build install commands
+        install_commands = []
+        if self.server_info:
+            install_commands.append("pip install httpx")
+        if self.dependencies:
+            deps_str = " ".join(self.dependencies)
+            match self.language:
+                case "python":
+                    install_commands.append(f"pip install {deps_str}")
+                case "javascript" | "typescript":
+                    install_commands.append(f"npm install {deps_str}")
+
+        if install_commands:
+            full_command = " && ".join(install_commands) + " && sleep infinity"
+            self.container = self.container.with_command([
+                "sh",
+                "-c",
+                full_command,
+            ])
+            if self.server_info:
+                self.container = self.container.with_kwargs(network_mode="host")
+        else:
+            # Just start the container for simple execution
+            self.container = self.container.with_command([
+                "sh",
+                "-c",
+                "sleep infinity",
+            ])
+
+        self.container.start()
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -62,25 +101,9 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
         start_time = time.time()
 
         try:
-            from testcontainers.core.container import DockerContainer
-
-            self.container = DockerContainer(self.image)
-            if self.server_info:
-                # Install httpx if we have a tool server
-                self.container = self.container.with_command([
-                    "sh",
-                    "-c",
-                    "pip install httpx && sleep infinity",
-                ]).with_kwargs(network_mode="host")  # Allow access to host for HTTP calls
-            else:
-                # Just start the container for simple execution
-                self.container = self.container.with_command([
-                    "sh",
-                    "-c",
-                    "sleep infinity",
-                ])
-
-            self.container.start()
+            if not self.container:
+                error_msg = "Docker environment not properly initialized"
+                raise RuntimeError(error_msg)  # noqa: TRY301
             wrapped_code = self._wrap_code_for_docker(code)  # Create execution script
 
             # Write code to a temporary file in the container using Python
@@ -413,25 +436,9 @@ executeMain().then(result => {{
             Lines of output as they are produced
         """
         try:
-            from testcontainers.core.container import DockerContainer
-
-            self.container = DockerContainer(self.image)
-            if self.server_info:
-                # Install httpx if we have a tool server
-                self.container = self.container.with_command([
-                    "sh",
-                    "-c",
-                    "pip install httpx && sleep infinity",
-                ]).with_kwargs(network_mode="host")  # Allow access to host for HTTP calls
-            else:
-                # Just start the container for simple execution
-                self.container = self.container.with_command([
-                    "sh",
-                    "-c",
-                    "sleep infinity",
-                ])
-
-            self.container.start()
+            if not self.container:
+                error_msg = "Docker environment not properly initialized"
+                raise RuntimeError(error_msg)  # noqa: TRY301
             wrapped_code = self._wrap_code_for_docker(code)  # Create execution script
 
             # Write code to a temporary file in the container using Python
@@ -469,16 +476,9 @@ executeMain().then(result => {{
         start_time = time.time()
 
         try:
-            from testcontainers.core.container import DockerContainer
-
-            self.container = DockerContainer(self.image)
-            self.container = self.container.with_command([
-                "sh",
-                "-c",
-                "sleep infinity",
-            ])
-
-            self.container.start()
+            if not self.container:
+                error_msg = "Docker environment not properly initialized"
+                raise RuntimeError(error_msg)  # noqa: TRY301
 
             # Execute the command directly
             result = self.container.exec(command)
@@ -519,16 +519,9 @@ executeMain().then(result => {{
             Lines of output as they are produced
         """
         try:
-            from testcontainers.core.container import DockerContainer
-
-            self.container = DockerContainer(self.image)
-            self.container = self.container.with_command([
-                "sh",
-                "-c",
-                "sleep infinity",
-            ])
-
-            self.container.start()
+            if not self.container:
+                error_msg = "Docker environment not properly initialized"
+                raise RuntimeError(error_msg)  # noqa: TRY301
 
             # Execute and stream output using underlying docker container
             docker_container = self.container.get_wrapped_container()
