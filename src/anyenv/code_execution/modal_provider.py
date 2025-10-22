@@ -87,8 +87,19 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
 
         # Use default image if none provided
         if self.image is None:
-            self.image = self._get_default_image(modal)
-
+            match self.language:
+                case "python":
+                    self.image = modal.Image.debian_slim().pip_install("python", "pip")
+                case "javascript":
+                    self.image = modal.Image.debian_slim().apt_install("nodejs", "npm")
+                case "typescript":
+                    self.image = (
+                        modal.Image.debian_slim()
+                        .apt_install("nodejs", "npm")
+                        .run_commands("npm install -g typescript ts-node")
+                    )
+                case _:
+                    self.image = modal.Image.debian_slim().pip_install("python", "pip")
         # Create sandbox with configuration
         sandbox_kwargs = {
             "app": self.app,
@@ -123,22 +134,6 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
 
         # Cleanup server via base class
         await super().__aexit__(exc_type, exc_val, exc_tb)
-
-    def _get_default_image(self, modal):
-        """Get default image based on language."""
-        match self.language:
-            case "python":
-                return modal.Image.debian_slim().pip_install("python", "pip")
-            case "javascript":
-                return modal.Image.debian_slim().apt_install("nodejs", "npm")
-            case "typescript":
-                return (
-                    modal.Image.debian_slim()
-                    .apt_install("nodejs", "npm")
-                    .run_commands("npm install -g typescript ts-node")
-                )
-            case _:
-                return modal.Image.debian_slim().pip_install("python", "pip")
 
     async def execute(self, code: str) -> ExecutionResult:
         """Execute code in the Modal sandbox."""
