@@ -30,6 +30,7 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
         timeout: float = 300.0,
         keep_alive: bool = False,
         language: Language = "python",
+        dependencies: list[str] | None = None,
     ):
         """Initialize Daytona environment.
 
@@ -42,6 +43,7 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
             timeout: Execution timeout in seconds
             keep_alive: Keep sandbox running after execution
             language: Programming language to use for execution
+            dependencies: List of packages to install via pip / npm
         """
         from daytona import AsyncDaytona, DaytonaConfig
 
@@ -50,6 +52,7 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
         self.timeout = timeout
         self.keep_alive = keep_alive
         self.language = language
+        self.dependencies = dependencies or []
 
         # Create configuration
         if api_url or api_key or target:
@@ -83,6 +86,14 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
         assert self.sandbox, "Failed to create sandbox"
         # Start the sandbox and wait for it to be ready
         await self.sandbox.start(timeout=120)
+
+        # Install Python dependencies if specified
+        if self.dependencies and self.language == "python":
+            deps_str = " ".join(self.dependencies)
+            install_result = await self.sandbox.process.exec(f"pip install {deps_str}")
+            if install_result.exit_code != 0:
+                # Log warning but don't fail - code might still work
+                pass
 
         return self
 

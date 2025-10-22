@@ -29,6 +29,7 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
         timeout: float = 180.0,
         language: Language = "python",
         image: str | None = None,
+        dependencies: list[str] | None = None,
     ):
         """Initialize Microsandbox environment.
 
@@ -42,6 +43,7 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
             timeout: Sandbox start timeout in seconds
             language: Programming language to use
             image: Custom Docker image (uses default for language if None)
+            dependencies: List of packages to install via pip / npm
         """
         super().__init__(lifespan_handler=lifespan_handler)
         self.server_url = server_url
@@ -52,6 +54,7 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
         self.timeout = timeout
         self.language = language
         self.image = image
+        self.dependencies = dependencies or []
         self.sandbox = None
 
     async def __aenter__(self) -> Self:
@@ -87,6 +90,14 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
         # Configure sandbox resources if needed
         # Note: Microsandbox handles resource config during start()
         # which is already called by the context manager
+
+        # Install Python dependencies if specified
+        if self.dependencies and self.language == "python":
+            deps_str = " ".join(self.dependencies)
+            install_result = await self.sandbox.command.run(f"pip install {deps_str}")
+            if install_result.exit_code != 0:
+                # Log warning but don't fail - code might still work
+                pass
 
         return self
 

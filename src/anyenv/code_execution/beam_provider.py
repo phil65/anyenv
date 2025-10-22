@@ -30,6 +30,7 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
         keep_warm_seconds: int = 600,
         timeout: float = 300.0,
         language: Language = "python",
+        dependencies: list[str] | None = None,
     ):
         """Initialize Beam environment.
 
@@ -40,6 +41,7 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
             keep_warm_seconds: Seconds to keep sandbox alive (-1 for no timeout)
             timeout: Execution timeout in seconds
             language: Programming language to use
+            dependencies: List of packages to install via pip / npm
         """
         super().__init__(lifespan_handler=lifespan_handler)
         self.cpu = cpu
@@ -47,6 +49,7 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
         self.keep_warm_seconds = keep_warm_seconds
         self.timeout = timeout
         self.language = language
+        self.dependencies = dependencies or []
         self.sandbox: Sandbox | None = None
         self.instance: SandboxInstance | None = None
 
@@ -60,12 +63,20 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
 
         match self.language:
             case "python":
-                image = Image(python_version="python3.12")
+                image = Image(
+                    python_version="python3.12",
+                    python_packages=self.dependencies,
+                )
             case "javascript" | "typescript":
                 # Use a Node.js base image for JS/TS
                 image = Image(base_image="node:20")
+                if self.dependencies:
+                    image.add_commands(f"npm install {' '.join(self.dependencies)}")
             case _:
-                image = Image(python_version="python3.12")
+                image = Image(
+                    python_version="python3.12",
+                    python_packages=self.dependencies,
+                )
 
         self.sandbox = Sandbox(
             cpu=self.cpu,

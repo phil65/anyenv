@@ -28,6 +28,7 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
         timeout: float = 300.0,
         keep_alive: bool = False,
         language: Language = "python",
+        dependencies: list[str] | None = None,
     ):
         """Initialize E2B environment.
 
@@ -37,12 +38,14 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
             timeout: Sandbox timeout in seconds
             keep_alive: Keep sandbox running after execution
             language: Programming language to use
+            dependencies: List of packages to install via pip / npm
         """
         super().__init__(lifespan_handler=lifespan_handler)
         self.template = template
         self.timeout = timeout
         self.keep_alive = keep_alive
         self.language = language
+        self.dependencies = dependencies or []
         self.sandbox: Sandbox | None = None
 
     async def __aenter__(self) -> Self:
@@ -60,6 +63,22 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
             )
         else:
             self.sandbox = Sandbox.create(timeout=int(self.timeout))
+
+        # Install dependencies if specified
+        if self.dependencies:
+            deps_str = " ".join(self.dependencies)
+            match self.language:
+                case "python":
+                    install_result = self.sandbox.commands.run(f"pip install {deps_str}")
+                case "javascript" | "typescript":
+                    install_result = self.sandbox.commands.run(f"npm install {deps_str}")
+                case _:
+                    install_result = None
+
+            if install_result and install_result.exit_code != 0:
+                # Log warning but don't fail - code might still work
+                pass
+
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:

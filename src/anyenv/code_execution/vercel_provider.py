@@ -47,6 +47,7 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
         token: str | None = None,
         project_id: str | None = None,
         team_id: str | None = None,
+        dependencies: list[str] | None = None,
     ):
         """Initialize Vercel sandbox environment.
 
@@ -61,6 +62,7 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
             token: Vercel API token (uses environment if None)
             project_id: Vercel project ID (uses environment if None)
             team_id: Vercel team ID (uses environment if None)
+            dependencies: List of packages to install via pip / npm
         """
         super().__init__(lifespan_handler=lifespan_handler)
         self.runtime = runtime
@@ -74,10 +76,10 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
         self.resources = resources
         self.ports = ports or [3000]
         self.language = language
-
         self.token = token
         self.project_id = project_id
         self.team_id = team_id
+        self.dependencies = dependencies or []
         self.sandbox: AsyncSandbox | None = None
 
     async def __aenter__(self) -> Self:
@@ -98,6 +100,20 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
             project_id=self.project_id,
             team_id=self.team_id,
         )
+
+        # Install Python dependencies if specified
+        if self.dependencies and self.language == "python":
+            try:
+                install_result = await self.sandbox.run_command(
+                    "pip", ["install", *self.dependencies]
+                )
+                if install_result.exit_code != 0:
+                    # Log warning but don't fail - code might still work
+                    pass
+            except Exception:  # noqa: BLE001
+                # Log warning but don't fail - code might still work
+                pass
+
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:

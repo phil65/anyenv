@@ -35,6 +35,7 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
         idle_timeout: int | None = None,
         workdir: str = "/tmp",
         language: Language = "python",
+        dependencies: list[str] | None = None,
     ):
         """Initialize Modal sandbox environment.
 
@@ -51,6 +52,7 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
             idle_timeout: Idle timeout in seconds
             workdir: Working directory in sandbox
             language: Programming language to use
+            dependencies: List of packages to install via pip / npm
         """
         super().__init__(lifespan_handler=lifespan_handler)
         self.app_name = app_name or "anyenv-execution"
@@ -64,6 +66,7 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
         self.idle_timeout = idle_timeout
         self.workdir = workdir
         self.language = language
+        self.dependencies = dependencies or []
         self.app: App | None = None
         self.sandbox: Sandbox | None = None
 
@@ -89,7 +92,11 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
         if self.image is None:
             match self.language:
                 case "python":
-                    self.image = modal.Image.debian_slim().pip_install("python", "pip")
+                    base_image = modal.Image.debian_slim().pip_install("python", "pip")
+                    if self.dependencies:
+                        self.image = base_image.pip_install(*self.dependencies)
+                    else:
+                        self.image = base_image
                 case "javascript":
                     self.image = modal.Image.debian_slim().apt_install("nodejs", "npm")
                 case "typescript":
