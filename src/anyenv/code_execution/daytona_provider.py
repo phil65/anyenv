@@ -76,9 +76,7 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
             case _:
                 msg = f"Unsupported language: {self.language}"
                 raise ValueError(msg)
-        params = CreateSandboxFromImageParams(
-            name=f"anyenv-exec-{int(time.time())}", image=self.image, language=language
-        )
+        params = CreateSandboxFromImageParams(image=self.image, language=language)
         self.sandbox = await self.daytona.create(params)
         assert self.sandbox, "Failed to create sandbox"
         # Start the sandbox and wait for it to be ready

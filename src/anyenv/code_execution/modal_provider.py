@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
     from contextlib import AbstractAsyncContextManager
 
-    from modal import App, Sandbox
+    from modal import App, Image, Sandbox
 
     from anyenv.code_execution.models import Language, ServerInfo
 
@@ -25,7 +25,7 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
         self,
         lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
         app_name: str | None = None,
-        image: Any | None = None,
+        image: Image | None = None,
         volumes: dict[str, Any] | None = None,
         secrets: list[Any] | None = None,
         cpu: float | None = None,
