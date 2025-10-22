@@ -6,6 +6,8 @@ from io import TextIOWrapper
 from pathlib import Path
 from typing import Any
 
+from upath import UPath
+
 from anyenv.toml_tools.base import TomlDumpError, TomlLoadError, TomlProviderBase
 
 
@@ -13,7 +15,7 @@ class RtomlProvider(TomlProviderBase):
     """RTOML implementation of the TOML provider interface."""
 
     @staticmethod
-    def load_toml(data: str | bytes | TextIOWrapper | Path) -> Any:
+    def load_toml(data: str | bytes | TextIOWrapper | Path | UPath) -> Any:
         """Load TOML using rtoml."""
         import rtoml
 
@@ -21,6 +23,9 @@ class RtomlProvider(TomlProviderBase):
             match data:
                 case Path():
                     return rtoml.load(data)
+                case UPath():
+                    content = data.read_text()
+                    return rtoml.loads(content)
                 case TextIOWrapper():
                     content = data.read()
                     return rtoml.loads(content)

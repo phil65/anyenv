@@ -29,6 +29,7 @@ dependencies = [
   "anyio>=4.8.0",
   # Only add below (Copier)
   "appdirs>=1.4.4",
+  "universal-pathlib>=0.3.4",
 ]
 
 [project.urls]
