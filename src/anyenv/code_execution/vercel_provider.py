@@ -237,7 +237,7 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
             parts = shlex.split(command)
             if not parts:
                 error_msg = "Empty command provided"
-                raise ValueError(error_msg)
+                raise ValueError(error_msg)  # noqa: TRY301
 
             cmd = parts[0]
             args = parts[1:] if len(parts) > 1 else None

@@ -70,11 +70,16 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
             raise ImportError(error_msg) from e
 
         # Select appropriate sandbox type based on language
-        sandbox_class = self._get_sandbox_class(PythonSandbox, NodeSandbox)
-
+        match self.language:
+            case "python":
+                sandbox_class = PythonSandbox
+            case "javascript" | "typescript":
+                sandbox_class = NodeSandbox
+            case _:
+                sandbox_class = PythonSandbox
         # Create sandbox with context manager
         self.sandbox = await sandbox_class.create(
-            server_url=self.server_url,
+            server_url=self.server_url,  # type: ignore
             namespace=self.namespace,
             api_key=self.api_key,
         ).__aenter__()
@@ -92,20 +97,10 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
 
             with contextlib.suppress(Exception):
                 # Exit the context manager properly
-                await self.sandbox.__aexit__(exc_type, exc_val, exc_tb)
+                await self.sandbox.stop()
 
         # Cleanup server via base class
         await super().__aexit__(exc_type, exc_val, exc_tb)
-
-    def _get_sandbox_class(self, PythonSandbox, NodeSandbox):
-        """Get appropriate sandbox class based on language."""
-        match self.language:
-            case "python":
-                return PythonSandbox
-            case "javascript" | "typescript":
-                return NodeSandbox
-            case _:
-                return PythonSandbox  # Default to Python
 
     async def execute(self, code: str) -> ExecutionResult:
         """Execute code in the Microsandbox environment."""
@@ -171,7 +166,7 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
             parts = shlex.split(command)
             if not parts:
                 error_msg = "Empty command provided"
-                raise ValueError(error_msg)
+                raise ValueError(error_msg)  # noqa: TRY301
 
             cmd = parts[0]
             args = parts[1:] if len(parts) > 1 else []
@@ -207,5 +202,7 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
                 error_type=type(e).__name__,
             )
 
-    # Note: Streaming methods not implemented as Microsandbox doesn't support real-time streaming
-    # The base class will raise NotImplementedError for execute_stream() and execute_command_stream()
+    # Note: Streaming methods not implemented as Microsandbox doesn't
+    # support real-time streaming
+    # The base class will raise NotImplementedError for execute_stream()
+    # and execute_command_stream()

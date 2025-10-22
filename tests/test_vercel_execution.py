@@ -10,64 +10,6 @@ EXPECTED_MATH_RESULT = 3.141592653589793
 
 
 @pytest.mark.integration
-async def test_vercel_direct_python():
-    """Test direct Python command execution without file."""
-    async with VercelExecutionEnvironment() as env:
-        # Try python3 directly
-        result = await env.execute_command('python3 -c "print(\\"Hello from python3\\")"')
-        print(
-            f"python3 result: success={result.success}, stdout={result.stdout}, error={result.error}"
-        )
-
-        # Try python directly
-        result2 = await env.execute_command('python -c "print(\\"Hello from python\\")"')
-        print(
-            f"python result: success={result2.success}, stdout={result2.stdout}, error={result2.error}"
-        )
-
-        # Try which python
-        result3 = await env.execute_command("which python python3")
-        print(f"which result: success={result3.success}, stdout={result3.stdout}")
-
-        # Just verify we can make the calls
-        assert result.duration >= 0
-
-
-@pytest.mark.integration
-async def test_vercel_environment_debug():
-    """Debug test to understand what's available in Vercel environment."""
-    debug_code = """
-import os
-import sys
-print(f"Python executable: {sys.executable}")
-print(f"Python version: {sys.version}")
-print(f"Current working directory: {os.getcwd()}")
-print(f"PATH: {os.environ.get('PATH', 'Not set')}")
-print("Available files in /:")
-for item in os.listdir("/"):
-    print(f"  {item}")
-print("Available files in /usr/bin:")
-try:
-    for item in sorted(os.listdir("/usr/bin"))[:10]:  # First 10 items
-        print(f"  {item}")
-except Exception as e:
-    print(f"  Error listing /usr/bin: {e}")
-_result = "debug_complete"
-"""
-
-    async with VercelExecutionEnvironment() as env:
-        result = await env.execute(debug_code)
-
-    print(f"Debug result success: {result.success}")
-    print(f"Debug result error: {result.error}")
-    print(f"Debug stdout: {result.stdout}")
-    print(f"Debug stderr: {result.stderr}")
-
-    # Don't assert success for now, just want to see what happens
-    assert result.duration >= 0
-
-
-@pytest.mark.integration
 async def test_vercel_execution_with_main_function():
     """Test vercel execution with main function returning a value."""
     code = """
