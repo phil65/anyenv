@@ -504,7 +504,7 @@ if __name__ == "__main__":
         try:
             from anyenv.code_execution import get_environment
 
-            docker_env = get_environment("docker", image="python:3.13-slim")  # type: ignore[arg-type]
+            docker_env = get_environment("docker", image="python:3.13-slim")  # type: ignore
             docker_registry = FormatterRegistry(docker_env)
             docker_registry.register_default_formatters()
         except Exception:  # noqa: BLE001
