@@ -27,15 +27,17 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
     def __init__(
         self,
         lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
+        dependencies: list[str] | None = None,
         timeout: float = 30.0,
     ):
         """Initialize local environment.
 
         Args:
             lifespan_handler: Async context manager for tool server (optional)
+            dependencies: List of Python packages to install via pip / npm
             timeout: Execution timeout in seconds
         """
-        super().__init__(lifespan_handler=lifespan_handler)
+        super().__init__(lifespan_handler=lifespan_handler, dependencies=dependencies)
         self.timeout = timeout
 
     async def __aenter__(self) -> Self:
@@ -52,8 +54,6 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
         start_time = time.time()
 
         try:
-            import asyncio
-
             namespace = {"__builtins__": __builtins__}
             exec(code, namespace)
 

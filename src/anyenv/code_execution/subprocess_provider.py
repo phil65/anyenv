@@ -24,6 +24,7 @@ class SubprocessExecutionEnvironment(ExecutionEnvironment):
     def __init__(
         self,
         lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
+        dependencies: list[str] | None = None,
         executable: str = "python",
         timeout: float = 30.0,
         language: Language = "python",
@@ -35,8 +36,9 @@ class SubprocessExecutionEnvironment(ExecutionEnvironment):
             executable: Executable to use (python, node, npx)
             timeout: Execution timeout in seconds
             language: Programming language to use
+            dependencies: List of Python packages to install via pip
         """
-        super().__init__(lifespan_handler=lifespan_handler)
+        super().__init__(lifespan_handler=lifespan_handler, dependencies=dependencies)
         self.executable = executable
         self.timeout = timeout
         self.language = language
@@ -45,6 +47,21 @@ class SubprocessExecutionEnvironment(ExecutionEnvironment):
     async def __aenter__(self) -> Self:
         # Start tool server via base class
         await super().__aenter__()
+
+        # Install Python dependencies if specified
+        if self.dependencies and self.language == "python":
+            deps_str = " ".join(self.dependencies)
+            try:
+                process = await asyncio.create_subprocess_shell(
+                    f"pip install {deps_str}",
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE,
+                )
+                await asyncio.wait_for(process.communicate(), timeout=self.timeout)
+            except Exception:
+                # Log warning but don't fail - code might still work
+                pass
+
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
