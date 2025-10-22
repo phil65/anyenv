@@ -121,3 +121,7 @@ for i in range(3):
     # Should get the three print lines
     output_lines = [line for line in lines if line.startswith("Line") or "Line" in line]
     assert len(output_lines) >= 3  # noqa: PLR2004
+
+
+if __name__ == "__main__":
+    pytest.main(["-v", __file__])

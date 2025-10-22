@@ -221,3 +221,7 @@ async def main():
     assert result1.result == "First execution"
     assert result2.success is True
     assert result2.result == "Second execution"
+
+
+if __name__ == "__main__":
+    pytest.main(["-v", __file__])

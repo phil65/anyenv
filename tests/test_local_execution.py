@@ -1,5 +1,7 @@
 """Tests for LocalExecutionEnvironment."""
 
+import pytest
+
 from anyenv.code_execution import LocalExecutionEnvironment
 
 
@@ -51,7 +53,7 @@ async def main():
     assert result.success is False
     assert result.result is None
     assert result.duration >= 0
-    assert "Test error message" in result.error
+    assert "Test error message" in result.error  # pyright: ignore[reportOperatorIssue]
     assert result.error_type == "ValueError"
 
 
@@ -96,3 +98,7 @@ async def main():
     assert any("Middle of execution" in line for line in output_lines)
     assert any("Ending execution" in line for line in output_lines)
     assert any("Result: Stream test complete" in line for line in output_lines)
+
+
+if __name__ == "__main__":
+    pytest.main(["-v", __file__])

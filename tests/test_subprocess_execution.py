@@ -1,5 +1,7 @@
 """Tests for SubprocessExecutionEnvironment."""
 
+import pytest
+
 from anyenv.code_execution import SubprocessExecutionEnvironment
 
 
@@ -115,3 +117,7 @@ for i in range(3):
     assert "Line 1" in output_lines[0]
     assert "Line 2" in output_lines[1]
     assert "Line 3" in output_lines[2]
+
+
+if __name__ == "__main__":
+    pytest.main(["-v", __file__])
