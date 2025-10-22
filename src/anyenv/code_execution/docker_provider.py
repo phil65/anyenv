@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import contextlib
 import time
 from typing import TYPE_CHECKING, Any, Self
@@ -105,13 +106,8 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
                 error_msg = "Docker environment not properly initialized"
                 raise RuntimeError(error_msg)  # noqa: TRY301
             wrapped_code = self._wrap_code_for_docker(code)  # Create execution script
-
             # Write code to a temporary file in the container using Python
             self.container.exec("mkdir -p /tmp/anyenv")
-
-            # Use Python to write the file to avoid shell quoting issues
-            import base64
-
             encoded_code = base64.b64encode(wrapped_code.encode()).decode()
             cmd = (
                 f'python -c "import base64; '
@@ -119,10 +115,8 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
                 f"base64.b64decode('{encoded_code}').decode())\""
             )
             self.container.exec(cmd)
-
-            # Execute the script
             command = self._get_execution_command()
-            result = self.container.exec(command)
+            result = self.container.exec(command)  # Execute the script
             duration = time.time() - start_time
             # Parse output
             execution_result, error_info = self._parse_docker_output(
@@ -443,10 +437,6 @@ executeMain().then(result => {{
 
             # Write code to a temporary file in the container using Python
             self.container.exec("mkdir -p /tmp/anyenv")
-
-            # Use Python to write the file to avoid shell quoting issues
-            import base64
-
             encoded_code = base64.b64encode(wrapped_code.encode()).decode()
             cmd = (
                 f'python -c "import base64; '
