@@ -7,9 +7,9 @@ import asyncio
 from dataclasses import dataclass
 from pathlib import Path
 import tempfile
-from typing import Literal, cast
+from typing import cast
 
-from anyenv.code_execution import ExecutionEnvironment
+from anyenv.code_execution import ExecutionEnvironment, ExecutionEnvironmentStr
 
 
 @dataclass
@@ -55,21 +55,6 @@ class FormatAndLintResult:
         return self.format_result.duration + self.lint_result.duration
 
 
-# Type aliases for execution environment specification
-ExecutionEnvironmentStr = Literal[
-    "local",
-    "subprocess",
-    "docker",
-    "mcp",
-    "daytona",
-    "e2b",
-    "beam",
-    "vercel",
-    "microsandbox",
-    "modal",
-]
-
-
 class LanguageFormatter(ABC):
     """Abstract base class for language-specific formatters."""
 
@@ -83,32 +68,19 @@ class LanguageFormatter(ABC):
             execution_env: Execution environment - either a string provider name
                 or a direct ExecutionEnvironment instance
         """
-        self.execution_env_spec = execution_env
-        self._execution_env: ExecutionEnvironment | None = None
+        if isinstance(execution_env, str):
+            from anyenv.code_execution import get_environment
 
-    async def _get_execution_env(self) -> ExecutionEnvironment:
-        """Get or create execution environment instance."""
-        if self._execution_env is None:
-            if isinstance(self.execution_env_spec, str):
-                from anyenv.code_execution import get_environment
-
-                provider = cast(ExecutionEnvironmentStr, self.execution_env_spec)
-                self._execution_env = get_environment(provider)  # type: ignore[arg-type]
-            else:
-                # Direct ExecutionEnvironment instance
-                self._execution_env = cast(ExecutionEnvironment, self.execution_env_spec)
-
-        if self._execution_env is None:
-            msg = "Failed to initialize execution environment"
-            raise RuntimeError(msg)
-        return self._execution_env
+            self._execution_env: ExecutionEnvironment = get_environment(execution_env)  # type: ignore[arg-type]
+        else:
+            # Direct ExecutionEnvironment instance
+            self._execution_env = execution_env
 
     async def _execute_command(
         self, cmd: list[str]
     ) -> tuple[bool, str, str, float, str | None]:
         """Execute command and return rich result information."""
-        env = await self._get_execution_env()
-        async with env:
+        async with self._execution_env as env:
             result = await env.execute_command(" ".join(cmd))
             return (
                 result.success,

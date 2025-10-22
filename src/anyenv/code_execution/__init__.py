@@ -35,6 +35,20 @@ if TYPE_CHECKING:
     from anyenv.code_execution.models import Language
 
 
+ExecutionEnvironmentStr = Literal[
+    "local",
+    "subprocess",
+    "docker",
+    "mcp",
+    "daytona",
+    "e2b",
+    "beam",
+    "vercel",
+    "microsandbox",
+    "modal",
+]
+
+
 @overload
 def get_environment(
     provider: Literal["local"],
@@ -168,18 +182,7 @@ def get_environment(
 
 
 def get_environment(  # noqa: PLR0911
-    provider: Literal[
-        "local",
-        "subprocess",
-        "docker",
-        "mcp",
-        "daytona",
-        "e2b",
-        "beam",
-        "vercel",
-        "microsandbox",
-        "modal",
-    ],
+    provider: ExecutionEnvironmentStr,
     **kwargs,
 ) -> ExecutionEnvironment:
     """Get an execution environment based on provider name.
