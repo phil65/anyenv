@@ -93,6 +93,7 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
         # Install Python dependencies if specified
         if self.dependencies and self.language == "python":
             deps_str = " ".join(self.dependencies)
+            assert self.sandbox
             install_result = await self.sandbox.command.run(f"pip install {deps_str}")
             if install_result.exit_code != 0:
                 # Log warning but don't fail - code might still work
