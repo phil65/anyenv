@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import shutil
 import time
 from typing import TYPE_CHECKING, Any, Self
 
@@ -25,7 +26,7 @@ class SubprocessExecutionEnvironment(ExecutionEnvironment):
         self,
         lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
         dependencies: list[str] | None = None,
-        executable: str = "python",
+        executable: str | None = None,
         timeout: float = 30.0,
         language: Language = "python",
     ):
@@ -33,13 +34,13 @@ class SubprocessExecutionEnvironment(ExecutionEnvironment):
 
         Args:
             lifespan_handler: Async context manager for tool server (optional)
-            executable: Executable to use (python, node, npx)
+            executable: Executable to use (if None, auto-detect based on language)
             timeout: Execution timeout in seconds
             language: Programming language to use
             dependencies: List of Python packages to install via pip
         """
         super().__init__(lifespan_handler=lifespan_handler, dependencies=dependencies)
-        self.executable = executable
+        self.executable = executable or self._find_executable(language)
         self.timeout = timeout
         self.language = language
         self.process: asyncio.subprocess.Process | None = None
@@ -75,6 +76,74 @@ class SubprocessExecutionEnvironment(ExecutionEnvironment):
 
         # Cleanup server via base class
         await super().__aexit__(exc_type, exc_val, exc_tb)
+
+    def _find_executable(self, language: Language) -> str:
+        """Find the best available executable for the given language.
+
+        Args:
+            language: Programming language to find executable for
+
+        Returns:
+            Path to the executable
+
+        Raises:
+            RuntimeError: If no suitable executable is found
+        """
+        match language:
+            case "python":
+                # Try python executables in order of preference
+                candidates = [
+                    "python3",
+                    "python",
+                    "python3.13",
+                    "python3.12",
+                    "python3.11",
+                ]
+                for candidate in candidates:
+                    if shutil.which(candidate):
+                        return candidate
+                error_msg = "No Python executable found"
+                raise RuntimeError(error_msg)
+
+            case "javascript":
+                # Try Node.js executables
+                candidates = ["node", "nodejs"]
+                for candidate in candidates:
+                    if shutil.which(candidate):
+                        return candidate
+                error_msg = "No Node.js executable found"
+                raise RuntimeError(error_msg)
+
+            case "typescript":
+                # For TypeScript, we need Node.js and a TypeScript runner
+                node_candidates = ["node", "nodejs"]
+                node_exe = None
+                for candidate in node_candidates:
+                    if shutil.which(candidate):
+                        node_exe = candidate
+                        break
+
+                if not node_exe:
+                    error_msg = "No Node.js executable found (required for TypeScript)"
+                    raise RuntimeError(error_msg)
+
+                # Check for TypeScript runners
+                ts_runners = ["ts-node", "tsx"]
+                for runner in ts_runners:
+                    if shutil.which(runner):
+                        return node_exe
+
+                # If no TS runner found, still return node (npx fallback)
+                return node_exe
+
+            case _:
+                # Default to python for unknown languages
+                candidates = ["python3", "python"]
+                for candidate in candidates:
+                    if shutil.which(candidate):
+                        return candidate
+                error_msg = f"No suitable executable found for language: {language}"
+                raise RuntimeError(error_msg)
 
     async def execute(self, code: str) -> ExecutionResult:
         """Execute code in subprocess."""
@@ -157,7 +226,13 @@ class SubprocessExecutionEnvironment(ExecutionEnvironment):
             case "javascript":
                 return [self.executable]  # Read from stdin
             case "typescript":
-                return ["npx", "ts-node"]  # Read TypeScript from stdin
+                # Check if ts-node is available, otherwise fallback to tsx or tsc
+                if shutil.which("ts-node"):
+                    return ["ts-node"]
+                if shutil.which("tsx"):
+                    return ["tsx"]
+                # Use npx as fallback
+                return ["npx", "ts-node"]
             case _:
                 return [self.executable, "-u"]
 
