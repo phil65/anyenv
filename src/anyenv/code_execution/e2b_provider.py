@@ -13,7 +13,7 @@ from anyenv.code_execution.models import ExecutionResult
 if TYPE_CHECKING:
     from contextlib import AbstractAsyncContextManager
 
-    from e2b import Sandbox
+    from e2b import AsyncSandbox
 
     from anyenv.code_execution.models import Language, ServerInfo
 
@@ -45,7 +45,7 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
         self.timeout = timeout
         self.keep_alive = keep_alive
         self.language = language
-        self.sandbox: Sandbox | None = None
+        self.sandbox: AsyncSandbox | None = None
 
     async def __aenter__(self) -> Self:
         """Setup E2B sandbox."""
@@ -53,24 +53,28 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
         await super().__aenter__()
 
         # Create sandbox (uses E2B_API_KEY environment variable)
-        from e2b import Sandbox
+        from e2b import AsyncSandbox
 
         if self.template:
-            self.sandbox = Sandbox.create(
+            self.sandbox = await AsyncSandbox.create(
                 template=self.template,
                 timeout=int(self.timeout),
             )
         else:
-            self.sandbox = Sandbox.create(timeout=int(self.timeout))
+            self.sandbox = await AsyncSandbox.create(timeout=int(self.timeout))
 
         # Install dependencies if specified
         if self.dependencies:
             deps_str = " ".join(self.dependencies)
             match self.language:
                 case "python":
-                    install_result = self.sandbox.commands.run(f"pip install {deps_str}")
+                    install_result = await self.sandbox.commands.run(
+                        f"pip install {deps_str}"
+                    )
                 case "javascript" | "typescript":
-                    install_result = self.sandbox.commands.run(f"npm install {deps_str}")
+                    install_result = await self.sandbox.commands.run(
+                        f"npm install {deps_str}"
+                    )
                 case _:
                     install_result = None
 
@@ -84,7 +88,7 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
         """Cleanup sandbox."""
         if self.sandbox and not self.keep_alive:
             with contextlib.suppress(Exception):
-                self.sandbox.kill()
+                await self.sandbox.kill()
 
         # Cleanup server via base class
         await super().__aexit__(exc_type, exc_val, exc_tb)
@@ -103,11 +107,11 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
 
             # Write the code to a temporary file and execute it
             script_path = self._get_script_path()
-            self.sandbox.files.write(script_path, wrapped_code)
+            await self.sandbox.files.write(script_path, wrapped_code)
 
             # Execute the script with language-specific command
             command = self._get_execution_command(script_path)
-            result = self.sandbox.commands.run(command)
+            result = await self.sandbox.commands.run(command)
             duration = time.time() - start_time
 
             # Parse the output to extract results
@@ -341,7 +345,7 @@ executeMain().then(result => {{
 
         try:
             # Execute command using E2B's commands.run() method
-            result = self.sandbox.commands.run(command, timeout=self.timeout)
+            result = await self.sandbox.commands.run(command, timeout=int(self.timeout))
             duration = time.time() - start_time
 
             success = result.exit_code == 0
@@ -358,12 +362,17 @@ executeMain().then(result => {{
 
         except Exception as e:  # noqa: BLE001
             duration = time.time() - start_time
+            # Map E2B specific exceptions to our error types
+            error_type = type(e).__name__
+            if error_type == "CommandExitException":
+                error_type = "CommandError"
+
             return ExecutionResult(
                 result=None,
                 duration=duration,
                 success=False,
                 error=str(e),
-                error_type=type(e).__name__,
+                error_type=error_type,
             )
 
     async def execute_command_stream(self, command: str):
@@ -378,19 +387,21 @@ executeMain().then(result => {{
             stderr_lines = []
 
             def on_stdout(data):
-                line = data.line.rstrip("\n\r")
+                # E2B passes string data directly to callbacks
+                line = data.rstrip("\n\r")
                 if line:
                     stdout_lines.append(line)
 
             def on_stderr(data):
-                line = data.line.rstrip("\n\r")
+                # E2B passes string data directly to callbacks
+                line = data.rstrip("\n\r")
                 if line:
                     stderr_lines.append(line)
 
             # Execute command with streaming callbacks
-            result = self.sandbox.commands.run(
+            result = await self.sandbox.commands.run(
                 command,
-                timeout=self.timeout,
+                timeout=int(self.timeout),
                 on_stdout=on_stdout,
                 on_stderr=on_stderr,
             )
