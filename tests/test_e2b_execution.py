@@ -213,7 +213,7 @@ async def main():
     assert result.success is True
     assert result.result == "Timeout test"
     assert result.duration >= 0
-    assert env.timeout == 600
+    assert env.timeout == 600  # noqa: PLR2004
 
 
 @pytest.mark.integration
@@ -323,7 +323,7 @@ async def main():
 
     assert result.success is True
     assert isinstance(result.result, list)
-    assert len(result.result) == 10
+    assert len(result.result) == 10  # noqa: PLR2004
     assert "Item 0: 0" in result.result
     assert "Item 9: 81" in result.result
 
