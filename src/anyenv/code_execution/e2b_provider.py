@@ -142,12 +142,25 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
 
         except Exception as e:  # noqa: BLE001
             duration = time.time() - start_time
+            # Map E2B specific exceptions to our error types
+            error_type = type(e).__name__
+            error_message = str(e)
+
+            if error_type == "CommandExitException":
+                # Check if it's a syntax error based on the error message
+                if "SyntaxError:" in error_message:
+                    error_type = "SyntaxError"
+                elif "IndentationError:" in error_message:
+                    error_type = "IndentationError"
+                else:
+                    error_type = "CommandError"
+
             return ExecutionResult(
                 result=None,
                 duration=duration,
                 success=False,
                 error=str(e),
-                error_type=type(e).__name__,
+                error_type=error_type,
             )
 
     def _get_script_path(self) -> str:
@@ -364,8 +377,16 @@ executeMain().then(result => {{
             duration = time.time() - start_time
             # Map E2B specific exceptions to our error types
             error_type = type(e).__name__
+            error_message = str(e)
+
             if error_type == "CommandExitException":
-                error_type = "CommandError"
+                # Check if it's a syntax error based on the error message
+                if "SyntaxError:" in error_message:
+                    error_type = "SyntaxError"
+                elif "IndentationError:" in error_message:
+                    error_type = "IndentationError"
+                else:
+                    error_type = "CommandError"
 
             return ExecutionResult(
                 result=None,
