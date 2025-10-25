@@ -58,6 +58,7 @@ from anyenv.toml_tools import load_toml, TomlLoadError, dump_toml, TomlDumpError
 from anyenv.download.base import HttpBackend, HttpResponse, Session
 from anyenv.code_execution import get_environment
 from anyenv.code_execution.base import ExecutionEnvironment
+from anyenv.os_commands import get_os_command_provider
 
 __all__ = [
     "ExecutionEnvironment",
@@ -88,6 +89,7 @@ __all__ = [
     "get_environment",
     "get_json",
     "get_json_sync",
+    "get_os_command_provider",
     "get_sync",
     "get_text",
     "get_text_sync",
