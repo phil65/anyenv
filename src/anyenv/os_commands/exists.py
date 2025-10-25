@@ -8,7 +8,7 @@ from .base import ExistsCommand
 class UnixExistsCommand(ExistsCommand):
     """Unix/Linux exists command implementation."""
 
-    def run_command(self, path: str) -> str:
+    def create_command(self, path: str) -> str:
         """Generate Unix test -e command.
 
         Args:
@@ -39,7 +39,7 @@ class UnixExistsCommand(ExistsCommand):
 class MacOSExistsCommand(ExistsCommand):
     """macOS exists command implementation."""
 
-    def run_command(self, path: str) -> str:
+    def create_command(self, path: str) -> str:
         """Generate test -e command (same as Unix).
 
         Args:
@@ -70,7 +70,7 @@ class MacOSExistsCommand(ExistsCommand):
 class WindowsExistsCommand(ExistsCommand):
     """Windows exists command implementation."""
 
-    def run_command(self, path: str) -> str:
+    def create_command(self, path: str) -> str:
         """Generate PowerShell Test-Path command.
 
         Args:

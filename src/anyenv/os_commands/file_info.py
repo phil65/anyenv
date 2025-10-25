@@ -17,7 +17,7 @@ EXPECTED_POWERSHELL_PARTS = 4
 class UnixFileInfoCommand(FileInfoCommand):
     """Unix/Linux file info command implementation."""
 
-    def run_command(self, path: str) -> str:
+    def create_command(self, path: str) -> str:
         """Generate GNU stat command.
 
         Args:
@@ -69,7 +69,7 @@ class UnixFileInfoCommand(FileInfoCommand):
 class MacOSFileInfoCommand(FileInfoCommand):
     """macOS file info command implementation."""
 
-    def run_command(self, path: str) -> str:
+    def create_command(self, path: str) -> str:
         """Generate BSD stat command.
 
         Args:
@@ -121,7 +121,7 @@ class MacOSFileInfoCommand(FileInfoCommand):
 class WindowsFileInfoCommand(FileInfoCommand):
     """Windows file info command implementation."""
 
-    def run_command(self, path: str) -> str:
+    def create_command(self, path: str) -> str:
         """Generate PowerShell file info command.
 
         Args:

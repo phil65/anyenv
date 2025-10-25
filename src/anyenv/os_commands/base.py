@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 class CommandProtocol(Protocol):
     """Protocol for all OS commands."""
 
-    def run_command(self, *args: Any, **kwargs: Any) -> str:
+    def create_command(self, *args: Any, **kwargs: Any) -> str:
         """Generate the OS-specific command string."""
         ...
 
@@ -28,7 +28,7 @@ class ListDirectoryCommand(ABC):
     """Base class for list directory commands."""
 
     @abstractmethod
-    def run_command(self, path: str = "", detailed: bool = True) -> str:
+    def create_command(self, path: str = "", detailed: bool = True) -> str:
         """Generate directory listing command."""
 
     @abstractmethod
@@ -42,7 +42,7 @@ class FileInfoCommand(ABC):
     """Base class for file info commands."""
 
     @abstractmethod
-    def run_command(self, path: str) -> str:
+    def create_command(self, path: str) -> str:
         """Generate file info command."""
 
     @abstractmethod
@@ -54,7 +54,7 @@ class ExistsCommand(ABC):
     """Base class for exists commands."""
 
     @abstractmethod
-    def run_command(self, path: str) -> str:
+    def create_command(self, path: str) -> str:
         """Generate exists test command."""
 
     @abstractmethod
@@ -66,7 +66,7 @@ class IsFileCommand(ABC):
     """Base class for is file commands."""
 
     @abstractmethod
-    def run_command(self, path: str) -> str:
+    def create_command(self, path: str) -> str:
         """Generate file test command."""
 
     @abstractmethod
@@ -78,7 +78,7 @@ class IsDirectoryCommand(ABC):
     """Base class for is directory commands."""
 
     @abstractmethod
-    def run_command(self, path: str) -> str:
+    def create_command(self, path: str) -> str:
         """Generate directory test command."""
 
     @abstractmethod
@@ -90,7 +90,7 @@ class CreateDirectoryCommand(ABC):
     """Base class for create directory commands."""
 
     @abstractmethod
-    def run_command(self, path: str, parents: bool = True) -> str:
+    def create_command(self, path: str, parents: bool = True) -> str:
         """Generate directory creation command."""
 
     @abstractmethod
@@ -102,7 +102,7 @@ class RemovePathCommand(ABC):
     """Base class for remove path commands."""
 
     @abstractmethod
-    def run_command(self, path: str, recursive: bool = False) -> str:
+    def create_command(self, path: str, recursive: bool = False) -> str:
         """Generate removal command."""
 
     @abstractmethod

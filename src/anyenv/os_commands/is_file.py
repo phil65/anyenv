@@ -8,7 +8,7 @@ from .base import IsFileCommand
 class UnixIsFileCommand(IsFileCommand):
     """Unix/Linux is file command implementation."""
 
-    def run_command(self, path: str) -> str:
+    def create_command(self, path: str) -> str:
         """Generate Unix test -f command.
 
         Args:
@@ -39,7 +39,7 @@ class UnixIsFileCommand(IsFileCommand):
 class MacOSIsFileCommand(IsFileCommand):
     """macOS is file command implementation."""
 
-    def run_command(self, path: str) -> str:
+    def create_command(self, path: str) -> str:
         """Generate test -f command (same as Unix).
 
         Args:
@@ -70,7 +70,7 @@ class MacOSIsFileCommand(IsFileCommand):
 class WindowsIsFileCommand(IsFileCommand):
     """Windows is file command implementation."""
 
-    def run_command(self, path: str) -> str:
+    def create_command(self, path: str) -> str:
         """Generate PowerShell file test command.
 
         Args:

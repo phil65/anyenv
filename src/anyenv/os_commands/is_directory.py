@@ -8,7 +8,7 @@ from .base import IsDirectoryCommand
 class UnixIsDirectoryCommand(IsDirectoryCommand):
     """Unix/Linux is directory command implementation."""
 
-    def run_command(self, path: str) -> str:
+    def create_command(self, path: str) -> str:
         """Generate Unix test -d command.
 
         Args:
@@ -39,7 +39,7 @@ class UnixIsDirectoryCommand(IsDirectoryCommand):
 class MacOSIsDirectoryCommand(IsDirectoryCommand):
     """macOS is directory command implementation."""
 
-    def run_command(self, path: str) -> str:
+    def create_command(self, path: str) -> str:
         """Generate test -d command (same as Unix).
 
         Args:
@@ -70,7 +70,7 @@ class MacOSIsDirectoryCommand(IsDirectoryCommand):
 class WindowsIsDirectoryCommand(IsDirectoryCommand):
     """Windows is directory command implementation."""
 
-    def run_command(self, path: str) -> str:
+    def create_command(self, path: str) -> str:
         """Generate PowerShell directory test command.
 
         Args:

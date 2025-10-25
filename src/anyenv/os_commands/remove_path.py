@@ -8,7 +8,7 @@ from .base import RemovePathCommand
 class UnixRemovePathCommand(RemovePathCommand):
     """Unix/Linux remove path command implementation."""
 
-    def run_command(self, path: str, recursive: bool = False) -> str:
+    def create_command(self, path: str, recursive: bool = False) -> str:
         """Generate Unix rm command.
 
         Args:
@@ -40,7 +40,7 @@ class UnixRemovePathCommand(RemovePathCommand):
 class MacOSRemovePathCommand(RemovePathCommand):
     """macOS remove path command implementation."""
 
-    def run_command(self, path: str, recursive: bool = False) -> str:
+    def create_command(self, path: str, recursive: bool = False) -> str:
         """Generate rm command (same as Unix).
 
         Args:
@@ -72,7 +72,7 @@ class MacOSRemovePathCommand(RemovePathCommand):
 class WindowsRemovePathCommand(RemovePathCommand):
     """Windows remove path command implementation."""
 
-    def run_command(self, path: str, recursive: bool = False) -> str:
+    def create_command(self, path: str, recursive: bool = False) -> str:
         """Generate Windows removal command.
 
         Args:

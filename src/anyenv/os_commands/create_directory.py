@@ -8,7 +8,7 @@ from .base import CreateDirectoryCommand
 class UnixCreateDirectoryCommand(CreateDirectoryCommand):
     """Unix/Linux create directory command implementation."""
 
-    def run_command(self, path: str, parents: bool = True) -> str:
+    def create_command(self, path: str, parents: bool = True) -> str:
         """Generate Unix mkdir command.
 
         Args:
@@ -40,7 +40,7 @@ class UnixCreateDirectoryCommand(CreateDirectoryCommand):
 class MacOSCreateDirectoryCommand(CreateDirectoryCommand):
     """macOS create directory command implementation."""
 
-    def run_command(self, path: str, parents: bool = True) -> str:
+    def create_command(self, path: str, parents: bool = True) -> str:
         """Generate mkdir command (same as Unix).
 
         Args:
@@ -72,7 +72,7 @@ class MacOSCreateDirectoryCommand(CreateDirectoryCommand):
 class WindowsCreateDirectoryCommand(CreateDirectoryCommand):
     """Windows create directory command implementation."""
 
-    def run_command(self, path: str, parents: bool = True) -> str:
+    def create_command(self, path: str, parents: bool = True) -> str:
         """Generate Windows directory creation command.
 
         Args:

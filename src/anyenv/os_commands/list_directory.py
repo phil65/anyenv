@@ -18,7 +18,7 @@ MIN_WINDOWS_DIR_PARTS = 4  # Minimum parts for Windows dir output
 class UnixListDirectoryCommand(ListDirectoryCommand):
     """Unix/Linux list directory command implementation."""
 
-    def run_command(self, path: str = "", detailed: bool = True) -> str:
+    def create_command(self, path: str = "", detailed: bool = True) -> str:
         """Generate Unix ls command.
 
         Args:
@@ -141,7 +141,7 @@ class UnixListDirectoryCommand(ListDirectoryCommand):
 class MacOSListDirectoryCommand(ListDirectoryCommand):
     """macOS list directory command implementation."""
 
-    def run_command(self, path: str = "", detailed: bool = True) -> str:
+    def create_command(self, path: str = "", detailed: bool = True) -> str:
         """Generate BSD ls command (no --time-style support).
 
         Args:
@@ -178,7 +178,7 @@ class MacOSListDirectoryCommand(ListDirectoryCommand):
 class WindowsListDirectoryCommand(ListDirectoryCommand):
     """Windows list directory command implementation."""
 
-    def run_command(self, path: str = "", detailed: bool = True) -> str:
+    def create_command(self, path: str = "", detailed: bool = True) -> str:
         """Generate Windows dir command.
 
         Args:

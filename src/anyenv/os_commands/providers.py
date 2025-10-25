@@ -49,7 +49,7 @@ class OSCommandProvider:
 
     def list_directory_cmd(self, path: str = "", detailed: bool = True) -> str:
         """Create directory listing command."""
-        return self.list_directory.run_command(path=path, detailed=detailed)
+        return self.list_directory.create_command(path=path, detailed=detailed)
 
     def parse_list_output(
         self, output: str, path: str, detailed: bool
@@ -59,7 +59,7 @@ class OSCommandProvider:
 
     def file_info_cmd(self, path: str) -> str:
         """Create file info command."""
-        return self.file_info.run_command(path=path)
+        return self.file_info.create_command(path=path)
 
     def parse_file_info(self, output: str, path: str) -> Any:
         """Parse file info output."""
@@ -67,7 +67,7 @@ class OSCommandProvider:
 
     def exists_cmd(self, path: str) -> str:
         """Create existence test command."""
-        return self.exists.run_command(path=path)
+        return self.exists.create_command(path=path)
 
     def parse_exists_result(self, output: str, exit_code: int) -> bool:
         """Parse existence test result."""
@@ -75,7 +75,7 @@ class OSCommandProvider:
 
     def is_file_cmd(self, path: str) -> str:
         """Create file type test command."""
-        return self.is_file.run_command(path=path)
+        return self.is_file.create_command(path=path)
 
     def parse_file_test_result(self, output: str, exit_code: int) -> bool:
         """Parse file type test result."""
@@ -83,7 +83,7 @@ class OSCommandProvider:
 
     def is_directory_cmd(self, path: str) -> str:
         """Create directory test command."""
-        return self.is_directory.run_command(path=path)
+        return self.is_directory.create_command(path=path)
 
     def parse_directory_test_result(self, output: str, exit_code: int) -> bool:
         """Parse directory test result."""
@@ -91,7 +91,7 @@ class OSCommandProvider:
 
     def create_directory_cmd(self, path: str, parents: bool = True) -> str:
         """Create directory creation command."""
-        return self.create_directory.run_command(path=path, parents=parents)
+        return self.create_directory.create_command(path=path, parents=parents)
 
     def parse_create_result(self, output: str, exit_code: int) -> bool:
         """Parse directory creation result."""
@@ -99,7 +99,7 @@ class OSCommandProvider:
 
     def remove_path_cmd(self, path: str, recursive: bool = False) -> str:
         """Create removal command."""
-        return self.remove_path.run_command(path=path, recursive=recursive)
+        return self.remove_path.create_command(path=path, recursive=recursive)
 
     def parse_remove_result(self, output: str, exit_code: int) -> bool:
         """Parse removal result."""
