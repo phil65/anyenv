@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import platform
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, overload
 
 from .create_directory import (
     MacOSCreateDirectoryCommand,
@@ -67,6 +67,33 @@ class OSCommandProvider:
             | CreateDirectoryCommand
             | RemovePathCommand,
         ] = {}
+
+    @overload
+    def get_command(
+        self, command_type: Literal["list_directory"]
+    ) -> ListDirectoryCommand: ...
+
+    @overload
+    def get_command(self, command_type: Literal["file_info"]) -> FileInfoCommand: ...
+
+    @overload
+    def get_command(self, command_type: Literal["exists"]) -> ExistsCommand: ...
+
+    @overload
+    def get_command(self, command_type: Literal["is_file"]) -> IsFileCommand: ...
+
+    @overload
+    def get_command(
+        self, command_type: Literal["is_directory"]
+    ) -> IsDirectoryCommand: ...
+
+    @overload
+    def get_command(
+        self, command_type: Literal["create_directory"]
+    ) -> CreateDirectoryCommand: ...
+
+    @overload
+    def get_command(self, command_type: Literal["remove_path"]) -> RemovePathCommand: ...
 
     def get_command(
         self, command_type: CommandType
