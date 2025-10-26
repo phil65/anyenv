@@ -151,25 +151,27 @@ class WindowsListDirectoryCommand(ListDirectoryCommand):
     """Windows list directory command implementation."""
 
     def create_command(self, path: str = "") -> str:
-        """Generate Windows dir command.
+        """Generate Windows PowerShell dir command.
 
         Args:
             path: Directory path to list
 
         Returns:
-            The dir command string
+            The PowerShell command string
         """
-        return f'dir "{path}"' if path else "dir"
+        if path:
+            return f'powershell -c "Get-ChildItem -Path \\"{path}\\" | Format-Table -AutoSize Name, Mode, Length, LastWriteTime"'  # noqa: E501
+        return 'powershell -c "Get-ChildItem | Format-Table -AutoSize Name, Mode, Length, LastWriteTime"'  # noqa: E501
 
     def parse_command(
         self,
         output: str,
         path: str = "",
     ) -> list[DirectoryEntry]:
-        """Parse Windows dir output.
+        """Parse Windows PowerShell Get-ChildItem output.
 
         Args:
-            output: Raw dir command output
+            output: Raw PowerShell command output
             path: Base directory path
 
         Returns:
@@ -181,62 +183,61 @@ class WindowsListDirectoryCommand(ListDirectoryCommand):
 
         files: list[DirectoryEntry] = []
 
-        # Parse detailed dir output
+        # Skip header lines and empty lines
+        data_lines = []
         for line in lines:
             line = line.strip()
-            if self._should_skip_line(line):
+            if not line or line.startswith(("----", "Name", "Mode")):
                 continue
+            data_lines.append(line)
 
-            parsed = self._parse_detailed_line(line, path)
+        # Parse PowerShell Format-Table output
+        for line in data_lines:
+            parsed = self._parse_powershell_line(line, path)
             if parsed:
                 files.append(parsed)
 
         return files
 
-    def _should_skip_line(self, line: str) -> bool:
-        """Check if line should be skipped during parsing."""
-        return (
-            not line
-            or line.startswith(("Volume", "Directory"))
-            or "bytes" in line
-            or "File(s)" in line
-            or "Dir(s)" in line
-        )
-
-    def _parse_detailed_line(self, line: str, base_path: str) -> DirectoryEntry | None:
-        """Parse detailed Windows dir output line."""
+    def _parse_powershell_line(self, line: str, base_path: str) -> DirectoryEntry | None:
+        """Parse PowerShell Format-Table output line."""
+        # PowerShell Format-Table output: Name Mode Length LastWriteTime
+        # Split by multiple spaces to handle columns
         parts = line.split()
         if len(parts) < MIN_WINDOWS_DIR_PARTS:
             return None
 
         try:
-            # Extract date and time
-            date_part = parts[0]
-            time_part = f"{parts[1]} {parts[2]}"  # Include AM/PM
-            timestamp = f"{date_part} {time_part}"
+            name = parts[0]
+            mode = parts[1]
+            length_str = parts[2]
+            # LastWriteTime might be split across multiple parts
+            timestamp_parts = parts[3:]
+            timestamp = " ".join(timestamp_parts) if timestamp_parts else ""
 
-            # Check if it's a directory
-            is_dir = parts[3] == "<DIR>"
+            # Determine file type from mode
             file_type: Literal["file", "directory", "link"]
-            if is_dir:
-                size = 0
-                name = " ".join(parts[4:])
+            if mode.startswith("d") or "-" not in mode:
                 file_type = "directory"
+                size = 0
             else:
-                size = int(parts[3]) if parts[3].isdigit() else 0
-                name = " ".join(parts[4:])
                 file_type = "file"
+                # Parse size, handle non-numeric values
+                try:
+                    size = int(length_str) if length_str.isdigit() else 0
+                except (ValueError, AttributeError):
+                    size = 0
 
-            # Build full path using Windows path separator
-            full_path = f"{base_path}\\{name}" if base_path else name
-        except (ValueError, IndexError):
-            # Skip lines we can't parse
-            return None
-        else:
+            # Build full path
+            full_path = f"{base_path}\\{name}".replace("/", "\\") if base_path else name
+
             return DirectoryEntry(
                 name=name,
                 path=full_path,
                 type=file_type,
                 size=size,
                 timestamp=timestamp,
+                permissions=mode,
             )
+        except (ValueError, IndexError):
+            return None
