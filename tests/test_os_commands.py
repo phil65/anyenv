@@ -5,10 +5,15 @@ from __future__ import annotations
 from pathlib import Path
 import subprocess
 import tempfile
+from typing import TYPE_CHECKING
 
 import pytest
 
 from anyenv.os_commands.providers import get_os_command_provider
+
+
+if TYPE_CHECKING:
+    from anyenv.os_commands import OSCommandProvider
 
 
 @pytest.fixture
@@ -52,7 +57,12 @@ def run_command(cmd: str) -> tuple[str, int]:
         return result.stdout, result.returncode
 
 
-def test_list_directory_command(provider, temp_dir, test_file, test_subdir):
+def test_list_directory_command(
+    provider: OSCommandProvider,
+    temp_dir: Path,
+    test_file: Path,
+    test_subdir: Path,
+):
     """Test list directory command: create → execute → parse."""
     # Create command
     cmd = provider.get_command("list_directory").create_command(
@@ -78,7 +88,7 @@ def test_list_directory_command(provider, temp_dir, test_file, test_subdir):
     assert "subdir" in names
 
 
-def test_exists_command(provider, test_file, temp_dir):
+def test_exists_command(provider: OSCommandProvider, test_file: Path, temp_dir: Path):
     """Test exists command: create → execute → parse."""
     # Test existing file
     cmd = provider.get_command("exists").create_command(str(test_file))
@@ -99,7 +109,7 @@ def test_exists_command(provider, test_file, temp_dir):
     assert result is False
 
 
-def test_is_file_command(provider, test_file, test_subdir):
+def test_is_file_command(provider: OSCommandProvider, test_file: Path, test_subdir: Path):
     """Test is file command: create → execute → parse."""
     # Test actual file
     cmd = provider.get_command("is_file").create_command(str(test_file))
@@ -119,7 +129,11 @@ def test_is_file_command(provider, test_file, test_subdir):
     assert result is False
 
 
-def test_is_directory_command(provider, test_file, test_subdir):
+def test_is_directory_command(
+    provider: OSCommandProvider,
+    test_file: Path,
+    test_subdir: Path,
+):
     """Test is directory command: create → execute → parse."""
     # Test actual directory
     cmd = provider.get_command("is_directory").create_command(str(test_subdir))
@@ -139,7 +153,7 @@ def test_is_directory_command(provider, test_file, test_subdir):
     assert result is False
 
 
-def test_create_directory_command(provider, temp_dir):
+def test_create_directory_command(provider: OSCommandProvider, temp_dir: Path):
     """Test create directory command: create → execute → parse."""
     new_dir = temp_dir / "new_directory"
     assert not new_dir.exists()
@@ -173,7 +187,7 @@ def test_create_directory_command(provider, temp_dir):
     assert nested_dir.is_dir()
 
 
-def test_file_info_command(provider, test_file):
+def test_file_info_command(provider: OSCommandProvider, test_file: Path):
     """Test file info command: create → execute → parse."""
     # Create command
     cmd = provider.get_command("file_info").create_command(str(test_file))
@@ -192,7 +206,7 @@ def test_file_info_command(provider, test_file):
         assert result.size >= 0
 
 
-def test_remove_path_command(provider, temp_dir):
+def test_remove_path_command(provider: OSCommandProvider, temp_dir: Path):
     """Test remove path command: create → execute → parse."""
     # Test file removal
     test_file = temp_dir / "to_remove.txt"
