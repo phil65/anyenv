@@ -28,13 +28,11 @@ class ListDirectoryCommand(ABC):
     """Base class for list directory commands."""
 
     @abstractmethod
-    def create_command(self, path: str = "", detailed: bool = True) -> str:
+    def create_command(self, path: str = "") -> str:
         """Generate directory listing command."""
 
     @abstractmethod
-    def parse_command(
-        self, output: str, path: str = "", detailed: bool = True
-    ) -> list[DirectoryEntry] | list[str]:
+    def parse_command(self, output: str, path: str = "") -> list[DirectoryEntry]:
         """Parse directory listing output."""
 
 

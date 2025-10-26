@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal
+from typing import Literal
 
 from .base import ListDirectoryCommand
 from .models import DirectoryEntry
@@ -18,34 +18,31 @@ MIN_WINDOWS_DIR_PARTS = 4  # Minimum parts for Windows dir output
 class UnixListDirectoryCommand(ListDirectoryCommand):
     """Unix/Linux list directory command implementation."""
 
-    def create_command(self, path: str = "", detailed: bool = True) -> str:
+    def create_command(self, path: str = "") -> str:
         """Generate Unix ls command.
 
         Args:
             path: Directory path to list
-            detailed: Whether to include detailed information
 
         Returns:
             The ls command string
         """
-        cmd = "ls -la" if detailed else "ls"
+        cmd = "ls -la"
         return f'{cmd} "{path}"' if path else cmd
 
     def parse_command(
         self,
         output: str,
         path: str = "",
-        detailed: bool = True,
-    ) -> list[DirectoryEntry] | list[str]:
+    ) -> list[DirectoryEntry]:
         """Parse Unix ls output.
 
         Args:
             output: Raw ls command output
             path: Base directory path
-            detailed: Whether output contains detailed information
 
         Returns:
-            List of DirectoryEntry objects or simple filenames
+            List of DirectoryEntry objects
         """
         lines = output.strip().split("\n")
         if not lines:
@@ -54,19 +51,14 @@ class UnixListDirectoryCommand(ListDirectoryCommand):
         # Filter out total line and empty lines
         file_lines = [line for line in lines if line and not line.startswith("total ")]
 
-        files: list[Any] = []
+        files: list[DirectoryEntry] = []
         for line in file_lines:
             if not line.strip():
                 continue
 
-            if detailed:
-                parsed = self._parse_detailed_line(line, path)
-                if parsed:
-                    files.append(parsed)
-            else:
-                filename = self._parse_simple_line(line)
-                if filename:
-                    files.append(filename)
+            parsed = self._parse_detailed_line(line, path)
+            if parsed:
+                files.append(parsed)
 
         return files
 
@@ -120,107 +112,74 @@ class UnixListDirectoryCommand(ListDirectoryCommand):
             else None,
         )
 
-    def _parse_simple_line(self, line: str) -> str | None:
-        """Parse simple ls output line to extract filename."""
-        parts = line.split()
-        if len(parts) < MIN_LS_PARTS:  # Not a valid ls -la line
-            return line.strip() if line.strip() else None
-
-        # Handle different timestamp formats for name extraction
-        if (
-            len(parts) >= MIN_LS_PARTS_3_TIMESTAMP
-            and not parts[7].startswith("-")
-            and not parts[7].startswith("d")
-        ):
-            return " ".join(parts[8:])  # 3-part timestamp
-        if len(parts) >= MIN_LS_PARTS_2_TIMESTAMP:
-            return " ".join(parts[7:])  # 2-part timestamp
-        return " ".join(parts[6:])  # 1-part timestamp fallback
-
 
 class MacOSListDirectoryCommand(ListDirectoryCommand):
     """macOS list directory command implementation."""
 
-    def create_command(self, path: str = "", detailed: bool = True) -> str:
+    def create_command(self, path: str = "") -> str:
         """Generate BSD ls command (no --time-style support).
 
         Args:
             path: Directory path to list
-            detailed: Whether to include detailed information
 
         Returns:
             The ls command string
         """
-        cmd = "ls -la" if detailed else "ls"
+        cmd = "ls -la"
         return f'{cmd} "{path}"' if path else cmd
 
     def parse_command(
         self,
         output: str,
         path: str = "",
-        detailed: bool = True,
-    ) -> list[DirectoryEntry] | list[str]:
+    ) -> list[DirectoryEntry]:
         """Parse BSD ls output (same as Unix).
 
         Args:
             output: Raw ls command output
             path: Base directory path
-            detailed: Whether output contains detailed information
 
         Returns:
-            List of DirectoryEntry objects or simple filenames
+            List of DirectoryEntry objects
         """
         # BSD ls output format is same as Unix, just different timestamp format
         unix_cmd = UnixListDirectoryCommand()
-        return unix_cmd.parse_command(output, path=path, detailed=detailed)
+        return unix_cmd.parse_command(output, path=path)
 
 
 class WindowsListDirectoryCommand(ListDirectoryCommand):
     """Windows list directory command implementation."""
 
-    def create_command(self, path: str = "", detailed: bool = True) -> str:
+    def create_command(self, path: str = "") -> str:
         """Generate Windows dir command.
 
         Args:
             path: Directory path to list
-            detailed: Whether to include detailed information
 
         Returns:
             The dir command string
         """
-        if detailed:
-            return f'dir "{path}"' if path else "dir"
-        return f'dir /b "{path}"' if path else "dir /b"
+        return f'dir "{path}"' if path else "dir"
 
     def parse_command(
         self,
         output: str,
         path: str = "",
-        detailed: bool = True,
-    ) -> list[DirectoryEntry] | list[str]:
+    ) -> list[DirectoryEntry]:
         """Parse Windows dir output.
 
         Args:
             output: Raw dir command output
             path: Base directory path
-            detailed: Whether output contains detailed information
 
         Returns:
-            List of DirectoryEntry objects or simple filenames
+            List of DirectoryEntry objects
         """
         lines = output.strip().split("\n")
         if not lines:
             return []
 
-        files: list[Any] = []
-
-        if not detailed:
-            # Simple dir /b output - just filenames
-            for line in lines:
-                line = line.strip()
-                if line:
-                    files.append(line)
-            return files
+        files: list[DirectoryEntry] = []
 
         # Parse detailed dir output
         for line in lines:

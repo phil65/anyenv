@@ -65,9 +65,7 @@ def test_list_directory_command(
 ):
     """Test list directory command: create → execute → parse."""
     # Create command
-    cmd = provider.get_command("list_directory").create_command(
-        str(temp_dir), detailed=True
-    )
+    cmd = provider.get_command("list_directory").create_command(str(temp_dir))
     assert isinstance(cmd, str)
     assert str(temp_dir) in cmd
 
@@ -77,13 +75,11 @@ def test_list_directory_command(
     assert output.strip()
 
     # Parse output
-    result = provider.get_command("list_directory").parse_command(
-        output, str(temp_dir), detailed=True
-    )
+    result = provider.get_command("list_directory").parse_command(output, str(temp_dir))
     assert isinstance(result, list)
     assert len(result) >= 2  # noqa: PLR2004
 
-    names = [item.name if hasattr(item, "name") else item for item in result]
+    names = [item.name for item in result]
     assert "test.txt" in names
     assert "subdir" in names
 
