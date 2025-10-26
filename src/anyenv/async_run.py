@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Sequence
 import contextvars
+import inspect
 import threading
 from typing import TYPE_CHECKING, Any, Literal, TypeVarTuple, cast, overload
 
@@ -147,6 +149,22 @@ async def gather[T](
             tg.start_soon(run_and_store)
 
     return results
+
+
+async def execute[T](
+    func: Callable[..., T | Awaitable[T]],
+    *args: Any,
+    use_thread: bool = False,
+    **kwargs: Any,
+) -> T:
+    """Execute callable, handling both sync and async cases."""
+    if inspect.iscoroutinefunction(func):
+        return await func(*args, **kwargs)
+
+    if use_thread:
+        return await asyncio.to_thread(func, *args, **kwargs)  # type: ignore
+
+    return func(*args, **kwargs)  # type: ignore
 
 
 async def run_in_thread[T_Retval, *PosArgsT](
