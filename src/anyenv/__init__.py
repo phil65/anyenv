@@ -59,6 +59,7 @@ from anyenv.download.base import HttpBackend, HttpResponse, Session
 from anyenv.code_execution import get_environment
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.os_commands import get_os_command_provider
+from anyenv.process_manager import ProcessManager, ProcessOutput, RunningProcess
 
 __all__ = [
     "ExecutionEnvironment",
@@ -68,8 +69,11 @@ __all__ = [
     "JsonDumpError",
     "JsonLoadError",
     "MultiEventHandler",
+    "ProcessManager",
+    "ProcessOutput",
     "RequestError",
     "ResponseError",
+    "RunningProcess",
     "Session",
     "ThreadGroup",
     "TomlDumpError",
