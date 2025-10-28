@@ -107,9 +107,11 @@ class MultiEventHandler[HandlerT]:
         if handler in self._handlers:
             return
 
-        # Check if handler is already async
+        # Check if handler is already async (function or callable class)
         if inspect.iscoroutinefunction(handler):
             wrapped_handler = handler
+        elif callable(handler) and inspect.iscoroutinefunction(handler.__call__):
+            wrapped_handler = handler.__call__
         else:
             # Wrap sync handler
             wrapped_handler = self._wrap_sync_handler(handler)  # type: ignore[assignment]
@@ -168,6 +170,17 @@ class MultiEventHandler[HandlerT]:
         """Return True if there are handlers registered."""
         return bool(self._handlers)
 
+    def __repr__(self) -> str:
+        """Return string representation showing handlers and mode."""
+        handler_names = []
+        for handler in self._handlers:
+            if hasattr(handler, "__qualname__"):
+                handler_names.append(handler.__qualname__)
+            else:
+                handler_names.append(repr(handler))
+
+        return f"MultiEventHandler(handlers={handler_names}, mode={self._mode!r})"
+
 
 if __name__ == "__main__":
     type HandlerType = Callable[[int, str], Any]
@@ -178,5 +191,14 @@ if __name__ == "__main__":
     def invalid_handler(a: str, b: str):
         """Invalid handler function."""
 
+    class SomeClass:
+        """Some class."""
+
+        def __call__(self, a: int, b: str):
+            """Test class call method."""
+
     multi_handler = MultiEventHandler[HandlerType]()
     multi_handler.add_handler(handler)
+    # multi_handler.add_handler(invalid_handler)
+    multi_handler.add_handler(SomeClass())
+    print(multi_handler)
