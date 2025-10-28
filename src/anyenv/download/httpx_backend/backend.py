@@ -27,29 +27,46 @@ def get_storage(
     """Get storage backend."""
     import hishel
 
-    from anyenv.download.httpx_backend.serializer import AnyEnvSerializer
-
     match cache_backend:
         case "sqlite":
-            return hishel.AsyncSQLiteStorage(
-                serializer=AnyEnvSerializer(),
-                connection=None,
-                ttl=cache_ttl,
-            )
-        case "file":
-            return hishel.AsyncFileStorage(
-                serializer=AnyEnvSerializer(),
-                base_path=Path(cache_dir),
-                ttl=cache_ttl,
+            return hishel.AsyncSqliteStorage(
+                database_path="anyenv_cache.db",
+                default_ttl=cache_ttl,
+                refresh_ttl_on_access=True,
             )
         case "memory":
-            return hishel.AsyncInMemoryStorage(
-                serializer=AnyEnvSerializer(),
-                ttl=cache_ttl,
+            # Use sqlite storage with in-memory database as fallback
+            # since hishel 1.0 doesn't have AsyncInMemoryStorage
+            return hishel.AsyncSqliteStorage(
+                database_path=":memory:",
+                default_ttl=cache_ttl,
+                refresh_ttl_on_access=True,
+            )
+        case "file":
+            # Use sqlite storage with file path
+            cache_path = Path(cache_dir) / "anyenv_cache.db"
+            return hishel.AsyncSqliteStorage(
+                database_path=str(cache_path),
+                default_ttl=cache_ttl,
+                refresh_ttl_on_access=True,
             )
         case _:
             msg = f"Invalid cache backend: {cache_backend}"
             raise ValueError(msg)
+
+
+def get_cache_policy() -> hishel.CachePolicy:
+    """Get cache policy for HTTP caching."""
+    import hishel
+
+    # Use SpecificationPolicy for RFC 9111 compliant caching
+    cache_options = hishel.CacheOptions(
+        shared=False,  # Private cache (browser-like)
+        supported_methods=["GET", "HEAD"],  # Only cache safe methods
+        allow_stale=True,  # Allow serving stale responses
+    )
+
+    return hishel.SpecificationPolicy(cache_options=cache_options)
 
 
 class HttpxResponse(HttpResponse):
@@ -163,21 +180,21 @@ class HttpxBackend(HttpBackend):
         cache_backend: CacheType = "file",
     ) -> httpx.AsyncClient:
         """Create an HTTPX client."""
-        import hishel
+        from hishel.httpx import AsyncCacheClient
         import httpx
 
         url = base_url or ""
         if cache:
             storage = get_storage(cache_backend, self.cache_dir, self.cache_ttl)
+            policy = get_cache_policy()
 
-            ctl = hishel.Controller(
-                cacheable_methods=["GET"],
-                cacheable_status_codes=[200],
-                allow_stale=True,
+            # Create the cached client directly using hishel's AsyncCacheClient
+            return AsyncCacheClient(
+                storage=storage,
+                policy=policy,
+                headers=headers,
+                base_url=url,
             )
-            tp = httpx.AsyncHTTPTransport()
-            transport = hishel.AsyncCacheTransport(tp, storage=storage, controller=ctl)
-            return httpx.AsyncClient(transport=transport, headers=headers, base_url=url)
         return httpx.AsyncClient(headers=headers, base_url=url)
 
     async def request(
