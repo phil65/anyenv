@@ -8,7 +8,7 @@ from typing import Any
 
 from upath import UPath
 
-from anyenv.toml_tools.base import TomlDumpError, TomlLoadError, TomlProviderBase
+from anyenv.toml_tools.base import TomlLoadError, TomlProviderBase
 
 
 class TomlRsProvider(TomlProviderBase):
@@ -43,5 +43,6 @@ class TomlRsProvider(TomlProviderBase):
         pretty: bool = False,
     ) -> str:
         """Dump data to TOML string using toml_rs."""
-        msg = "toml-rs does not support writing TOML files (read-only library)"
-        raise TomlDumpError(msg)
+        import toml_rs
+
+        return toml_rs.dumps(data, pretty=pretty)
