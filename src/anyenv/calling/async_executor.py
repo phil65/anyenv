@@ -17,7 +17,9 @@ from anyenv.calling.multieventhandler import MultiEventHandler
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
 
+    from anyenv.calling.multieventhandler import ExecutionMode
 
+    
 class AsyncExecutor[**P, T]:
     """Wrapper that provides both async __call__ and sync() methods."""
 
@@ -110,12 +112,12 @@ class AsyncExecutor[**P, T]:
         return len(self._observers)
 
     @property
-    def observer_mode(self) -> str:
+    def observer_mode(self) -> ExecutionMode:
         """Sequential or parallel observer execution."""
         return self._observers.mode
 
     @observer_mode.setter
-    def observer_mode(self, mode: str) -> None:
+    def observer_mode(self, mode: ExecutionMode) -> None:
         self._observers.mode = mode
 
     def __getattr__(self, name: str) -> Any:
