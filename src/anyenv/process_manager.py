@@ -141,6 +141,16 @@ class ProcessManager:
         self._processes: dict[str, RunningProcess] = {}
         self._output_tasks: dict[str, asyncio.Task[None]] = {}
 
+    @property
+    def processes(self) -> dict[str, RunningProcess]:
+        """Get the running processes."""
+        return self._processes
+
+    @property
+    def output_tasks(self) -> dict[str, asyncio.Task[None]]:
+        """Get the output tasks."""
+        return self._output_tasks
+
     async def start_process(
         self,
         command: str,
