@@ -3,23 +3,27 @@
 from __future__ import annotations
 
 import asyncio
+from collections import defaultdict
 import concurrent.futures
 from functools import wraps
 import inspect
 import queue
 import threading
-from typing import TYPE_CHECKING, Any, Concatenate, overload
+import types
+from typing import TYPE_CHECKING, Any, Concatenate, Union, overload
 import warnings
 
 from anyenv.calling.multieventhandler import MultiEventHandler
 
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
+    from collections.abc import AsyncIterator, Awaitable, Iterator
 
     from anyenv.calling.multieventhandler import ExecutionMode
 
-    
+from collections.abc import Callable
+
+
 class AsyncExecutor[**P, T]:
     """Wrapper that provides both async __call__ and sync() methods."""
 
@@ -29,6 +33,11 @@ class AsyncExecutor[**P, T]:
         self._is_bound = is_bound
         # Initialize observer system
         self._observers = MultiEventHandler[Callable[[T], Any]]()
+        # Track filtered handlers by type for cleanup
+        self._filtered_handlers: dict[
+            tuple[type, ...] | tuple[str, int],
+            list[tuple[Callable[[T], Any], Callable[[Any], Any]]],
+        ] = defaultdict(list)
         # Copy function metadata
         wraps(func)(self)
 
@@ -39,8 +48,9 @@ class AsyncExecutor[**P, T]:
         # Always create bound wrapper to track instance
         bound = type(self)(self._func, is_bound=self._is_bound)
         bound._instance = instance  # noqa: SLF001
-        # Preserve observers across bound instances
+        # Preserve observers and filtered handlers across bound instances
         bound._observers = self._observers  # noqa: SLF001
+        bound._filtered_handlers = self._filtered_handlers  # noqa: SLF001
         return bound
 
     async def __call__(self, *args: P.args, **kwargs: P.kwargs) -> T:
@@ -105,6 +115,7 @@ class AsyncExecutor[**P, T]:
     def clear_observers(self) -> None:
         """Remove all observers."""
         self._observers.clear()
+        self._filtered_handlers.clear()
 
     @property
     def observer_count(self) -> int:
@@ -120,9 +131,89 @@ class AsyncExecutor[**P, T]:
     def observer_mode(self, mode: ExecutionMode) -> None:
         self._observers.mode = mode
 
+    def __getitem__(
+        self, event_types: type[Any] | types.UnionType
+    ) -> EventFilteredConnection[T]:
+        """Get filtered connection for specific event type(s).
+
+        Args:
+            event_types: Single type or union of types to filter for
+
+        Returns:
+            EventFilteredConnection that only triggers for matching event types
+
+        Example:
+            my_iterator[MyEvent].connect(handler)
+            my_iterator[MyEvent | AnotherEvent].connect(handler)
+        """
+        # Handle union types
+        if isinstance(event_types, types.UnionType):
+            # Python 3.10+ union syntax: X | Y
+            type_tuple = event_types.__args__
+        elif hasattr(event_types, "__origin__") and event_types.__origin__ is Union:
+            # typing.Union syntax: Union[X, Y]
+            type_tuple = event_types.__args__
+        else:
+            # Single type
+            type_tuple = (event_types,)
+        return EventFilteredConnection(self, type_tuple)
+
     def __getattr__(self, name: str) -> Any:
         """Delegate attribute access to the wrapped function."""
         return getattr(self._func, name)
+
+
+class EventFilteredConnection[T]:
+    """Filtered connection proxy for specific event types."""
+
+    def __init__(
+        self,
+        executor: AsyncExecutor[Any, T] | AsyncIteratorExecutor[Any, T],
+        event_types: tuple[type, ...],
+    ) -> None:
+        self._executor = executor
+        self._event_types = event_types
+
+    def connect(self, handler: Callable[[T], Any]) -> None:
+        """Connect handler to filtered events."""
+        # Check if handler is already connected for these types
+        handlers_list = self._executor._filtered_handlers[self._event_types]  # noqa: SLF001
+        for original_handler, _ in handlers_list:
+            if original_handler is handler:
+                return
+
+        # Create filtered handler wrapper
+        async def filtered_handler(event: Any) -> Any:
+            if isinstance(event, self._event_types):
+                if inspect.iscoroutinefunction(handler):
+                    return await handler(event)  # type: ignore[arg-type]
+                return handler(event)  # type: ignore[arg-type]
+            return None
+
+        # Store mapping and add to observer system
+        handlers_list.append((handler, filtered_handler))
+        self._executor._observers.add_handler(filtered_handler)  # noqa: SLF001
+
+    def disconnect(self, handler: Callable[[T], Any]) -> None:
+        """Disconnect handler from filtered events."""
+        handlers_list = self._executor._filtered_handlers[self._event_types]  # noqa: SLF001
+
+        for i, (original_handler, filtered_handler) in enumerate(handlers_list):
+            if original_handler is handler:
+                # Remove from observer system and our tracking
+                self._executor._observers.remove_handler(filtered_handler)  # noqa: SLF001
+                handlers_list.pop(i)
+                # Clean up empty entries
+                if not handlers_list:
+                    del self._executor._filtered_handlers[self._event_types]  # noqa: SLF001
+                break
+
+    def clear(self) -> None:
+        """Clear all handlers for this event filter."""
+        handlers_list = self._executor._filtered_handlers.get(self._event_types, [])  # noqa: SLF001
+        handlers_to_remove = [handler for handler, _ in handlers_list]
+        for handler in handlers_to_remove:
+            self.disconnect(handler)
 
 
 class AsyncIteratorExecutor[**P, T]:
@@ -134,6 +225,11 @@ class AsyncIteratorExecutor[**P, T]:
         self._is_bound = is_bound
         # Initialize observer system for each yielded item
         self._observers = MultiEventHandler[Callable[[T], Any]]()
+        # Track filtered handlers by type for cleanup
+        self._filtered_handlers: dict[
+            tuple[type, ...] | tuple[str, int],
+            list[tuple[Callable[[T], Any], Callable[[Any], Any]]],
+        ] = defaultdict(list)
         # Copy function metadata
         wraps(func)(self)
 
@@ -146,8 +242,9 @@ class AsyncIteratorExecutor[**P, T]:
         # Always create bound wrapper to track instance
         bound = type(self)(self._func, is_bound=self._is_bound)
         bound._instance = instance  # noqa: SLF001
-        # Preserve observers across bound instances
+        # Preserve observers and filtered handlers across bound instances
         bound._observers = self._observers  # noqa: SLF001
+        bound._filtered_handlers = self._filtered_handlers  # noqa: SLF001
         return bound
 
     async def __call__(self, *args: P.args, **kwargs: P.kwargs) -> AsyncIterator[T]:
@@ -243,17 +340,57 @@ class AsyncIteratorExecutor[**P, T]:
 
         return await asyncio.wait_for(_collect(), timeout_sec)
 
-    def connect(self, handler: Callable[[T], Any]) -> None:
-        """Add observer that will be called with each yielded item."""
-        self._observers.add_handler(handler)
+    def connect(
+        self,
+        handler: Callable[[T], Any],
+        *,
+        event_filter: Callable[[T], bool] | None = None,
+    ) -> None:
+        """Add observer that will be called with each yielded item.
+
+        Args:
+            handler: The callback function to connect
+            event_filter: Optional filter function to selectively handle events
+        """
+        if event_filter is None:
+            self._observers.add_handler(handler)
+        else:
+            # Create filtered handler wrapper
+            async def filtered_handler(event: T) -> Any:
+                if event_filter(event):
+                    if inspect.iscoroutinefunction(handler):
+                        return await handler(event)
+                    return handler(event)
+                return None
+
+            # Store with a special key for lambda filters
+            lambda_key = ("__lambda_filter__", id(event_filter))
+            self._filtered_handlers[lambda_key].append((handler, filtered_handler))
+            self._observers.add_handler(filtered_handler)
 
     def disconnect(self, handler: Callable[[T], Any]) -> None:
         """Remove observer."""
-        self._observers.remove_handler(handler)
+        # Check if it's a filtered handler
+        found_and_removed = False
+        for event_types, handlers_list in list(self._filtered_handlers.items()):
+            for i, (original_handler, filtered_handler) in enumerate(handlers_list):
+                if original_handler is handler:
+                    self._observers.remove_handler(filtered_handler)
+                    handlers_list.pop(i)
+                    if not handlers_list:
+                        del self._filtered_handlers[event_types]
+                    found_and_removed = True
+                    break
+            if found_and_removed:
+                break
+
+        if not found_and_removed:
+            self._observers.remove_handler(handler)
 
     def clear_observers(self) -> None:
         """Remove all observers."""
         self._observers.clear()
+        self._filtered_handlers.clear()
 
     @property
     def observer_count(self) -> int:
@@ -266,8 +403,35 @@ class AsyncIteratorExecutor[**P, T]:
         return self._observers.mode
 
     @observer_mode.setter
-    def observer_mode(self, mode: str) -> None:
+    def observer_mode(self, mode: ExecutionMode) -> None:
         self._observers.mode = mode
+
+    def __getitem__(
+        self, event_types: type[Any] | types.UnionType
+    ) -> EventFilteredConnection[T]:
+        """Get filtered connection for specific event type(s).
+
+        Args:
+            event_types: Single type or union of types to filter for
+
+        Returns:
+            EventFilteredConnection that only triggers for matching event types
+
+        Example:
+            my_iterator[MyEvent].connect(handler)
+            my_iterator[MyEvent | AnotherEvent].connect(handler)
+        """
+        # Handle union types
+        if isinstance(event_types, types.UnionType):
+            # Python 3.10+ union syntax: X | Y
+            type_tuple = event_types.__args__
+        elif hasattr(event_types, "__origin__") and event_types.__origin__ is Union:
+            # typing.Union syntax: Union[X, Y]
+            type_tuple = event_types.__args__
+        else:
+            # Single type
+            type_tuple = (event_types,)
+        return EventFilteredConnection(self, type_tuple)
 
     def __getattr__(self, name: str) -> Any:
         """Delegate attribute access to the wrapped function."""
@@ -353,20 +517,58 @@ def function_spawner[**P, T](func) -> AsyncExecutor[P, T] | AsyncIteratorExecuto
 
 
 if __name__ == "__main__":
+    import dataclasses
+
+    @dataclasses.dataclass
+    class StartEvent:
+        """Start event."""
+
+        message: str
+
+    @dataclasses.dataclass
+    class DataEvent:
+        """Data event."""
+
+        value: int
+
+    @dataclasses.dataclass
+    class EndEvent:
+        """End event."""
+
+        total: int
 
     @function_spawner
-    async def async_func(x: int) -> str:
-        """Async function example."""
-        return f"result: {x}"
+    async def event_stream():
+        """Event stream example with filtering."""
+        yield StartEvent("Starting process")
+        for i in range(3):
+            yield DataEvent(i * 10)
+        yield EndEvent(total=30)
 
-    @function_spawner
-    async def async_gen(n: int):
-        """Async generator example."""
-        for i in range(n):
-            await asyncio.sleep(1)  # Simulate async work
-            yield i
+    def start_handler(event: StartEvent):
+        """Start event handler."""
+        print(f"🚀 {event.message}")
 
-    # result = async_func.sync(42)
-    items = async_gen.sync(3)
-    for item in items:
-        print("yielded", item)
+    def data_handler(event: DataEvent):
+        """Data event handler."""
+        print(f"📊 Data: {event.value}")
+
+    def end_handler(event: EndEvent):
+        """End event handler."""
+        print(f"✅ Finished with total: {event.total}")
+
+    def data_or_end_handler(event):
+        """Union event handler."""
+        print(f"🔄 Union handler: {type(event).__name__}")
+
+    # Connect specific event handlers
+    event_stream[StartEvent].connect(start_handler)
+    event_stream[DataEvent].connect(data_handler)
+    event_stream[EndEvent].connect(end_handler)
+
+    # Union type filtering works too
+    event_stream[DataEvent | EndEvent].connect(data_or_end_handler)
+
+    # Run synchronously
+    for _ in event_stream.sync():
+        pass  # Handlers are called automatically
