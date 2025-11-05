@@ -131,9 +131,9 @@ class AsyncExecutor[**P, T]:
     def observer_mode(self, mode: ExecutionMode) -> None:
         self._observers.mode = mode
 
-    def __getitem__(
-        self, event_types: type[Any] | types.UnionType
-    ) -> EventFilteredConnection[T]:
+    def __getitem__[E](
+        self, event_types: type[E] | types.UnionType
+    ) -> EventFilteredConnection[E]:
         """Get filtered connection for specific event type(s).
 
         Args:
@@ -163,18 +163,18 @@ class AsyncExecutor[**P, T]:
         return getattr(self._func, name)
 
 
-class EventFilteredConnection[T]:
+class EventFilteredConnection[E]:
     """Filtered connection proxy for specific event types."""
 
     def __init__(
         self,
-        executor: AsyncExecutor[Any, T] | AsyncIteratorExecutor[Any, T],
+        executor: AsyncExecutor[Any, Any] | AsyncIteratorExecutor[Any, Any],
         event_types: tuple[type, ...],
     ) -> None:
         self._executor = executor
         self._event_types = event_types
 
-    def connect(self, handler: Callable[[T], Any]) -> None:
+    def connect(self, handler: Callable[[E], Any]) -> None:
         """Connect handler to filtered events."""
         # Check if handler is already connected for these types
         handlers_list = self._executor._filtered_handlers[self._event_types]  # noqa: SLF001
@@ -194,8 +194,11 @@ class EventFilteredConnection[T]:
         handlers_list.append((handler, filtered_handler))
         self._executor._observers.add_handler(filtered_handler)  # noqa: SLF001
 
-    def disconnect(self, handler: Callable[[T], Any]) -> None:
+    def disconnect(self, handler: Callable[[E], Any]) -> None:
         """Disconnect handler from filtered events."""
+        if self._event_types not in self._executor._filtered_handlers:  # noqa: SLF001
+            return
+
         handlers_list = self._executor._filtered_handlers[self._event_types]  # noqa: SLF001
 
         for i, (original_handler, filtered_handler) in enumerate(handlers_list):
@@ -210,7 +213,10 @@ class EventFilteredConnection[T]:
 
     def clear(self) -> None:
         """Clear all handlers for this event filter."""
-        handlers_list = self._executor._filtered_handlers.get(self._event_types, [])  # noqa: SLF001
+        if self._event_types not in self._executor._filtered_handlers:  # noqa: SLF001
+            return
+
+        handlers_list = self._executor._filtered_handlers[self._event_types]  # noqa: SLF001
         handlers_to_remove = [handler for handler, _ in handlers_list]
         for handler in handlers_to_remove:
             self.disconnect(handler)
@@ -406,9 +412,9 @@ class AsyncIteratorExecutor[**P, T]:
     def observer_mode(self, mode: ExecutionMode) -> None:
         self._observers.mode = mode
 
-    def __getitem__(
-        self, event_types: type[Any] | types.UnionType
-    ) -> EventFilteredConnection[T]:
+    def __getitem__[E](
+        self, event_types: type[E] | types.UnionType
+    ) -> EventFilteredConnection[E]:
         """Get filtered connection for specific event type(s).
 
         Args:
