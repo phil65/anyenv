@@ -11,6 +11,8 @@ import threading
 from typing import TYPE_CHECKING, Any, Concatenate, overload
 import warnings
 
+from anyenv.calling.multieventhandler import MultiEventHandler
+
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Awaitable, Callable, Iterator
@@ -23,6 +25,8 @@ class AsyncExecutor[**P, T]:
         self._func = func
         self._instance: Any = None
         self._is_bound = is_bound
+        # Initialize observer system
+        self._observers = MultiEventHandler[Callable[[T], Any]]()
         # Copy function metadata
         wraps(func)(self)
 
@@ -33,14 +37,23 @@ class AsyncExecutor[**P, T]:
         # Always create bound wrapper to track instance
         bound = type(self)(self._func, is_bound=self._is_bound)
         bound._instance = instance  # noqa: SLF001
+        # Preserve observers across bound instances
+        bound._observers = self._observers  # noqa: SLF001
         return bound
 
     async def __call__(self, *args: P.args, **kwargs: P.kwargs) -> T:
         """Async call - normal behavior."""
         if self._instance is not None and self._is_bound:
             # We're bound to an instance, prepend it to args
-            return await self._func(self._instance, *args, **kwargs)
-        return await self._func(*args, **kwargs)
+            result = await self._func(self._instance, *args, **kwargs)
+        else:
+            result = await self._func(*args, **kwargs)
+
+        # Emit to all observers
+        if self._observers:
+            await self._observers(result)
+
+        return result
 
     def sync(self, *args: P.args, **kwargs: P.kwargs) -> T:
         """Synchronous version using asyncio.run or thread pool."""
@@ -79,6 +92,32 @@ class AsyncExecutor[**P, T]:
         """Call with timeout."""
         return await asyncio.wait_for(self(*args, **kwargs), timeout_sec)
 
+    def connect(self, handler: Callable[[T], Any]) -> None:
+        """Add observer that will be called with the function's return value."""
+        self._observers.add_handler(handler)
+
+    def disconnect(self, handler: Callable[[T], Any]) -> None:
+        """Remove observer."""
+        self._observers.remove_handler(handler)
+
+    def clear_observers(self) -> None:
+        """Remove all observers."""
+        self._observers.clear()
+
+    @property
+    def observer_count(self) -> int:
+        """Number of connected observers."""
+        return len(self._observers)
+
+    @property
+    def observer_mode(self) -> str:
+        """Sequential or parallel observer execution."""
+        return self._observers.mode
+
+    @observer_mode.setter
+    def observer_mode(self, mode: str) -> None:
+        self._observers.mode = mode
+
     def __getattr__(self, name: str) -> Any:
         """Delegate attribute access to the wrapped function."""
         return getattr(self._func, name)
@@ -91,6 +130,8 @@ class AsyncIteratorExecutor[**P, T]:
         self._func = func
         self._instance: Any = None
         self._is_bound = is_bound
+        # Initialize observer system for each yielded item
+        self._observers = MultiEventHandler[Callable[[T], Any]]()
         # Copy function metadata
         wraps(func)(self)
 
@@ -103,14 +144,23 @@ class AsyncIteratorExecutor[**P, T]:
         # Always create bound wrapper to track instance
         bound = type(self)(self._func, is_bound=self._is_bound)
         bound._instance = instance  # noqa: SLF001
+        # Preserve observers across bound instances
+        bound._observers = self._observers  # noqa: SLF001
         return bound
 
-    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> AsyncIterator[T]:
-        """Return the async iterator directly."""
+    async def __call__(self, *args: P.args, **kwargs: P.kwargs) -> AsyncIterator[T]:
+        """Return the async iterator with observer emission."""
         if self._instance is not None and self._is_bound:
             # We're bound to an instance, prepend it to args
-            return self._func(self._instance, *args, **kwargs)
-        return self._func(*args, **kwargs)
+            async_iter = self._func(self._instance, *args, **kwargs)
+        else:
+            async_iter = self._func(*args, **kwargs)
+
+        async for item in async_iter:
+            # Emit each item to observers
+            if self._observers:
+                await self._observers(item)
+            yield item
 
     def sync(self, *args: P.args, **kwargs: P.kwargs) -> Iterator[T]:
         """Synchronous version that returns a truly lazy iterator."""
@@ -190,6 +240,32 @@ class AsyncIteratorExecutor[**P, T]:
             return [item async for item in self(*args, **kwargs)]
 
         return await asyncio.wait_for(_collect(), timeout_sec)
+
+    def connect(self, handler: Callable[[T], Any]) -> None:
+        """Add observer that will be called with each yielded item."""
+        self._observers.add_handler(handler)
+
+    def disconnect(self, handler: Callable[[T], Any]) -> None:
+        """Remove observer."""
+        self._observers.remove_handler(handler)
+
+    def clear_observers(self) -> None:
+        """Remove all observers."""
+        self._observers.clear()
+
+    @property
+    def observer_count(self) -> int:
+        """Number of connected observers."""
+        return len(self._observers)
+
+    @property
+    def observer_mode(self) -> str:
+        """Sequential or parallel observer execution."""
+        return self._observers.mode
+
+    @observer_mode.setter
+    def observer_mode(self, mode: str) -> None:
+        self._observers.mode = mode
 
     def __getattr__(self, name: str) -> Any:
         """Delegate attribute access to the wrapped function."""
