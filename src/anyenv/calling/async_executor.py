@@ -10,7 +10,7 @@ import inspect
 import queue
 import threading
 import types
-from typing import TYPE_CHECKING, Any, Concatenate, Union, overload
+from typing import TYPE_CHECKING, Any, Concatenate, Union, get_args, get_origin, overload
 import warnings
 
 from anyenv.calling.multieventhandler import MultiEventHandler
@@ -150,9 +150,9 @@ class AsyncExecutor[**P, T]:
         if isinstance(event_types, types.UnionType):
             # Python 3.10+ union syntax: X | Y
             type_tuple = event_types.__args__
-        elif hasattr(event_types, "__origin__") and event_types.__origin__ is Union:
+        elif get_origin(event_types) is Union:  # type: ignore[arg-type]
             # typing.Union syntax: Union[X, Y]
-            type_tuple = event_types.__args__
+            type_tuple = get_args(event_types)  # type: ignore[assignment]
         else:
             # Single type
             type_tuple = (event_types,)
@@ -319,7 +319,7 @@ class AsyncIteratorExecutor[**P, T]:
                     raise item
                 return item
 
-        return LazyAsyncIterator(lambda: self(*args, **kwargs))
+        return LazyAsyncIterator(lambda: self(*args, **kwargs))  # type: ignore[return-value]
 
     def task(self, *args: P.args, **kwargs: P.kwargs) -> asyncio.Task[list[T]]:
         """Create a Task that collects all values into a list."""
@@ -431,9 +431,9 @@ class AsyncIteratorExecutor[**P, T]:
         if isinstance(event_types, types.UnionType):
             # Python 3.10+ union syntax: X | Y
             type_tuple = event_types.__args__
-        elif hasattr(event_types, "__origin__") and event_types.__origin__ is Union:
+        elif get_origin(event_types) is Union:  # type: ignore[arg-type]
             # typing.Union syntax: Union[X, Y]
-            type_tuple = event_types.__args__
+            type_tuple = get_args(event_types)  # type: ignore[assignment]
         else:
             # Single type
             type_tuple = (event_types,)
