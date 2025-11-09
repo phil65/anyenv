@@ -87,7 +87,7 @@ def get_json_provider(backend: BackendType = "auto") -> type[JsonProviderBase]:
     raise ValueError(msg)
 
 
-def load_json[T](
+def load_json[T = Any](
     data: str | bytes | TextIOWrapper,
     return_type: type[T] | None = None,
     backend: BackendType = "auto",
