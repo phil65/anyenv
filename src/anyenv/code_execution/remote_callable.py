@@ -211,9 +211,13 @@ def create_remote_callable[R, **CallableP, **EnvP](
     dependencies = [dep for dep in dependencies if not dep.startswith("__")]
 
     # Auto-detect Pydantic dependency if BaseModel is used in __main__ module
-    if is_main_module and imports_and_classes and "BaseModel" in imports_and_classes:
-        if "pydantic" not in dependencies:
-            dependencies.append("pydantic")
+    if (
+        is_main_module
+        and imports_and_classes
+        and "BaseModel" in imports_and_classes
+        and "pydantic" not in dependencies
+    ):
+        dependencies.append("pydantic")
 
     async def remote_wrapper(*func_args: Any, **func_kwargs: Any) -> R:
         """Wrapper that executes the callable remotely."""
@@ -232,7 +236,7 @@ def create_remote_callable[R, **CallableP, **EnvP](
         # Merge dependencies with user kwargs, user kwargs take precedence
         env_kwargs = {"dependencies": dependencies, **kwargs}
 
-        async with env_class(*args, **env_kwargs) as env:
+        async with env_class(*args, **env_kwargs) as env:  # type: ignore
             args_json = json.dumps(func_args, default=str)
             kwargs_json = json.dumps(func_kwargs, default=str)
 
@@ -300,8 +304,6 @@ if __name__ == "__main__":
         print(f"Age: {person.age}")
         print(f"Email: {person.email}")
         print(f"Is Person instance: {isinstance(person, Person)}")
-        print(
-            "✅ Successfully completed Pydantic BaseModel round-trip with full type safety!"
-        )
+        print("✅ Completed Pydantic BaseModel round-trip with full type safety!")
 
     asyncio.run(main())
