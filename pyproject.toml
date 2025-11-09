@@ -52,6 +52,7 @@ modal = ["modal"]
 msgspec = ["msgspec"]
 pytomlpp = ["pytomlpp"]
 rtoml = ["rtoml"]
+ssh = ["asyncssh"]
 toml-rs = ["toml-rs"]
 vercel = ["vercel"]
 
