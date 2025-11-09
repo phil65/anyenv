@@ -5,7 +5,9 @@ from __future__ import annotations
 import inspect
 import json
 import shlex
-from typing import TYPE_CHECKING, Any, ParamSpec
+from typing import TYPE_CHECKING, Any, ParamSpec, get_type_hints
+
+from anyenv.code_execution.docker_provider.provider import DockerExecutionEnvironment
 
 
 if TYPE_CHECKING:
@@ -41,13 +43,21 @@ kwargs = json.loads(sys.argv[2])
 # Execute function
 result = {func_name}(*args, **kwargs)
 
-# Serialize result
-print(json.dumps(result, default=str))
+# Serialize result - handle Pydantic models specially
+if hasattr(result, 'model_dump'):
+    # Pydantic model - serialize to dict first
+    result_data = result.model_dump()
+else:
+    result_data = result
+
+print(json.dumps(result_data, default=str))
 """
 
 MAIN_MODULE_CODE = """
 import json
 import sys
+
+{imports}
 
 {source_code}
 
@@ -58,8 +68,14 @@ kwargs = json.loads(sys.argv[2])
 # Execute function
 result = {func_name}(*args, **kwargs)
 
-# Serialize result
-print(json.dumps(result, default=str))
+# Serialize result - handle Pydantic models specially
+if hasattr(result, 'model_dump'):
+    # Pydantic model - serialize to dict first
+    result_data = result.model_dump()
+else:
+    result_data = result
+
+print(json.dumps(result_data, default=str))
 """
 
 
@@ -128,8 +144,17 @@ def create_remote_callable[R, **CallableP, **EnvP](
         func_name = import_path.split(".")[-1]
     else:
         # Capture return type annotation for type-safe deserialization
-        if hasattr(callable_obj, "__annotations__"):
-            return_type = callable_obj.__annotations__.get("return")
+        try:
+            # Use get_type_hints to resolve string annotations to actual types
+            type_hints = get_type_hints(callable_obj)
+            return_type = type_hints.get("return")
+        except (NameError, AttributeError):
+            # Fallback to raw annotations if resolution fails
+            return_type = (
+                callable_obj.__annotations__.get("return")
+                if hasattr(callable_obj, "__annotations__")
+                else None
+            )
 
         module = callable_obj.__module__
         if hasattr(callable_obj, "__qualname__"):
@@ -140,14 +165,55 @@ def create_remote_callable[R, **CallableP, **EnvP](
         # Handle __main__ module case
         is_main_module = module == "__main__"
         if is_main_module:
-            source_code = inspect.getsource(callable_obj)
+            import textwrap
+
+            # Get source and dedent it
+            source_code = textwrap.dedent(inspect.getsource(callable_obj))
             func_name = callable_obj.__name__
+
+            # Extract imports and class definitions from the main module
+            import sys
+
+            main_module = sys.modules["__main__"]
+            imports = []
+            class_defs = []
+
+            for obj in vars(main_module).values():
+                if (
+                    isinstance(obj, type)
+                    and hasattr(obj, "__module__")
+                    and obj.__module__ == "__main__"
+                ):
+                    # This is a class defined in main
+                    class_source = textwrap.dedent(inspect.getsource(obj))
+                    class_defs.append(class_source)
+                    # Add imports for the class (basic detection)
+                    if hasattr(obj, "__bases__"):
+                        for base in obj.__bases__:
+                            if base.__module__ != "builtins":
+                                imports.append(  # noqa: PERF401
+                                    f"from {base.__module__} import {base.__name__}"
+                                )
+
+            # Combine imports and class definitions
+            all_imports = "\n".join(set(imports))  # Remove duplicates
+            all_classes = "\n".join(class_defs)
+            imports_and_classes = f"{all_imports}\n\n{all_classes}".strip()
         else:
             source_code = None
             func_name = import_path.split(".")[-1]
+            imports_and_classes = ""
 
     # Infer package dependencies
     dependencies = infer_package_dependencies(import_path)
+
+    # Filter out invalid packages like __main__
+    dependencies = [dep for dep in dependencies if not dep.startswith("__")]
+
+    # Auto-detect Pydantic dependency if BaseModel is used in __main__ module
+    if is_main_module and imports_and_classes and "BaseModel" in imports_and_classes:
+        if "pydantic" not in dependencies:
+            dependencies.append("pydantic")
 
     async def remote_wrapper(*func_args: Any, **func_kwargs: Any) -> R:
         """Wrapper that executes the callable remotely."""
@@ -155,7 +221,9 @@ def create_remote_callable[R, **CallableP, **EnvP](
 
         # Create execution code based on whether it's from __main__ or not
         if is_main_module:
-            code = MAIN_MODULE_CODE.format(source_code=source_code, func_name=func_name)
+            code = MAIN_MODULE_CODE.format(
+                imports=imports_and_classes, source_code=source_code, func_name=func_name
+            )
         else:
             module_path = ".".join(import_path.split(".")[:-1])
             code = CODE.format(module_path=module_path, func_name=func_name)
@@ -163,6 +231,7 @@ def create_remote_callable[R, **CallableP, **EnvP](
         # Set up environment and execute
         # Merge dependencies with user kwargs, user kwargs take precedence
         env_kwargs = {"dependencies": dependencies, **kwargs}
+
         async with env_class(*args, **env_kwargs) as env:
             args_json = json.dumps(func_args, default=str)
             kwargs_json = json.dumps(func_kwargs, default=str)
@@ -180,29 +249,59 @@ def create_remote_callable[R, **CallableP, **EnvP](
             if not result.success:
                 msg = f"Remote execution failed: {result.error}"
                 raise RuntimeError(msg)
+
             # Parse result with type validation if return type is available
             if return_type is not None:
-                return anyenv.load_json(result.stdout or "null", return_type=return_type)
+                try:
+                    return anyenv.load_json(
+                        result.stdout or "null", return_type=return_type
+                    )
+                except TypeError:
+                    # Fallback: if type validation fails, try reconstructing from dict
+                    data = anyenv.load_json(result.stdout or "null")
+                    if hasattr(return_type, "model_validate") and isinstance(data, dict):
+                        return return_type.model_validate(data)
+                    return data
             return anyenv.load_json(result.stdout or "null")
 
     return remote_wrapper
 
 
-def greet(name: str) -> str:
-    """Return a greeting message."""
-    return f"Hello, {name}!"
-
-
 if __name__ == "__main__":
     import asyncio
 
-    from anyenv.code_execution import DockerExecutionEnvironment
+    from pydantic import BaseModel
+
+    from anyenv.code_execution.docker_provider.provider import DockerExecutionEnvironment
+
+    class Person(BaseModel):
+        """A person with name, age, and optional email."""
+
+        name: str
+        age: int
+        email: str | None = None
+
+    def create_person(name: str, age: int, email: str | None = None) -> Person:
+        """Create and return a Person BaseModel."""
+        return Person(name=name, age=age, email=email)
 
     async def main():
         """Run the main program."""
-        # Type-safe constructor arguments
-        result = create_remote_callable(greet, DockerExecutionEnvironment, timeout=60.0)
-        output = await result("World")
-        print(output)
+        print("\n=== Testing Pydantic BaseModel round-trip ===")
+        remote_create_person = create_remote_callable(
+            create_person,
+            DockerExecutionEnvironment,
+            timeout=60.0,
+        )
+        person = await remote_create_person("Alice", 30, "alice@example.com")
+        print(f"Result: {person!r}")
+        print(f"Type: {type(person)}")
+        print(f"Name: {person.name}")
+        print(f"Age: {person.age}")
+        print(f"Email: {person.email}")
+        print(f"Is Person instance: {isinstance(person, Person)}")
+        print(
+            "✅ Successfully completed Pydantic BaseModel round-trip with full type safety!"
+        )
 
     asyncio.run(main())

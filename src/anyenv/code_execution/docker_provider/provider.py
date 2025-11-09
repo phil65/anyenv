@@ -469,7 +469,33 @@ executeMain().then(result => {{
                 error_msg = "Docker environment not properly initialized"
                 raise RuntimeError(error_msg)  # noqa: TRY301
 
-            # Execute the command directly
+            # Install dependencies first if needed (output goes to /dev/null)
+            if self.dependencies:
+                deps_str = " ".join(self.dependencies)
+                if self.language == "python":
+                    install_cmd = f"pip install {deps_str} > /dev/null 2>&1"
+                elif self.language in ("javascript", "typescript"):
+                    install_cmd = f"npm install {deps_str} > /dev/null 2>&1"
+                else:
+                    install_cmd = None
+
+                if install_cmd:
+                    install_result = self.container.exec(["sh", "-c", install_cmd])
+                    if install_result.exit_code != 0:
+                        error_msg = f"Failed to install dependencies: {self.dependencies}"
+                        return ExecutionResult(
+                            result=None,
+                            duration=time.time() - start_time,
+                            success=False,
+                            error=error_msg,
+                            error_type="DependencyError",
+                            stdout="",
+                            stderr=install_result.output.decode()
+                            if install_result.output
+                            else "",
+                        )
+
+            # Execute the command cleanly (no dependency installation output)
             result = self.container.exec(command)
             duration = time.time() - start_time
 
