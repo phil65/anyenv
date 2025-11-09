@@ -25,6 +25,10 @@ from anyenv.code_execution.models import (
     ToolCallRequest,
     ToolCallResponse,
 )
+from anyenv.code_execution.remote_callable import (
+    create_remote_callable,
+    infer_package_dependencies,
+)
 
 # from anyenv.code_execution.server import fastapi_tool_server
 from anyenv.code_execution.subprocess_provider import SubprocessExecutionEnvironment
@@ -264,6 +268,8 @@ __all__ = [
     "ToolCallResponse",
     "VercelExecutionEnvironment",
     "VercelRuntime",
+    "create_remote_callable",
     "get_environment",
+    "infer_package_dependencies",
     # "fastapi_tool_server",
 ]
