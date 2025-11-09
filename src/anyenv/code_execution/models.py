@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from pydantic import BaseModel
@@ -14,7 +14,7 @@ class ServerInfo:
 
     url: str
     port: int
-    tools: dict[str, Any]
+    tools: dict[str, Any] = field(default_factory=dict)
 
 
 class ToolCallRequest(BaseModel):
