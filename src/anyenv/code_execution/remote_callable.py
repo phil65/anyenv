@@ -5,13 +5,17 @@ from __future__ import annotations
 import inspect
 import json
 import shlex
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ParamSpec
 
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Awaitable, Callable
 
     from anyenv.code_execution.base import ExecutionEnvironment
+
+CallableP = ParamSpec("CallableP")  # For the callable's parameters
+EnvP = ParamSpec("EnvP")  # For the environment's parameters
+
 
 # Common module->package mappings for edge cases
 MODULE_TO_PACKAGE = {
@@ -95,11 +99,12 @@ def infer_package_dependencies(import_path: str) -> list[str]:
     return packages
 
 
-def create_remote_callable(
-    callable_obj: Callable[..., Any] | str,
-    env_class: type[ExecutionEnvironment],
-    **env_kwargs: Any,
-) -> Callable[..., Any]:
+def create_remote_callable[R, **CallableP, **EnvP](
+    callable_obj: Callable[CallableP, R] | str,
+    env_class: Callable[EnvP, ExecutionEnvironment],
+    *args: EnvP.args,
+    **kwargs: EnvP.kwargs,
+) -> Callable[CallableP, Awaitable[R]]:
     """Create a remote-executing version of a callable.
 
     Analyzes the callable to infer dependencies, then returns a wrapped
@@ -108,18 +113,24 @@ def create_remote_callable(
     Args:
         callable_obj: Function or import path to wrap
         env_class: ExecutionEnvironment class to use
-        **env_kwargs: Additional environment setup arguments
+        *args: Constructor arguments for the environment
+        **kwargs: Constructor keyword arguments for the environment
 
     Returns:
         Wrapped callable that executes remotely
     """
-    # Get import path and infer dependencies
+    # Get import path and capture return type
+    return_type = None
     if isinstance(callable_obj, str):
         import_path = callable_obj
         is_main_module = False
         source_code = None
         func_name = import_path.split(".")[-1]
     else:
+        # Capture return type annotation for type-safe deserialization
+        if hasattr(callable_obj, "__annotations__"):
+            return_type = callable_obj.__annotations__.get("return")
+
         module = callable_obj.__module__
         if hasattr(callable_obj, "__qualname__"):
             import_path = f"{module}.{callable_obj.__qualname__}"
@@ -138,7 +149,7 @@ def create_remote_callable(
     # Infer package dependencies
     dependencies = infer_package_dependencies(import_path)
 
-    async def remote_wrapper(*args: Any, **kwargs: Any) -> Any:
+    async def remote_wrapper(*func_args: Any, **func_kwargs: Any) -> R:
         """Wrapper that executes the callable remotely."""
         import anyenv
 
@@ -150,9 +161,11 @@ def create_remote_callable(
             code = CODE.format(module_path=module_path, func_name=func_name)
 
         # Set up environment and execute
-        async with env_class(dependencies=dependencies, **env_kwargs) as env:
-            args_json = json.dumps(args, default=str)
-            kwargs_json = json.dumps(kwargs, default=str)
+        # Merge dependencies with user kwargs, user kwargs take precedence
+        env_kwargs = {"dependencies": dependencies, **kwargs}
+        async with env_class(*args, **env_kwargs) as env:
+            args_json = json.dumps(func_args, default=str)
+            kwargs_json = json.dumps(func_kwargs, default=str)
 
             # Execute with arguments passed as command line args
             # Use shlex.quote to properly escape the arguments
@@ -167,13 +180,15 @@ def create_remote_callable(
             if not result.success:
                 msg = f"Remote execution failed: {result.error}"
                 raise RuntimeError(msg)
-            # Parse result
+            # Parse result with type validation if return type is available
+            if return_type is not None:
+                return anyenv.load_json(result.stdout or "null", return_type=return_type)
             return anyenv.load_json(result.stdout or "null")
 
     return remote_wrapper
 
 
-def greet(name):
+def greet(name: str) -> str:
     """Return a greeting message."""
     return f"Hello, {name}!"
 
@@ -181,11 +196,12 @@ def greet(name):
 if __name__ == "__main__":
     import asyncio
 
-    from anyenv.code_execution.local_provider import LocalExecutionEnvironment
+    from anyenv.code_execution import DockerExecutionEnvironment
 
     async def main():
         """Run the main program."""
-        result = create_remote_callable(greet, LocalExecutionEnvironment)
+        # Type-safe constructor arguments
+        result = create_remote_callable(greet, DockerExecutionEnvironment, timeout=60.0)
         output = await result("World")
         print(output)
 
