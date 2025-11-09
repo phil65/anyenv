@@ -32,6 +32,7 @@ from anyenv.code_execution.remote_callable import (
 
 # from anyenv.code_execution.server import fastapi_tool_server
 from anyenv.code_execution.subprocess_provider import SubprocessExecutionEnvironment
+from anyenv.code_execution.ssh_provider import SshExecutionEnvironment
 
 if TYPE_CHECKING:
     from contextlib import AbstractAsyncContextManager
@@ -43,6 +44,7 @@ ExecutionEnvironmentStr = Literal[
     "local",
     "subprocess",
     "docker",
+    "ssh",
     "mcp",
     "daytona",
     "e2b",
@@ -82,6 +84,24 @@ def get_environment(
     timeout: float = 60.0,
     language: Language = "python",
 ) -> DockerExecutionEnvironment: ...
+
+
+@overload
+def get_environment(
+    provider: Literal["ssh"],
+    *,
+    host: str,
+    username: str,
+    lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
+    dependencies: list[str] | None = None,
+    password: str | None = None,
+    private_key_path: str | None = None,
+    port: int = 22,
+    timeout: float = 60.0,
+    language: Language = "python",
+    cwd: str | None = None,
+    **ssh_kwargs: Any,
+) -> SshExecutionEnvironment: ...
 
 
 @overload
@@ -206,6 +226,13 @@ def get_environment(  # noqa: PLR0911
         # Docker with custom image
         env = get_environment("docker", lifespan_handler=handler, image="python:3.11")
 
+        # SSH with password auth
+        env = get_environment("ssh", host="remote.server.com", username="user", password="pass")
+
+        # SSH with key auth
+        env = get_environment("ssh", host="remote.server.com", username="user",
+                            private_key_path="~/.ssh/id_rsa", timeout=120.0)
+
         # Daytona with specific config
         env = get_environment("daytona", api_url="https://api.daytona.io", timeout=600.0)
 
@@ -232,6 +259,8 @@ def get_environment(  # noqa: PLR0911
             return SubprocessExecutionEnvironment(**kwargs)
         case "docker":
             return DockerExecutionEnvironment(**kwargs)
+        case "ssh":
+            return SshExecutionEnvironment(**kwargs)
         case "mcp":
             return McpPythonExecutionEnvironment(**kwargs)
         case "daytona":
@@ -263,6 +292,7 @@ __all__ = [
     "MicrosandboxExecutionEnvironment",
     "ModalExecutionEnvironment",
     "ServerInfo",
+    "SshExecutionEnvironment",
     "SubprocessExecutionEnvironment",
     "ToolCallRequest",
     "ToolCallResponse",
