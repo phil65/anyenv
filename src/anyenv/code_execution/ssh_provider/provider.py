@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 
     from asyncssh import SSHClientConnection
     from asyncssh.misc import _ACMWrapper
+    from sshfs import SSHFileSystem
 
     from anyenv.code_execution.models import Language, ServerInfo
 
@@ -74,7 +75,7 @@ class SshExecutionEnvironment(ExecutionEnvironment):
         import asyncssh
 
         # Build connection arguments
-        connect_kwargs = {
+        self.connect_kwargs = {
             "host": self.host,
             "port": self.port,
             "username": self.username,
@@ -83,12 +84,12 @@ class SshExecutionEnvironment(ExecutionEnvironment):
 
         # Add authentication
         if self.private_key_path:
-            connect_kwargs["client_keys"] = [self.private_key_path]
+            self.connect_kwargs["client_keys"] = [self.private_key_path]
         elif self.password:
-            connect_kwargs["password"] = self.password
+            self.connect_kwargs["password"] = self.password
 
         # Create and enter the asyncssh connection context manager
-        self._connection_cm = asyncssh.connect(**connect_kwargs)
+        self._connection_cm = asyncssh.connect(**self.connect_kwargs)
         self.connection = await self._connection_cm.__aenter__()
         assert self.connection
         # Set up remote working directory
@@ -136,6 +137,12 @@ class SshExecutionEnvironment(ExecutionEnvironment):
 
         # Cleanup server via base class
         await super().__aexit__(exc_type, exc_val, exc_tb)
+
+    def get_fs(self) -> SSHFileSystem:
+        """Return a ModalFS instance for the sandbox."""
+        from sshfs import SSHFileSystem
+
+        return SSHFileSystem(**self.connect_kwargs)
 
     async def _verify_tools(self) -> None:
         """Verify that required tools are available on the remote machine."""

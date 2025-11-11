@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from contextlib import AbstractAsyncContextManager
 
     from modal import App, Image, Sandbox
+    from upathtools.filesystems.modal_fs import ModalFS
 
     from anyenv.code_execution.models import Language, ServerInfo
 
@@ -140,6 +141,13 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
 
         # Cleanup server via base class
         await super().__aexit__(exc_type, exc_val, exc_tb)
+
+    def get_fs(self) -> ModalFS:
+        """Return a ModalFS instance for the sandbox."""
+        from upathtools.filesystems.modal_fs import ModalFS
+
+        assert self.sandbox
+        return ModalFS(sandbox_id=self.sandbox.object_id)
 
     async def execute(self, code: str) -> ExecutionResult:
         """Execute code in the Modal sandbox."""

@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from contextlib import AbstractAsyncContextManager
 
     from e2b import AsyncSandbox
+    from upathtools.filesystems.e2b_fs import E2BFS
 
     from anyenv.code_execution.models import Language, ServerInfo
 
@@ -92,6 +93,13 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
 
         # Cleanup server via base class
         await super().__aexit__(exc_type, exc_val, exc_tb)
+
+    def get_fs(self) -> E2BFS:
+        """Return a E2BFs instance for the sandbox."""
+        from upathtools.filesystems.e2b_fs import E2BFS
+
+        assert self.sandbox
+        return E2BFS(sandbox_id=self.sandbox.sandbox_id)
 
     async def execute(self, code: str) -> ExecutionResult:
         """Execute code in the E2B sandbox."""

@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from contextlib import AbstractAsyncContextManager
 
     from daytona._async.sandbox import AsyncSandbox
+    from upathtools.filesystems.daytona_fs import DaytonaFS
 
     from anyenv.code_execution.models import Language, ServerInfo
 
@@ -108,6 +109,13 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
 
         # Cleanup server via base class
         await super().__aexit__(exc_type, exc_val, exc_tb)
+
+    def get_fs(self) -> DaytonaFS:
+        """Return a DaytonaFS instance for the sandbox."""
+        from upathtools.filesystems.daytona_fs import DaytonaFS
+
+        assert self.sandbox
+        return DaytonaFS(sandbox_id=self.sandbox.id)
 
     async def execute(self, code: str) -> ExecutionResult:
         """Execute code in the Daytona sandbox."""

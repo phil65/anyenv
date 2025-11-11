@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from contextlib import AbstractAsyncContextManager
 
     from beam import Sandbox, SandboxInstance
+    from upathtools.filesystems.beam_fs import BeamFS
 
     from anyenv.code_execution.models import Language, ServerInfo
 
@@ -51,6 +52,13 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
         self.language = language
         self.sandbox: Sandbox | None = None
         self.instance: SandboxInstance | None = None
+
+    def get_fs(self) -> BeamFS:
+        """Return a BeamFS instance for the sandbox."""
+        from upathtools.filesystems.beam_fs import BeamFS
+
+        assert self.instance
+        return BeamFS(sandbox_id=self.instance.container_id)
 
     async def __aenter__(self) -> Self:
         """Setup Beam sandbox."""
