@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 import importlib.util
 import os
-from typing import TYPE_CHECKING, Any, Unpack
+from typing import TYPE_CHECKING, Any, Unpack, assert_never
 
 from anyenv.download.http_types import SecretStr
 
@@ -192,9 +192,8 @@ async def request(
                 processed_params = dict(params or {})
                 processed_params["api_key"] = key_value
 
-            case _:
-                msg = f"Unknown auth_type: {auth_type}"
-                raise ValueError(msg)
+            case _ as unreachable:
+                assert_never(unreachable)
 
     return await http_backend.request(
         method,
@@ -578,9 +577,8 @@ def request_sync(
                 processed_params = dict(params or {})
                 processed_params["api_key"] = key_value
 
-            case _:
-                msg = f"Unknown auth_type: {auth_type}"
-                raise ValueError(msg)
+            case _ as unreachable:
+                assert_never(unreachable)
 
     return http_backend.request_sync(
         method,

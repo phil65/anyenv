@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, assert_never
 
 from anyenv import dump_json, load_json
 from anyenv.anypath import Path
@@ -36,9 +36,8 @@ def get_storage(
             return FileBackend(cache_name=str(cache_dir), expire_after=cache_ttl)
         case "memory":
             return CacheBackend(expire_after=cache_ttl)
-        case _:
-            msg = f"Invalid cache backend: {cache_backend}"
-            raise ValueError(msg)
+        case _ as unreachable:
+            assert_never(unreachable)
 
 
 class AiohttpResponse(HttpResponse):
