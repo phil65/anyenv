@@ -9,13 +9,7 @@ from typing import TYPE_CHECKING, Any, Literal, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.models import ExecutionResult
-from anyenv.code_execution.parse_output import (
-    get_script_path,
-    parse_output,
-    wrap_javascript_code,
-    wrap_python_code,
-    wrap_typescript_code,
-)
+from anyenv.code_execution.parse_output import get_script_path, parse_output, wrap_code
 
 
 # Vercel runtime options based on the API error message
@@ -129,7 +123,6 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
             with contextlib.suppress(Exception):
                 await self.sandbox.stop()
 
-        # Cleanup server via base class
         await super().__aexit__(exc_type, exc_val, exc_tb)
 
     async def get_domain(self, port: int) -> str:
@@ -318,7 +311,7 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
     def _prepare_code_execution(self, code: str) -> tuple[str, str]:
         """Prepare code for execution, returning script path and wrapped code."""
         script_path = get_script_path(self.language)
-        wrapped_code = self._wrap_code_for_vercel(code)
+        wrapped_code = wrap_code(code, self.language)
         return script_path, wrapped_code
 
     def _get_execution_command(self, script_path: str) -> tuple[str, list[str]]:  # noqa: PLR0911
@@ -346,18 +339,6 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
                 if runtime == "walleye-python":
                     return ("python", [script_path])
                 return ("python3", [script_path])
-
-    def _wrap_code_for_vercel(self, code: str) -> str:
-        """Wrap user code for Vercel execution with result capture."""
-        match self.language:
-            case "python":
-                return wrap_python_code(code)
-            case "javascript":
-                return wrap_javascript_code(code)
-            case "typescript":
-                return wrap_typescript_code(code)
-            case _:
-                return wrap_python_code(code)
 
 
 if __name__ == "__main__":
