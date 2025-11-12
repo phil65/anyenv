@@ -13,12 +13,11 @@ daytona = pytest.importorskip("daytona")
 
 
 # Constants for mock results to avoid long lines
-SUCCESS_RESULT = '__DAYTONA_RESULT__ {"result": "Hello from Daytona!", "success": true}'
+SUCCESS_RESULT = '__RESULT__ {"result": "Hello from Daytona!", "success": true}'
 ERROR_RESULT = (
-    '__DAYTONA_RESULT__ {"success": false, "error": "Daytona test error", '
-    '"type": "ValueError"}'
+    '__RESULT__ {"success": false, "error": "Daytona test error", "type": "ValueError"}'
 )
-PI_RESULT = f'__DAYTONA_RESULT__ {{"result": {math.pi * 2}, "success": true}}'
+PI_RESULT = f'__RESULT__ {{"result": {math.pi * 2}, "success": true}}'
 
 
 class MockSandbox:

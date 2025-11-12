@@ -23,6 +23,16 @@ if TYPE_CHECKING:
     from anyenv.code_execution.models import Language, ServerInfo
 
 
+PYTHON_EXECUTABLES = [
+    "python3",
+    "python",
+    "python3.13",
+    "python3.12",
+    "python3.11",
+    "python3.14",
+]
+
+
 class LocalExecutionEnvironment(ExecutionEnvironment):
     """Executes code in the same process or isolated subprocess."""
 
@@ -96,14 +106,7 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
         """Find the best available executable for the given language."""
         match language:
             case "python":
-                candidates = [
-                    "python3",
-                    "python",
-                    "python3.13",
-                    "python3.12",
-                    "python3.11",
-                ]
-                for candidate in candidates:
+                for candidate in PYTHON_EXECUTABLES:
                     if shutil.which(candidate):
                         return candidate
                 error_msg = "No Python executable found"
@@ -338,13 +341,13 @@ async def _anyenv_execute():
         else:
             result = globals().get("_result")
 
-        print("__ANYENV_RESULT_START__")
+        print("__RESULT_START__")
         print(json.dumps({{"result": result, "type": type(result).__name__}}))
-        print("__ANYENV_RESULT_END__")
+        print("__RESULT_END__")
     except Exception as e:
-        print("__ANYENV_ERROR_START__")
+        print("__ERROR_START__")
         print(json.dumps({{"error": str(e), "type": type(e).__name__, "traceback": traceback.format_exc()}}))
-        print("__ANYENV_ERROR_END__")
+        print("__ERROR_END__")
 
 asyncio.run(_anyenv_execute())
 """  # noqa: E501
@@ -367,13 +370,13 @@ async def _anyenv_execute():
         else:
             result = globals().get("_result")
 
-        print("__ANYENV_RESULT_START__")
+        print("__RESULT_START__")
         print(json.dumps({{"result": result, "type": type(result).__name__}}))
-        print("__ANYENV_RESULT_END__")
+        print("__RESULT_END__")
     except Exception as e:
-        print("__ANYENV_ERROR_START__")
+        print("__ERROR_START__")
         print(json.dumps({{"error": str(e), "type": type(e).__name__, "traceback": traceback.format_exc()}}))
-        print("__ANYENV_ERROR_END__")
+        print("__ERROR_END__")
 
 asyncio.run(_anyenv_execute())
 """  # noqa: E501
@@ -396,13 +399,13 @@ async function _anyenv_execute() {{
             result = _result;
         }}
 
-        console.log('__ANYENV_RESULT_START__');
+        console.log('__RESULT_START__');
         console.log(JSON.stringify({{result: result, type: typeof result}}));
-        console.log('__ANYENV_RESULT_END__');
+        console.log('__RESULT_END__');
     }} catch (e) {{
-        console.log('__ANYENV_ERROR_START__');
+        console.log('__ERROR_START__');
         console.log(JSON.stringify({{error: e.message, type: e.constructor.name, stack: e.stack}}));
-        console.log('__ANYENV_ERROR_END__');
+        console.log('__ERROR_END__');
     }}
 }}
 
@@ -425,13 +428,13 @@ async function _anyenv_execute(): Promise<void> {{
             result = _result;
         }}
 
-        console.log('__ANYENV_RESULT_START__');
+        console.log('__RESULT_START__');
         console.log(JSON.stringify({{result: result, type: typeof result}}));
-        console.log('__ANYENV_RESULT_END__');
+        console.log('__RESULT_END__');
     }} catch (e: any) {{
-        console.log('__ANYENV_ERROR_START__');
+        console.log('__ERROR_START__');
         console.log(JSON.stringify({{error: e.message, type: e.constructor.name, stack: e.stack}}));
-        console.log('__ANYENV_ERROR_END__');
+        console.log('__ERROR_END__');
     }}
 }}
 
@@ -665,13 +668,13 @@ def _parse_subprocess_output(output: str) -> tuple[Any, dict[str, Any] | None]:
     error_end = None
 
     for i, line in enumerate(lines):
-        if "__ANYENV_RESULT_START__" in line:
+        if "__RESULT_START__" in line:
             result_start = i + 1
-        elif "__ANYENV_RESULT_END__" in line:
+        elif "__RESULT_END__" in line:
             result_end = i
-        elif "__ANYENV_ERROR_START__" in line:
+        elif "__ERROR_START__" in line:
             error_start = i + 1
-        elif "__ANYENV_ERROR_END__" in line:
+        elif "__ERROR_END__" in line:
             error_end = i
 
     # Parse error first (takes precedence)

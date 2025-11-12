@@ -228,7 +228,7 @@ async def _execute_main():
 if __name__ == "__main__":
     try:
         execution_result = asyncio.run(_execute_main())
-        print("__BEAM_RESULT__", json.dumps(execution_result, default=str))
+        print("__RESULT__", json.dumps(execution_result, default=str))
     except Exception as e:
         error_result = {{
             "success": False,
@@ -236,7 +236,7 @@ if __name__ == "__main__":
             "type": type(e).__name__,
             "traceback": traceback.format_exc()
         }}
-        print("__BEAM_RESULT__", json.dumps(error_result, default=str))
+        print("__RESULT__", json.dumps(error_result, default=str))
 """
 
     def _wrap_javascript_code(self, code: str) -> str:
@@ -269,7 +269,7 @@ async function executeMain() {{
 (async () => {{
     try {{
         const executionResult = await executeMain();
-        console.log("__BEAM_RESULT__", JSON.stringify(executionResult));
+        console.log("__RESULT__", JSON.stringify(executionResult));
     }} catch (error) {{
         const errorResult = {{
             success: false,
@@ -277,7 +277,7 @@ async function executeMain() {{
             type: error.name,
             traceback: error.stack
         }};
-        console.log("__BEAM_RESULT__", JSON.stringify(errorResult));
+        console.log("__RESULT__", JSON.stringify(errorResult));
     }}
 }})();
 """
@@ -364,9 +364,9 @@ def _parse_beam_output(output: str) -> tuple[Any, dict[str, Any] | None]:
     lines = output.strip().split("\n")
 
     for line in lines:
-        if "__BEAM_RESULT__" in line:
+        if "__RESULT__" in line:
             try:
-                json_part = line.split("__BEAM_RESULT__", 1)[1].strip()
+                json_part = line.split("__RESULT__", 1)[1].strip()
                 result_data = anyenv.load_json(json_part, return_type=dict)
 
                 if result_data.get("success"):

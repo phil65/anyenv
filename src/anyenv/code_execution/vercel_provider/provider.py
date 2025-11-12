@@ -424,7 +424,7 @@ async def _execute_main():
 if __name__ == "__main__":
     try:
         execution_result = asyncio.run(_execute_main())
-        print("__VERCEL_RESULT__", json.dumps(execution_result, default=str))
+        print("__RESULT__", json.dumps(execution_result, default=str))
     except Exception as e:
         error_result = {{
             "success": False,
@@ -432,7 +432,7 @@ if __name__ == "__main__":
             "type": type(e).__name__,
             "traceback": traceback.format_exc()
         }}
-        print("__VERCEL_RESULT__", json.dumps(error_result, default=str))
+        print("__RESULT__", json.dumps(error_result, default=str))
 """
 
     def _wrap_javascript_code(self, code: str) -> str:
@@ -463,7 +463,7 @@ async function executeMain() {{
 
 // Run and output result
 executeMain().then(result => {{
-    console.log('__VERCEL_RESULT__', JSON.stringify(result));
+    console.log('__RESULT__', JSON.stringify(result));
 }}).catch(error => {{
     const errorResult = {{
         success: false,
@@ -471,7 +471,7 @@ executeMain().then(result => {{
         type: error.name,
         traceback: error.stack
     }};
-    console.log('__VERCEL_RESULT__', JSON.stringify(errorResult));
+    console.log('__RESULT__', JSON.stringify(errorResult));
 }});
 """
 
@@ -509,7 +509,7 @@ async function executeMain(): Promise<{{
 
 // Run and output result
 executeMain().then(result => {{
-    console.log('__VERCEL_RESULT__', JSON.stringify(result));
+    console.log('__RESULT__', JSON.stringify(result));
 }}).catch(error => {{
     const errorResult = {{
         success: false,
@@ -517,7 +517,7 @@ executeMain().then(result => {{
         type: error.name,
         traceback: error.stack
     }};
-    console.log('__VERCEL_RESULT__', JSON.stringify(errorResult));
+    console.log('__RESULT__', JSON.stringify(errorResult));
 }});
 """
 
@@ -529,8 +529,8 @@ def _parse_vercel_output(output: str) -> tuple[Any, dict[str, Any] | None]:
     try:
         lines = output.strip().split("\n")
         for line in lines:
-            if line.startswith("__VERCEL_RESULT__"):
-                result_json = line[len("__VERCEL_RESULT__") :].strip()
+            if line.startswith("__RESULT__"):
+                result_json = line[len("__RESULT__") :].strip()
 
                 result_data = anyenv.load_json(result_json, return_type=dict)
 
