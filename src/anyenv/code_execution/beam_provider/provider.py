@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.models import ExecutionResult
-from anyenv.code_execution.parse_output import wrap_javascript_code, wrap_python_code
+from anyenv.code_execution.parse_output import wrap_code
 
 
 if TYPE_CHECKING:
@@ -64,10 +64,7 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
 
     async def __aenter__(self) -> Self:
         """Setup Beam sandbox."""
-        # Start tool server via base class
         await super().__aenter__()
-
-        # Configure image based on language
         from beam import Image, Sandbox
 
         match self.language:
@@ -121,7 +118,9 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
         start_time = time.time()
 
         try:
-            wrapped_code = self._wrap_code_for_execution(code)
+            wrapped_code = wrap_code(
+                code, "javascript" if self.language == "typescript" else "python"
+            )
             response = await asyncio.to_thread(
                 self.instance.process.run_code,
                 wrapped_code,
@@ -130,8 +129,6 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
             duration = time.time() - start_time
             assert isinstance(response, SandboxProcessResponse)
             output = response.result
-
-            # Parse result from output
             result, error_info = _parse_beam_output(output)
             success = response.exit_code == 0 and error_info is None
 
@@ -182,16 +179,6 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
         except Exception as e:  # noqa: BLE001
             yield f"ERROR: {e}"
 
-    def _wrap_code_for_execution(self, code: str) -> str:
-        """Wrap user code for execution with result capture."""
-        match self.language:
-            case "python":
-                return wrap_python_code(code)
-            case "javascript" | "typescript":
-                return wrap_javascript_code(code)
-            case _:
-                return wrap_python_code(code)
-
     async def execute_command(self, command: str) -> ExecutionResult:
         """Execute a terminal command in the Beam sandbox."""
         if not self.instance or not self.instance.ok:
@@ -241,7 +228,6 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
                 raise ValueError(msg)  # noqa: TRY301
 
             process = self.instance.process.exec(*cmd_parts)
-            # Stream output as it happens
             for line in process.logs:
                 yield line.rstrip("\n\r")
 
