@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import shlex
 import time
 from typing import TYPE_CHECKING, Any, Literal, Self
 
@@ -94,10 +95,8 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
         # Start tool server via base class
         await super().__aenter__()
 
-        # Import here to avoid import issues if vercel package not installed
         from vercel.sandbox import AsyncSandbox
 
-        # Create sandbox with specified configuration
         self.sandbox = await AsyncSandbox.create(
             runtime=self.runtime or self._get_default_runtime(),
             timeout=self.timeout_ms,
@@ -132,7 +131,7 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
         # Cleanup server via base class
         await super().__aexit__(exc_type, exc_val, exc_tb)
 
-    def domain(self, port: int) -> str:
+    async def get_domain(self, port: int) -> str:
         """Get domain for the Vercel sandbox."""
         assert self.sandbox
         return self.sandbox.domain(port)
@@ -163,29 +162,17 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
             raise RuntimeError(error_msg)
 
         start_time = time.time()
-
         try:
-            # Prepare code execution
             script_path, wrapped_code = self._prepare_code_execution(code)
-
-            # Write code to sandbox
             await self.sandbox.write_files([
                 {"path": script_path, "content": wrapped_code.encode()}
             ])
-
-            # Execute the script
             cmd, args = self._get_execution_command(script_path)
             result = await self.sandbox.run_command(cmd, args)
-
             duration = time.time() - start_time
-
-            # Get stdout and stderr from the finished command
             stdout = await result.stdout()
             stderr = await result.stderr()
-
-            # Parse the output to extract results
             execution_result, error_info = parse_output(stdout)
-
             if result.exit_code == 0 and error_info is None:
                 return ExecutionResult(
                     result=execution_result,
@@ -199,12 +186,8 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
                 result=None,
                 duration=duration,
                 success=False,
-                error=error_info.get("error", "Command execution failed")
-                if error_info
-                else "Command execution failed",
-                error_type=error_info.get("type", "ExecutionError")
-                if error_info
-                else "ExecutionError",
+                error=(error_info or {}).get("error", "Command execution failed"),
+                error_type=(error_info or {}).get("type", "ExecutionError"),
                 stdout=stdout,
                 stderr=stderr,
             )
@@ -226,18 +209,13 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
             raise RuntimeError(error_msg)
 
         try:
-            # Prepare code execution
             script_path, wrapped_code = self._prepare_code_execution(code)
-
-            # Write code to sandbox
             await self.sandbox.write_files([
                 {"path": script_path, "content": wrapped_code.encode()}
             ])
-
             # Execute the script in detached mode for streaming
             cmd_name, args = self._get_execution_command(script_path)
             cmd = await self.sandbox.run_command_detached(cmd_name, args)
-
             # Stream logs from the command
             async for log_line in self.sandbox.client.get_logs(
                 sandbox_id=self.sandbox.sandbox_id, cmd_id=cmd.cmd_id
@@ -266,9 +244,6 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
         start_time = time.time()
 
         try:
-            # Parse command into cmd and args
-            import shlex
-
             parts = shlex.split(command)
             if not parts:
                 error_msg = "Empty command provided"
@@ -277,16 +252,11 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
             cmd = parts[0]
             args = parts[1:] if len(parts) > 1 else None
 
-            # Execute command using sandbox's run_command method
             result = await self.sandbox.run_command(cmd, args)
             duration = time.time() - start_time
-
-            # Get stdout and stderr from the finished command
             stdout = await result.stdout()
             stderr = await result.stderr()
-
             success = result.exit_code == 0
-
             return ExecutionResult(
                 result=stdout if success else None,
                 duration=duration,
@@ -314,9 +284,6 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
             raise RuntimeError(error_msg)
 
         try:
-            # Parse command into cmd and args
-            import shlex
-
             parts = shlex.split(command)
             if not parts:
                 yield "ERROR: Empty command provided"

@@ -111,6 +111,12 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
         # Cleanup server via base class
         await super().__aexit__(exc_type, exc_val, exc_tb)
 
+    async def get_domain(self, port: int) -> str:
+        """Return the domain name for the sandbox."""
+        assert self.sandbox
+        info = await self.sandbox.get_preview_link(port)
+        return info.url
+
     def get_fs(self) -> DaytonaFS:
         """Return a DaytonaFS instance for the sandbox."""
         from upathtools.filesystems.daytona_fs import DaytonaFS

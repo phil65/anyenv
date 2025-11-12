@@ -107,6 +107,11 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
         assert self.sandbox
         return E2BFS(sandbox_id=self.sandbox.sandbox_id)
 
+    async def get_domain(self, port: int) -> str:
+        """Return the domain name for the sandbox."""
+        assert self.sandbox
+        return self.sandbox.get_host(port)
+
     async def execute(self, code: str) -> ExecutionResult:
         """Execute code in the E2B sandbox."""
         if not self.sandbox:
