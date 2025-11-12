@@ -19,12 +19,7 @@ from anyenv.code_execution.vercel_provider import (
     VercelExecutionEnvironment,
     VercelRuntime,
 )
-from anyenv.code_execution.models import (
-    ExecutionResult,
-    ServerInfo,
-    ToolCallRequest,
-    ToolCallResponse,
-)
+from anyenv.code_execution.models import ExecutionResult, ServerInfo
 from anyenv.code_execution.remote_callable import (
     create_remote_callable,
     infer_package_dependencies,
@@ -281,8 +276,6 @@ __all__ = [
     "ModalExecutionEnvironment",
     "ServerInfo",
     "SshExecutionEnvironment",
-    "ToolCallRequest",
-    "ToolCallResponse",
     "VercelExecutionEnvironment",
     "VercelRuntime",
     "create_remote_callable",

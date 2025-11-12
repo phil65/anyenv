@@ -5,33 +5,20 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from pydantic import BaseModel
-
 
 @dataclass
 class ServerInfo:
-    """Information about a running tool server."""
+    """Information about a running server."""
 
     url: str
+    """The URL of the running server."""
+
     port: int
+    """The port of the running server."""
+
     tools: dict[str, Any] = field(default_factory=dict)
 
 
-class ToolCallRequest(BaseModel):
-    """Request model for tool calls."""
-
-    params: dict[str, Any]
-
-
-class ToolCallResponse(BaseModel):
-    """Response model for tool calls."""
-
-    result: Any = None
-    error: str | None = None
-    error_type: str | None = None
-
-
-# Type alias for supported languages
 Language = Literal["python", "javascript", "typescript"]
 
 
@@ -40,9 +27,22 @@ class ExecutionResult:
     """Result of code execution with metadata."""
 
     result: Any
+    """The result of the code execution."""
+
     duration: float
+    """The duration of the code execution."""
+
     success: bool
+    """Whether the code execution was successful."""
+
     error: str | None = None
+    """The error message if the code execution failed."""
+
     error_type: str | None = None
+    """The type of error if the code execution failed."""
+
     stdout: str | None = None
+    """The standard output of the code execution."""
+
     stderr: str | None = None
+    """The standard error of the code execution."""
