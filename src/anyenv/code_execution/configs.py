@@ -30,7 +30,7 @@ class BaseExecutionEnvironmentConfig(BaseModel):
     dependencies: list[str] | None = None
     """List of packages to install (pip for Python, npm for JS/TS)."""
 
-    timeout: float = 30.0
+    timeout: float = Field(default=60.0, gt=0.0)
     """Execution timeout in seconds."""
 
     model_config = ConfigDict(use_attribute_docstrings=True, extra="forbid")
@@ -83,9 +83,6 @@ class DockerExecutionEnvironmentConfig(BaseExecutionEnvironmentConfig):
     language: Language = "python"
     """Programming language to use."""
 
-    timeout: float = 60.0
-    """Execution timeout in seconds."""
-
     def get_provider(
         self, lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None
     ) -> DockerExecutionEnvironment:
@@ -117,9 +114,6 @@ class E2bExecutionEnvironmentConfig(BaseExecutionEnvironmentConfig):
 
     language: Language = "python"
     """Programming language to use."""
-
-    timeout: float = 300.0
-    """Execution timeout in seconds."""
 
     def get_provider(
         self, lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None
@@ -156,9 +150,6 @@ class BeamExecutionEnvironmentConfig(BaseExecutionEnvironmentConfig):
 
     language: Language = "python"
     """Programming language to use."""
-
-    timeout: float = 300.0
-    """Execution timeout in seconds."""
 
     def get_provider(
         self, lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None
@@ -199,9 +190,6 @@ class DaytonaExecutionEnvironmentConfig(BaseExecutionEnvironmentConfig):
 
     keep_alive: bool = False
     """Keep sandbox running after execution."""
-
-    timeout: float = 300.0
-    """Execution timeout in seconds."""
 
     def get_provider(
         self, lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None
