@@ -131,7 +131,7 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
             output = response.result
 
             # Parse result from output
-            result, error_info = self._parse_beam_output(output)
+            result, error_info = _parse_beam_output(output)
             success = response.exit_code == 0 and error_info is None
 
             if success:
@@ -282,46 +282,6 @@ async function executeMain() {{
 }})();
 """
 
-    def _parse_beam_output(self, output: str) -> tuple[Any, dict[str, Any] | None]:
-        """Parse the execution output to extract result and error information."""
-        import anyenv
-
-        if not output:
-            return None, None
-
-        lines = output.strip().split("\n")
-
-        for line in lines:
-            if "__BEAM_RESULT__" in line:
-                try:
-                    json_part = line.split("__BEAM_RESULT__", 1)[1].strip()
-                    result_data = anyenv.load_json(json_part, return_type=dict)
-
-                    if result_data.get("success"):
-                        return result_data.get("result"), None
-                    return None, {
-                        "error": result_data.get("error"),
-                        "type": result_data.get("type"),
-                        "traceback": result_data.get("traceback"),
-                    }
-                except (anyenv.JsonLoadError, IndexError, ValueError):
-                    continue
-
-        # If no structured result found, check for common patterns
-        # Look for Python output that might indicate successful execution with no return
-        if output.strip() and not any(
-            keyword in output.lower() for keyword in ["error", "traceback", "exception"]
-        ):
-            # If output looks like print statements, return None
-            # (successful execution, no result)
-            return None, None
-
-        # If we have output but no structured result, it might be an error
-        if output.strip():
-            return None, {"error": output.strip(), "type": "ExecutionError"}
-
-        return None, None
-
     async def execute_command(self, command: str) -> ExecutionResult:
         """Execute a terminal command in the Beam sandbox."""
         if not self.instance or not self.instance.ok:
@@ -392,3 +352,57 @@ async function executeMain() {{
 
         except Exception as e:  # noqa: BLE001
             yield f"ERROR: {e}"
+
+
+def _parse_beam_output(output: str) -> tuple[Any, dict[str, Any] | None]:
+    """Parse the execution output to extract result and error information."""
+    import anyenv
+
+    if not output:
+        return None, None
+
+    lines = output.strip().split("\n")
+
+    for line in lines:
+        if "__BEAM_RESULT__" in line:
+            try:
+                json_part = line.split("__BEAM_RESULT__", 1)[1].strip()
+                result_data = anyenv.load_json(json_part, return_type=dict)
+
+                if result_data.get("success"):
+                    return result_data.get("result"), None
+                return None, {
+                    "error": result_data.get("error"),
+                    "type": result_data.get("type"),
+                    "traceback": result_data.get("traceback"),
+                }
+            except (anyenv.JsonLoadError, IndexError, ValueError):
+                continue
+
+    # If no structured result found, check for common patterns
+    # Look for Python output that might indicate successful execution with no return
+    if output.strip() and not any(
+        keyword in output.lower() for keyword in ["error", "traceback", "exception"]
+    ):
+        # If output looks like print statements, return None
+        # (successful execution, no result)
+        return None, None
+
+    # If we have output but no structured result, it might be an error
+    if output.strip():
+        return None, {"error": output.strip(), "type": "ExecutionError"}
+
+    return None, None
+
+
+if __name__ == "__main__":
+
+    async def _main():
+        async with BeamExecutionEnvironment() as sandbox:
+            await sandbox.execute_command("mkdir test")
+            result = await sandbox.execute_command("ls")
+            print(result)
+
+    import asyncio
+
+    asyncio.run(_main())

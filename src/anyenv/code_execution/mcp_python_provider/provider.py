@@ -146,7 +146,7 @@ class McpPythonExecutionEnvironment(ExecutionEnvironment):
 
             # Parse based on format (XML by default)
             if content_text.startswith("<status>"):
-                return self._parse_xml_result(content_text, duration)
+                return _parse_xml_result(content_text, duration)
             # Try JSON format
             import anyenv
 
@@ -200,46 +200,6 @@ class McpPythonExecutionEnvironment(ExecutionEnvironment):
                 error_type=type(e).__name__,
             )
 
-    def _parse_xml_result(self, xml_content: str, duration: float) -> ExecutionResult:
-        """Parse XML-formatted result from MCP server."""
-        import re
-
-        import anyenv
-
-        # Extract status
-        status_match = re.search(r"<status>(.*?)</status>", xml_content, re.DOTALL)
-        status = status_match.group(1).strip() if status_match else "unknown"
-
-        # Extract output
-        output_match = re.search(r"<output>(.*?)</output>", xml_content, re.DOTALL)
-        output = output_match.group(1).strip() if output_match else None
-
-        # Extract return value
-        return_value: Any = None
-        return_match = re.search(
-            r"<return_value>(.*?)</return_value>", xml_content, re.DOTALL
-        )
-        if return_match:
-            return_text = return_match.group(1).strip()
-            try:
-                return_value = anyenv.load_json(return_text, return_type=dict)
-            except anyenv.JsonLoadError:
-                return_value = return_text
-
-        # Extract error
-        error_match = re.search(r"<error>(.*?)</error>", xml_content, re.DOTALL)
-        error = error_match.group(1).strip() if error_match else None
-
-        return ExecutionResult(
-            result=return_value,
-            duration=duration,
-            success=status == "success",
-            stdout=output,
-            stderr=None,
-            error=error,
-            error_type=status if status != "success" else None,
-        )
-
     async def execute_command(self, command: str) -> ExecutionResult:
         """Execute a terminal command (not supported in MCP Python environment)."""
         msg = "Terminal command execution is not supported in MCP Python environment"
@@ -253,6 +213,47 @@ class McpPythonExecutionEnvironment(ExecutionEnvironment):
         msg = "Terminal command streaming is not supported in MCP Python environment"
         raise NotImplementedError(msg)
         yield
+
+
+def _parse_xml_result(xml_content: str, duration: float) -> ExecutionResult:
+    """Parse XML-formatted result from MCP server."""
+    import re
+
+    import anyenv
+
+    # Extract status
+    status_match = re.search(r"<status>(.*?)</status>", xml_content, re.DOTALL)
+    status = status_match.group(1).strip() if status_match else "unknown"
+
+    # Extract output
+    output_match = re.search(r"<output>(.*?)</output>", xml_content, re.DOTALL)
+    output = output_match.group(1).strip() if output_match else None
+
+    # Extract return value
+    return_value: Any = None
+    return_match = re.search(
+        r"<return_value>(.*?)</return_value>", xml_content, re.DOTALL
+    )
+    if return_match:
+        return_text = return_match.group(1).strip()
+        try:
+            return_value = anyenv.load_json(return_text, return_type=dict)
+        except anyenv.JsonLoadError:
+            return_value = return_text
+
+    # Extract error
+    error_match = re.search(r"<error>(.*?)</error>", xml_content, re.DOTALL)
+    error = error_match.group(1).strip() if error_match else None
+
+    return ExecutionResult(
+        result=return_value,
+        duration=duration,
+        success=status == "success",
+        stdout=output,
+        stderr=None,
+        error=error,
+        error_type=status if status != "success" else None,
+    )
 
 
 if __name__ == "__main__":

@@ -138,7 +138,7 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
 
             # Parse execution results
             if response.exit_code == 0:
-                result, error_info = self._parse_daytona_output(response.result)
+                result, error_info = _parse_daytona_output(response.result)
 
                 if error_info is None:
                     return ExecutionResult(
@@ -224,34 +224,6 @@ if __name__ == "__main__":
         print("__DAYTONA_RESULT__", json.dumps(error_result, default=str))
 """
 
-    def _parse_daytona_output(self, output: str) -> tuple[Any, dict[str, Any] | None]:
-        """Parse result from Daytona sandbox output."""
-        try:
-            lines = output.strip().split("\n")
-            for line in lines:
-                if line.startswith("__DAYTONA_RESULT__"):
-                    result_json = line[len("__DAYTONA_RESULT__") :].strip()
-
-                    import anyenv
-
-                    result_data = anyenv.load_json(result_json, return_type=dict)
-
-                    if result_data.get("success", False):
-                        return result_data.get("result"), None
-                    return None, {
-                        "error": result_data.get("error", "Unknown error"),
-                        "type": result_data.get("type", "Unknown"),
-                    }
-        except anyenv.JsonLoadError as e:
-            return None, {
-                "error": f"Failed to parse result: {e}",
-                "type": "JSONDecodeError",
-            }
-        except Exception as e:  # noqa: BLE001
-            return None, {"error": str(e), "type": type(e).__name__}
-        else:
-            return None, {"error": "No execution result found", "type": "ParseError"}
-
     async def execute_command(self, command: str) -> ExecutionResult:
         """Execute a terminal command in the Daytona sandbox."""
         if not self.sandbox:
@@ -309,6 +281,35 @@ if __name__ == "__main__":
 
         except Exception as e:  # noqa: BLE001
             yield f"ERROR: {e}"
+
+
+def _parse_daytona_output(output: str) -> tuple[Any, dict[str, Any] | None]:
+    """Parse result from Daytona sandbox output."""
+    try:
+        lines = output.strip().split("\n")
+        for line in lines:
+            if line.startswith("__DAYTONA_RESULT__"):
+                result_json = line[len("__DAYTONA_RESULT__") :].strip()
+
+                import anyenv
+
+                result_data = anyenv.load_json(result_json, return_type=dict)
+
+                if result_data.get("success", False):
+                    return result_data.get("result"), None
+                return None, {
+                    "error": result_data.get("error", "Unknown error"),
+                    "type": result_data.get("type", "Unknown"),
+                }
+    except anyenv.JsonLoadError as e:
+        return None, {
+            "error": f"Failed to parse result: {e}",
+            "type": "JSONDecodeError",
+        }
+    except Exception as e:  # noqa: BLE001
+        return None, {"error": str(e), "type": type(e).__name__}
+    else:
+        return None, {"error": "No execution result found", "type": "ParseError"}
 
 
 if __name__ == "__main__":

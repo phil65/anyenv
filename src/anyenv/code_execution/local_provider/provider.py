@@ -219,7 +219,7 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
             stderr = stderr_data.decode() if stderr_data else ""
 
             if process.returncode == 0:
-                execution_result, error_info = self._parse_subprocess_output(stdout)
+                execution_result, error_info = _parse_subprocess_output(stdout)
                 if error_info is None:
                     return ExecutionResult(
                         result=execution_result,
@@ -438,52 +438,6 @@ async function _anyenv_execute(): Promise<void> {{
 _anyenv_execute();
 """  # noqa: E501
 
-    def _parse_subprocess_output(self, output: str) -> tuple[Any, dict[str, Any] | None]:
-        """Parse subprocess output to extract result or error."""
-        lines = output.strip().split("\n")
-
-        # Look for result markers
-        result_start = None
-        result_end = None
-        error_start = None
-        error_end = None
-
-        for i, line in enumerate(lines):
-            if "__ANYENV_RESULT_START__" in line:
-                result_start = i + 1
-            elif "__ANYENV_RESULT_END__" in line:
-                result_end = i
-            elif "__ANYENV_ERROR_START__" in line:
-                error_start = i + 1
-            elif "__ANYENV_ERROR_END__" in line:
-                error_end = i
-
-        # Parse error first (takes precedence)
-        if error_start is not None and error_end is not None:
-            try:
-                error_json = "\n".join(lines[error_start:error_end])
-                return None, json.loads(error_json)
-            except json.JSONDecodeError:
-                return None, {
-                    "error": "Failed to parse error output",
-                    "type": "ParseError",
-                }
-
-        # Parse result
-        if result_start is not None and result_end is not None:
-            try:
-                result_json = "\n".join(lines[result_start:result_end])
-                result_data = json.loads(result_json)
-                return result_data.get("result"), None
-            except json.JSONDecodeError:
-                return None, {
-                    "error": "Failed to parse result output",
-                    "type": "ParseError",
-                }
-
-        # No markers found
-        return None, {"error": "No execution result found", "type": "ParseError"}
-
     async def execute_stream(self, code: str) -> AsyncIterator[str]:
         """Execute code and stream output line by line."""
         if self.isolated:
@@ -698,3 +652,50 @@ _anyenv_execute();
 
         except Exception as e:  # noqa: BLE001
             yield f"ERROR: {e}"
+
+
+def _parse_subprocess_output(output: str) -> tuple[Any, dict[str, Any] | None]:
+    """Parse subprocess output to extract result or error."""
+    lines = output.strip().split("\n")
+
+    # Look for result markers
+    result_start = None
+    result_end = None
+    error_start = None
+    error_end = None
+
+    for i, line in enumerate(lines):
+        if "__ANYENV_RESULT_START__" in line:
+            result_start = i + 1
+        elif "__ANYENV_RESULT_END__" in line:
+            result_end = i
+        elif "__ANYENV_ERROR_START__" in line:
+            error_start = i + 1
+        elif "__ANYENV_ERROR_END__" in line:
+            error_end = i
+
+    # Parse error first (takes precedence)
+    if error_start is not None and error_end is not None:
+        try:
+            error_json = "\n".join(lines[error_start:error_end])
+            return None, json.loads(error_json)
+        except json.JSONDecodeError:
+            return None, {
+                "error": "Failed to parse error output",
+                "type": "ParseError",
+            }
+
+    # Parse result
+    if result_start is not None and result_end is not None:
+        try:
+            result_json = "\n".join(lines[result_start:result_end])
+            result_data = json.loads(result_json)
+            return result_data.get("result"), None
+        except json.JSONDecodeError:
+            return None, {
+                "error": "Failed to parse result output",
+                "type": "ParseError",
+            }
+
+    # No markers found
+    return None, {"error": "No execution result found", "type": "ParseError"}

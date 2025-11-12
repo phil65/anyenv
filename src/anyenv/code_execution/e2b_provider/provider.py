@@ -123,7 +123,7 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
             duration = time.time() - start_time
 
             # Parse the output to extract results
-            execution_result, error_info = self._parse_e2b_output(result.stdout)
+            execution_result, error_info = _parse_e2b_output(result.stdout)
 
             if result.exit_code == 0 and error_info is None:
                 return ExecutionResult(
@@ -333,29 +333,6 @@ executeMain().then(result => {{
 }});
 """  # noqa: E501
 
-    def _parse_e2b_output(self, output: str) -> tuple[Any, dict[str, Any] | None]:
-        """Parse result from E2B sandbox output."""
-        import anyenv
-
-        try:
-            lines = output.strip().split("\n")
-            for line in lines:
-                if line.startswith("__E2B_RESULT__"):
-                    result_json = line[len("__E2B_RESULT__") :].strip()
-
-                    result_data = anyenv.load_json(result_json, return_type=dict)
-
-                    if result_data.get("success", False):
-                        return result_data.get("result"), None
-                    return None, {
-                        "error": result_data.get("error", "Unknown error"),
-                        "type": result_data.get("type", "Unknown"),
-                    }
-        except Exception as e:  # noqa: BLE001
-            return None, {"error": str(e), "type": type(e).__name__}
-        else:
-            return None, {"error": "No execution result found", "type": "ParseError"}
-
     async def execute_command(self, command: str) -> ExecutionResult:
         """Execute a terminal command in the E2B sandbox."""
         if not self.sandbox:
@@ -447,6 +424,30 @@ executeMain().then(result => {{
 
         except Exception as e:  # noqa: BLE001
             yield f"ERROR: {e}"
+
+
+def _parse_e2b_output(output: str) -> tuple[Any, dict[str, Any] | None]:
+    """Parse result from E2B sandbox output."""
+    import anyenv
+
+    try:
+        lines = output.strip().split("\n")
+        for line in lines:
+            if line.startswith("__E2B_RESULT__"):
+                result_json = line[len("__E2B_RESULT__") :].strip()
+
+                result_data = anyenv.load_json(result_json, return_type=dict)
+
+                if result_data.get("success", False):
+                    return result_data.get("result"), None
+                return None, {
+                    "error": result_data.get("error", "Unknown error"),
+                    "type": result_data.get("type", "Unknown"),
+                }
+    except Exception as e:  # noqa: BLE001
+        return None, {"error": str(e), "type": type(e).__name__}
+    else:
+        return None, {"error": "No execution result found", "type": "ParseError"}
 
 
 if __name__ == "__main__":
