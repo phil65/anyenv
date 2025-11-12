@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import shlex
 import time
 from typing import TYPE_CHECKING, Any, Self
 
@@ -200,10 +201,6 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
         start_time = time.time()
 
         try:
-            # Execute command using Beam's process.exec() method
-            # Split command into parts (simple space split for now)
-            import shlex
-
             cmd_parts = shlex.split(command)
             if not cmd_parts:
                 msg = "Empty command"
@@ -243,9 +240,6 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
             raise RuntimeError(error_msg)
 
         try:
-            # Execute command without blocking (if supported)
-            import shlex
-
             cmd_parts = shlex.split(command)
             if not cmd_parts:
                 msg = "Empty command"

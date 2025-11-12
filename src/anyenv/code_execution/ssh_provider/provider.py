@@ -7,13 +7,7 @@ from typing import TYPE_CHECKING, Any, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.models import ExecutionResult
-
-
-def wrap_command(command: str) -> str:
-    """Wrap command to run in login shell for proper PATH setup."""
-    # Escape single quotes in the command
-    escaped_command = command.replace("'", "'\"'\"'")
-    return f"bash -l -c '{escaped_command}'"
+from anyenv.code_execution.parse_output import wrap_command
 
 
 if TYPE_CHECKING:

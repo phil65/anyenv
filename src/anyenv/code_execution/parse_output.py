@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 
 def parse_output(output: str) -> tuple[Any, dict[str, Any] | None]:
@@ -169,3 +169,23 @@ executeMain().then(result => {{
     console.log('__RESULT__', JSON.stringify(errorResult));
 }});
 """
+
+
+def wrap_code(code: str, language: Literal["python", "javascript", "typescript"]) -> str:
+    """Wrap user code for Modal execution with result capture."""
+    match language:
+        case "python":
+            return wrap_python_code(code)
+        case "javascript":
+            return wrap_javascript_code(code)
+        case "typescript":
+            return wrap_typescript_code(code)
+        case _:
+            return wrap_python_code(code)
+
+
+def wrap_command(command: str) -> str:
+    """Wrap command to run in login shell for proper PATH setup."""
+    # Escape single quotes in the command
+    escaped_command = command.replace("'", "'\"'\"'")
+    return f"bash -l -c '{escaped_command}'"

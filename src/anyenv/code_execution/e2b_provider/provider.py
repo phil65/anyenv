@@ -8,12 +8,7 @@ from typing import TYPE_CHECKING, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.models import ExecutionResult
-from anyenv.code_execution.parse_output import (
-    parse_output,
-    wrap_javascript_code,
-    wrap_python_code,
-    wrap_typescript_code,
-)
+from anyenv.code_execution.parse_output import parse_output, wrap_code
 
 
 if TYPE_CHECKING:
@@ -51,7 +46,7 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
         self.template = template
         self.timeout = timeout
         self.keep_alive = keep_alive
-        self.language = language
+        self.language: Language = language
         self.sandbox: AsyncSandbox | None = None
 
     async def __aenter__(self) -> Self:
@@ -122,7 +117,7 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
 
         try:
             # Create a script to execute and capture results
-            wrapped_code = self._wrap_code_for_e2b(code)
+            wrapped_code = wrap_code(code, language=self.language)
 
             # Write the code to a temporary file and execute it
             script_path = self._get_script_path()
@@ -205,18 +200,6 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
                 return f"npx ts-node {script_path}"
             case _:
                 return f"python {script_path}"
-
-    def _wrap_code_for_e2b(self, code: str) -> str:
-        """Wrap user code for E2B execution with result capture."""
-        match self.language:
-            case "python":
-                return wrap_python_code(code)
-            case "javascript":
-                return wrap_javascript_code(code)
-            case "typescript":
-                return wrap_typescript_code(code)
-            case _:
-                return wrap_python_code(code)
 
     async def execute_command(self, command: str) -> ExecutionResult:
         """Execute a terminal command in the E2B sandbox."""

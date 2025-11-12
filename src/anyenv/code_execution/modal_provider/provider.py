@@ -3,17 +3,14 @@
 from __future__ import annotations
 
 import contextlib
+import shlex
 import time
 from typing import TYPE_CHECKING, Any, Self
 
+import anyenv
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.models import ExecutionResult
-from anyenv.code_execution.parse_output import (
-    parse_output,
-    wrap_javascript_code,
-    wrap_python_code,
-    wrap_typescript_code,
-)
+from anyenv.code_execution.parse_output import parse_output, wrap_code
 
 
 if TYPE_CHECKING:
@@ -73,7 +70,7 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
         self.timeout = timeout
         self.idle_timeout = idle_timeout
         self.workdir = workdir
-        self.language = language
+        self.language: Language = language
         self.app: App | None = None
         self.sandbox: Sandbox | None = None
 
@@ -143,8 +140,6 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
         # https://modal.com/docs/guide/sandbox-networking
         import websockets
 
-        import anyenv
-
         # Create a connect token, optionally including arbitrary user metadata.
         assert self.sandbox
         creds = self.sandbox.create_connect_token(user_metadata={"user_id": "foo"})
@@ -170,30 +165,22 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
             raise RuntimeError(error_msg)
 
         start_time = time.time()
-
         try:
             # Create temporary script file
-            script_content = self._wrap_code_for_modal(code)
+            script_content = wrap_code(code, language=self.language)
             script_path = self._get_script_path()
 
             # Write script to sandbox using filesystem API
             with self.sandbox.open(script_path, "w") as f:
                 f.write(script_content)
 
-            # Execute the script
             command = self._get_execution_command(script_path)
             process = self.sandbox.exec(*command, timeout=self.timeout)
-
-            # Wait for completion and get output
             process.wait()
             stdout = process.stdout.read() if process.stdout else ""
             stderr = process.stderr.read() if process.stderr else ""
-
             duration = time.time() - start_time
-
-            # Parse the output to extract results
             execution_result, error_info = parse_output(stdout)
-
             if process.returncode == 0 and error_info is None:
                 return ExecutionResult(
                     result=execution_result,
@@ -232,26 +219,17 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
             raise RuntimeError(error_msg)
 
         try:
-            # Create temporary script file
-            script_content = self._wrap_code_for_modal(code)
+            script_content = wrap_code(code, language=self.language)
             script_path = self._get_script_path()
-
-            # Write script to sandbox
             with self.sandbox.open(script_path, "w") as f:
                 f.write(script_content)
 
-            # Execute the script
             command = self._get_execution_command(script_path)
             process = self.sandbox.exec(*command, timeout=self.timeout)
-
-            # Stream output line by line
             for line in process.stdout:
                 yield line.rstrip("\n\r")
-
-            # Wait for completion and check for errors
             process.wait()
             if process.returncode != 0:
-                # Stream any stderr content
                 for line in process.stderr:
                     yield f"ERROR: {line.rstrip()}"
 
@@ -267,9 +245,6 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
         start_time = time.time()
 
         try:
-            # Parse command into parts
-            import shlex
-
             parts = shlex.split(command)
             if not parts:
                 error_msg = "Empty command provided"
@@ -312,25 +287,15 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
             raise RuntimeError(error_msg)
 
         try:
-            # Parse command into parts
-            import shlex
-
             parts = shlex.split(command)
             if not parts:
                 yield "ERROR: Empty command provided"
                 return
 
-            # Execute command
             process = self.sandbox.exec(*parts, timeout=self.timeout)
-
-            # Stream stdout
             for line in process.stdout:
                 yield line.rstrip("\n\r")
-
-            # Wait for completion
             process.wait()
-
-            # Stream stderr if there were errors
             if process.returncode != 0:
                 for line in process.stderr:
                     yield f"ERROR: {line.rstrip()}"
@@ -361,18 +326,6 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
                 return ["npx", "ts-node", script_path]
             case _:
                 return ["python", script_path]
-
-    def _wrap_code_for_modal(self, code: str) -> str:
-        """Wrap user code for Modal execution with result capture."""
-        match self.language:
-            case "python":
-                return wrap_python_code(code)
-            case "javascript":
-                return wrap_javascript_code(code)
-            case "typescript":
-                return wrap_typescript_code(code)
-            case _:
-                return wrap_python_code(code)
 
 
 if __name__ == "__main__":
