@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, overload, TYPE_CHECKING
+from typing import Any, Literal, overload, TYPE_CHECKING, assert_never
 
 from anyenv.code_execution.base import ExecutionEnvironment
 
@@ -264,9 +264,8 @@ def get_environment(  # noqa: PLR0911
             return MicrosandboxExecutionEnvironment(**kwargs)
         case "modal":
             return ModalExecutionEnvironment(**kwargs)
-        case _:
-            error_msg = f"Unknown provider: {provider}"
-            raise ValueError(error_msg)
+        case _ as unreachable:
+            assert_never(unreachable)
 
 
 __all__ = [
