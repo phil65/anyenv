@@ -121,12 +121,12 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
         start_time = time.time()
 
         try:
-            # Wrap code to capture result similar to subprocess provider
             wrapped_code = self._wrap_code_for_execution(code)
-
-            # Execute code using Beam's process.run_code() method (blocking)
-            # This returns a SandboxProcessResponse with result and exit_code
-            response = self.instance.process.run_code(wrapped_code, blocking=True)
+            response = await asyncio.to_thread(
+                self.instance.process.run_code,
+                wrapped_code,
+                blocking=True,
+            )
             duration = time.time() - start_time
             assert isinstance(response, SandboxProcessResponse)
             output = response.result
@@ -199,7 +199,6 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
             raise RuntimeError(error_msg)
 
         start_time = time.time()
-
         try:
             cmd_parts = shlex.split(command)
             if not cmd_parts:
@@ -207,15 +206,12 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
                 raise ValueError(msg)  # noqa: TRY301
 
             process = self.instance.process.exec(*cmd_parts)
-            exit_code = process.wait()
-            duration = time.time() - start_time
-            output_lines = [line.rstrip("\n\r") for line in process.logs]
-            output = "\n".join(output_lines)
+            exit_code = await asyncio.to_thread(process.wait)
+            output = "\n".join(line.rstrip("\n\r") for line in process.logs)
             success = exit_code == 0
-
             return ExecutionResult(
                 result=output if success else None,
-                duration=duration,
+                duration=time.time() - start_time,
                 success=success,
                 error=output if not success else None,
                 error_type="CommandError" if not success else None,
@@ -224,10 +220,9 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
             )
 
         except Exception as e:  # noqa: BLE001
-            duration = time.time() - start_time
             return ExecutionResult(
                 result=None,
-                duration=duration,
+                duration=time.time() - start_time,
                 success=False,
                 error=str(e),
                 error_type=type(e).__name__,
