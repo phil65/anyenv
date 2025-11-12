@@ -78,7 +78,8 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
                 # Use a Node.js base image for JS/TS
                 image = Image(base_image="node:20")
                 if self.dependencies:
-                    image.add_commands(f"npm install {' '.join(self.dependencies)}")
+                    deps = " ".join(self.dependencies)
+                    image.add_commands(f"npm install {deps}")
             case _:
                 image = Image(
                     python_version="python3.12",
@@ -105,8 +106,6 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
         if self.instance and not self.instance.terminated:
             with contextlib.suppress(Exception):
                 self.instance.terminate()
-
-        # Cleanup server via base class
         await super().__aexit__(exc_type, exc_val, exc_tb)
 
     async def execute(self, code: str) -> ExecutionResult:
@@ -139,8 +138,6 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
                     result=result,
                     duration=duration,
                     success=True,
-                    error=None,
-                    error_type=None,
                     stdout=output,
                     stderr="",  # Beam combines stdout/stderr in result
                 )
