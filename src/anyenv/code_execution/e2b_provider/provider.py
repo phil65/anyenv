@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.models import ExecutionResult
-from anyenv.code_execution.parse_output import parse_output, wrap_code
+from anyenv.code_execution.parse_output import get_script_path, parse_output, wrap_code
 
 
 if TYPE_CHECKING:
@@ -114,27 +114,17 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
             raise RuntimeError(error_msg)
 
         start_time = time.time()
-
         try:
-            # Create a script to execute and capture results
             wrapped_code = wrap_code(code, language=self.language)
-
-            # Write the code to a temporary file and execute it
-            script_path = self._get_script_path()
+            script_path = get_script_path(self.language)
             await self.sandbox.files.write(script_path, wrapped_code)
-
-            # Execute the script with language-specific command
             command = self._get_execution_command(script_path)
             result = await self.sandbox.commands.run(command)
-            duration = time.time() - start_time
-
-            # Parse the output to extract results
             execution_result, error_info = parse_output(result.stdout)
-
             if result.exit_code == 0 and error_info is None:
                 return ExecutionResult(
                     result=execution_result,
-                    duration=duration,
+                    duration=time.time() - start_time,
                     success=True,
                     stdout=result.stdout,
                     stderr=result.stderr,
@@ -142,7 +132,7 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
 
             return ExecutionResult(
                 result=None,
-                duration=duration,
+                duration=time.time() - start_time,
                 success=False,
                 error=error_info.get("error", "Command execution failed")
                 if error_info
@@ -155,11 +145,9 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
             )
 
         except Exception as e:  # noqa: BLE001
-            duration = time.time() - start_time
             # Map E2B specific exceptions to our error types
             error_type = type(e).__name__
             error_message = str(e)
-
             if error_type == "CommandExitException":
                 # Check if it's a syntax error based on the error message
                 if "SyntaxError:" in error_message:
@@ -171,23 +159,11 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
 
             return ExecutionResult(
                 result=None,
-                duration=duration,
+                duration=time.time() - start_time,
                 success=False,
                 error=str(e),
                 error_type=error_type,
             )
-
-    def _get_script_path(self) -> str:
-        """Get script path based on language."""
-        match self.language:
-            case "python":
-                return "/tmp/e2b_execution_script.py"
-            case "javascript":
-                return "/tmp/e2b_execution_script.js"
-            case "typescript":
-                return "/tmp/e2b_execution_script.ts"
-            case _:
-                return "/tmp/e2b_execution_script.py"
 
     def _get_execution_command(self, script_path: str) -> str:
         """Get execution command based on language."""
@@ -208,17 +184,12 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
             raise RuntimeError(error_msg)
 
         start_time = time.time()
-
         try:
-            # Execute command using E2B's commands.run() method
             result = await self.sandbox.commands.run(command, timeout=int(self.timeout))
-            duration = time.time() - start_time
-
             success = result.exit_code == 0
-
             return ExecutionResult(
                 result=result.stdout if success else None,
-                duration=duration,
+                duration=time.time() - start_time,
                 success=success,
                 error=result.stderr if not success else None,
                 error_type="CommandError" if not success else None,
@@ -227,8 +198,6 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
             )
 
         except Exception as e:  # noqa: BLE001
-            duration = time.time() - start_time
-            # Map E2B specific exceptions to our error types
             error_type = type(e).__name__
             error_message = str(e)
 
@@ -243,7 +212,7 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
 
             return ExecutionResult(
                 result=None,
-                duration=duration,
+                duration=time.time() - start_time,
                 success=False,
                 error=str(e),
                 error_type=error_type,

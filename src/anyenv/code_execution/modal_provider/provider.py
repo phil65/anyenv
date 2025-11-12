@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Self
 import anyenv
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.models import ExecutionResult
-from anyenv.code_execution.parse_output import parse_output, wrap_code
+from anyenv.code_execution.parse_output import get_script_path, parse_output, wrap_code
 
 
 if TYPE_CHECKING:
@@ -168,7 +168,7 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
         try:
             # Create temporary script file
             script_content = wrap_code(code, language=self.language)
-            script_path = self._get_script_path()
+            script_path = get_script_path(self.language)
 
             # Write script to sandbox using filesystem API
             with self.sandbox.open(script_path, "w") as f:
@@ -220,7 +220,7 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
 
         try:
             script_content = wrap_code(code, language=self.language)
-            script_path = self._get_script_path()
+            script_path = get_script_path(self.language)
             with self.sandbox.open(script_path, "w") as f:
                 f.write(script_content)
 
@@ -302,18 +302,6 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
 
         except Exception as e:  # noqa: BLE001
             yield f"ERROR: {e}"
-
-    def _get_script_path(self) -> str:
-        """Get script path based on language."""
-        match self.language:
-            case "python":
-                return "/tmp/modal_execution_script.py"
-            case "javascript":
-                return "/tmp/modal_execution_script.js"
-            case "typescript":
-                return "/tmp/modal_execution_script.ts"
-            case _:
-                return "/tmp/modal_execution_script.py"
 
     def _get_execution_command(self, script_path: str) -> list[str]:
         """Get execution command based on language."""

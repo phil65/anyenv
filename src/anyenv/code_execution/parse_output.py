@@ -171,7 +171,10 @@ executeMain().then(result => {{
 """
 
 
-def wrap_code(code: str, language: Literal["python", "javascript", "typescript"]) -> str:
+Language = Literal["python", "javascript", "typescript"]
+
+
+def wrap_code(code: str, language: Language) -> str:
     """Wrap user code for Modal execution with result capture."""
     match language:
         case "python":
@@ -182,6 +185,19 @@ def wrap_code(code: str, language: Literal["python", "javascript", "typescript"]
             return wrap_typescript_code(code)
         case _:
             return wrap_python_code(code)
+
+
+def get_script_path(language: Language) -> str:
+    """Get script path based on language."""
+    match language:
+        case "python":
+            return "/tmp/execution_script.py"
+        case "javascript":
+            return "/tmp/execution_script.js"
+        case "typescript":
+            return "/tmp/execution_script.ts"
+        case _:
+            return "/tmp/execution_script.py"
 
 
 def wrap_command(command: str) -> str:

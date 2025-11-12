@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, Literal, Self
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.models import ExecutionResult
 from anyenv.code_execution.parse_output import (
+    get_script_path,
     parse_output,
     wrap_javascript_code,
     wrap_python_code,
@@ -84,7 +85,7 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
 
         self.resources = resources
         self.ports = ports or [3000]
-        self.language = language
+        self.language: Language = language
         self.token = token
         self.project_id = project_id
         self.team_id = team_id
@@ -316,21 +317,9 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
 
     def _prepare_code_execution(self, code: str) -> tuple[str, str]:
         """Prepare code for execution, returning script path and wrapped code."""
-        script_path = self._get_script_path()
+        script_path = get_script_path(self.language)
         wrapped_code = self._wrap_code_for_vercel(code)
         return script_path, wrapped_code
-
-    def _get_script_path(self) -> str:
-        """Get script path based on language."""
-        match self.language:
-            case "python":
-                return "/tmp/vercel_execution_script.py"
-            case "javascript":
-                return "/tmp/vercel_execution_script.js"
-            case "typescript":
-                return "/tmp/vercel_execution_script.ts"
-            case _:
-                return "/tmp/vercel_execution_script.py"
 
     def _get_execution_command(self, script_path: str) -> tuple[str, list[str]]:  # noqa: PLR0911
         """Get execution command based on language and runtime.
