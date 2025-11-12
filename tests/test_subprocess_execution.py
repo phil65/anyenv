@@ -83,6 +83,25 @@ async def main():
     assert result.error_type == "TimeoutError"
 
 
+async def test_subprocess_execution_timeout_isolated():
+    """Test timeout handling in isolated subprocess execution."""
+    code = """
+import time
+async def main():
+    time.sleep(2)  # Sleep longer than timeout
+    return "Should not reach here"
+"""
+
+    async with LocalExecutionEnvironment(isolated=True, timeout=0.5) as env:
+        result = await env.execute(code)
+
+    assert result.success is False
+    assert result.result is None
+    assert result.error
+    assert "timed out" in result.error.lower()
+    assert result.error_type == "TimeoutError"
+
+
 async def test_subprocess_execution_custom_python():
     """Test subprocess execution with custom Python executable."""
     code = """

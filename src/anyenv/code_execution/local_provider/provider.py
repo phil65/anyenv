@@ -166,7 +166,18 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
             if "main" in namespace and callable(namespace["main"]):
                 main_func = namespace["main"]
                 if inspect.iscoroutinefunction(main_func):
-                    result = await asyncio.wait_for(main_func(), timeout=self.timeout)
+                    # Run async function in executor to handle blocking calls properly
+                    def run_in_thread():
+                        loop = asyncio.new_event_loop()
+                        asyncio.set_event_loop(loop)
+                        try:
+                            return loop.run_until_complete(main_func())
+                        finally:
+                            loop.close()
+
+                    result = await asyncio.wait_for(
+                        asyncio.to_thread(run_in_thread), timeout=self.timeout
+                    )
                 else:
                     result = await asyncio.wait_for(
                         asyncio.to_thread(main_func), timeout=self.timeout
