@@ -1,8 +1,8 @@
-"""Tests for SubprocessExecutionEnvironment."""
+"""Tests for LocalExecutionEnvironment."""
 
 import pytest
 
-from anyenv.code_execution import SubprocessExecutionEnvironment
+from anyenv.code_execution import LocalExecutionEnvironment
 
 
 EXPECTED_SQRT_RESULT = 4.0
@@ -16,7 +16,7 @@ async def main():
     return "Hello from subprocess!"
 """
 
-    async with SubprocessExecutionEnvironment() as env:
+    async with LocalExecutionEnvironment(isolated=True) as env:
         result = await env.execute(code)
 
     assert result.success is True
@@ -35,7 +35,7 @@ import math
 _result = math.sqrt(16)
 """
 
-    async with SubprocessExecutionEnvironment() as env:
+    async with LocalExecutionEnvironment(isolated=True) as env:
         result = await env.execute(code)
 
     assert result.success is True
@@ -51,7 +51,7 @@ async def main():
     raise RuntimeError("Subprocess test error")
 """
 
-    async with SubprocessExecutionEnvironment() as env:
+    async with LocalExecutionEnvironment(isolated=True) as env:
         result = await env.execute(code)
 
     assert result.success is False
@@ -73,7 +73,7 @@ async def main():
     return "Should not reach here"
 """
 
-    async with SubprocessExecutionEnvironment(timeout=0.5) as env:
+    async with LocalExecutionEnvironment(isolated=False, timeout=0.5) as env:
         result = await env.execute(code)
 
     assert result.success is False
@@ -91,7 +91,7 @@ async def main():
     return sys.version_info.major
 """
 
-    async with SubprocessExecutionEnvironment(executable="python3") as env:
+    async with LocalExecutionEnvironment(executable="python3") as env:
         result = await env.execute(code)
 
     assert result.success is True
@@ -108,7 +108,7 @@ for i in range(3):
     time.sleep(0.1)
 """
 
-    async with SubprocessExecutionEnvironment() as env:
+    async with LocalExecutionEnvironment(isolated=True) as env:
         lines = [line async for line in env.execute_stream(code)]
 
     # Should get the three print lines

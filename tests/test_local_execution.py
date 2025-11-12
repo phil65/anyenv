@@ -15,7 +15,7 @@ async def main():
     return "Hello from local execution!"
 """
 
-    async with LocalExecutionEnvironment() as env:
+    async with LocalExecutionEnvironment(isolated=False) as env:
         result = await env.execute(code)
 
     assert result.success is True
@@ -31,7 +31,7 @@ async def test_local_execution_with_result_variable():
 _result = 42 * 2
 """
 
-    async with LocalExecutionEnvironment() as env:
+    async with LocalExecutionEnvironment(isolated=False) as env:
         result = await env.execute(code)
 
     assert result.success is True
@@ -47,7 +47,7 @@ async def main():
     raise ValueError("Test error message")
 """
 
-    async with LocalExecutionEnvironment() as env:
+    async with LocalExecutionEnvironment(isolated=False) as env:
         result = await env.execute(code)
 
     assert result.success is False
@@ -64,7 +64,7 @@ x = 1 + 1
 print("This should not be the result")
 """
 
-    async with LocalExecutionEnvironment() as env:
+    async with LocalExecutionEnvironment(isolated=False) as env:
         result = await env.execute(code)
 
     assert result.success is True
@@ -88,7 +88,7 @@ async def main():
     return "Stream test complete"
 """
 
-    async with LocalExecutionEnvironment() as env:
+    async with LocalExecutionEnvironment(isolated=False) as env:
         output_lines = [line async for line in env.execute_stream(code)]
 
     # Check that we got the expected output lines
