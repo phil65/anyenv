@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import time
 from typing import TYPE_CHECKING, Self
 
@@ -104,8 +105,6 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         """Cleanup sandbox."""
         if self.sandbox:
-            import contextlib
-
             with contextlib.suppress(Exception):
                 # Exit the context manager properly
                 await self.sandbox.stop()

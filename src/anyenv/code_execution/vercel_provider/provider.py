@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import time
 from typing import TYPE_CHECKING, Any, Literal, Self
 
@@ -118,13 +119,16 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         """Cleanup sandbox."""
         if self.sandbox:
-            import contextlib
-
             with contextlib.suppress(Exception):
                 await self.sandbox.stop()
 
         # Cleanup server via base class
         await super().__aexit__(exc_type, exc_val, exc_tb)
+
+    def domain(self, port: int) -> str:
+        """Get domain for the Vercel sandbox."""
+        assert self.sandbox
+        return self.sandbox.domain(port)
 
     def _get_default_runtime(self) -> VercelRuntime:
         """Get default runtime based on language."""
@@ -539,3 +543,16 @@ executeMain().then(result => {{
             return None, {"error": str(e), "type": type(e).__name__}
         else:
             return None, {"error": "No execution result found", "type": "ParseError"}
+
+
+if __name__ == "__main__":
+
+    async def _main():
+        async with VercelExecutionEnvironment() as sandbox:
+            await sandbox.execute_command("mkdir test")
+            result = await sandbox.execute_command("ls")
+            print(result)
+
+    import asyncio
+
+    asyncio.run(_main())

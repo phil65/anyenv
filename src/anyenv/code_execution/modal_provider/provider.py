@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import time
 from typing import TYPE_CHECKING, Any, Self
 
@@ -134,8 +135,6 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         """Cleanup sandbox."""
         if self.sandbox:
-            import contextlib
-
             with contextlib.suppress(Exception):
                 self.sandbox.terminate()
 
@@ -514,3 +513,16 @@ executeMain().then(result => {{
             return None, {"error": str(e), "type": type(e).__name__}
         else:
             return None, {"error": "No execution result found", "type": "ParseError"}
+
+
+if __name__ == "__main__":
+
+    async def _main():
+        async with ModalExecutionEnvironment() as sandbox:
+            await sandbox.execute_command("mkdir test")
+            result = await sandbox.execute_command("ls")
+            print(result)
+
+    import asyncio
+
+    asyncio.run(_main())

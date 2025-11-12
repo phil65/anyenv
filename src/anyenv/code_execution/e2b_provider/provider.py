@@ -447,3 +447,16 @@ executeMain().then(result => {{
 
         except Exception as e:  # noqa: BLE001
             yield f"ERROR: {e}"
+
+
+if __name__ == "__main__":
+
+    async def _main():
+        async with E2bExecutionEnvironment() as sandbox:
+            await sandbox.execute_command("mkdir test")
+            result = await sandbox.execute_command("ls")
+            print(result)
+
+    import asyncio
+
+    asyncio.run(_main())

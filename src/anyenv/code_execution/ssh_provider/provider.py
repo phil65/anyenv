@@ -9,6 +9,13 @@ from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.models import ExecutionResult
 
 
+def wrap_command(command: str) -> str:
+    """Wrap command to run in login shell for proper PATH setup."""
+    # Escape single quotes in the command
+    escaped_command = command.replace("'", "'\"'\"'")
+    return f"bash -l -c '{escaped_command}'"
+
+
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
     from contextlib import AbstractAsyncContextManager
@@ -67,6 +74,13 @@ class SshExecutionEnvironment(ExecutionEnvironment):
         self.connection: SSHClientConnection | None = None
         self._remote_work_dir: str | None = None
 
+    async def run(self, command: str) -> Any:
+        """Run a command on the remote machine with login shell."""
+        if not self.connection:
+            msg = "SSH connection not established"
+            raise RuntimeError(msg)
+        return await self.connection.run(wrap_command(command))
+
     async def __aenter__(self) -> Self:
         """Establish SSH connection and set up remote environment."""
         # Start tool server via base class
@@ -97,7 +111,7 @@ class SshExecutionEnvironment(ExecutionEnvironment):
             self._remote_work_dir = self.cwd
         else:
             # Create temporary directory
-            result = await self.connection.run("mktemp -d")
+            result = await self.run("mktemp -d")
             if result.returncode != 0:
                 stderr = (
                     result.stderr.decode()
@@ -115,7 +129,7 @@ class SshExecutionEnvironment(ExecutionEnvironment):
             self._remote_work_dir = stdout.strip()
 
         # Ensure working directory exists
-        await self.connection.run(f"mkdir -p {self._remote_work_dir}")
+        await self.run(f"mkdir -p {self._remote_work_dir}")
 
         # Verify required tools are available
         await self._verify_tools()
@@ -131,7 +145,7 @@ class SshExecutionEnvironment(ExecutionEnvironment):
         if self.connection and self._connection_cm:
             # Clean up temporary working directory if we created it
             if not self.cwd and self._remote_work_dir:
-                await self.connection.run(f"rm -rf {self._remote_work_dir}")
+                await self.run(f"rm -rf {self._remote_work_dir}")
 
             await self._connection_cm.__aexit__(exc_type, exc_val, exc_tb)
 
@@ -148,13 +162,13 @@ class SshExecutionEnvironment(ExecutionEnvironment):
         """Verify that required tools are available on the remote machine."""
         assert self.connection
         if self.language == "python":
-            # Require uv to be available - no fallback to plain python
-            uv_result = await self.connection.run("which uv")
+            # Require uv to be available - use login shell to load profile
+            uv_result = await self.run("which uv")
             if uv_result.returncode != 0:
                 msg = "uv not found on remote machine. Please install uv first."
                 raise RuntimeError(msg)
         elif self.language in ("javascript", "typescript"):
-            node_result = await self.connection.run("which node")
+            node_result = await self.run("which node")
             if node_result.returncode != 0:
                 msg = "Node.js not found on remote machine"
                 raise RuntimeError(msg)
@@ -167,7 +181,7 @@ class SshExecutionEnvironment(ExecutionEnvironment):
         if self.language in ("javascript", "typescript") and self.dependencies:
             deps_str = " ".join(self.dependencies)
             cmd = f"cd {self._remote_work_dir} && npm init -y && npm install {deps_str}"
-            result = await self.connection.run(cmd)
+            result = await self.run(cmd)
             if result.returncode != 0:
                 stderr = (
                     result.stderr.decode()
@@ -237,41 +251,35 @@ class SshExecutionEnvironment(ExecutionEnvironment):
         script_path = f"{self._remote_work_dir}/script.py"
         assert self.connection
         # Write code to remote file
-        await self.connection.run(f"cat > {script_path} << 'EOF'\n{code}\nEOF")
+        await self.run(f"cat > {script_path} << 'EOF'\n{code}\nEOF")
 
         # Build uv run command with dependencies
         if self.dependencies:
             with_args = " ".join(f"--with {dep}" for dep in self.dependencies)
-            cmd = (
-                f"cd {self._remote_work_dir} && timeout {self.timeout} "
-                f"uv run {with_args} python {script_path}"
-            )
+            cmd = f"cd {self._remote_work_dir} && timeout {self.timeout} uv run {with_args} python {script_path}"  # noqa: E501
         else:
-            cmd = (
-                f"cd {self._remote_work_dir} && timeout {self.timeout} "
-                f"uv run python {script_path}"
-            )
-        return await self.connection.run(cmd)
+            cmd = f"cd {self._remote_work_dir} && timeout {self.timeout} uv run python {script_path}"  # noqa: E501
+        return await self.run(cmd)
 
     async def _execute_javascript(self, code: str) -> Any:
         """Execute JavaScript code using node."""
         script_path = f"{self._remote_work_dir}/script.js"
         assert self.connection
         # Write code to remote file
-        await self.connection.run(f"cat > {script_path} << 'EOF'\n{code}\nEOF")
+        await self.run(f"cat > {script_path} << 'EOF'\n{code}\nEOF")
 
         cmd = f"cd {self._remote_work_dir} && timeout {self.timeout} node {script_path}"
-        return await self.connection.run(cmd)
+        return await self.run(cmd)
 
     async def _execute_typescript(self, code: str) -> Any:
         """Execute TypeScript code using ts-node or similar."""
         script_path = f"{self._remote_work_dir}/script.ts"
         assert self.connection
         # Write code to remote file
-        await self.connection.run(f"cat > {script_path} << 'EOF'\n{code}\nEOF")
+        await self.run(f"cat > {script_path} << 'EOF'\n{code}\nEOF")
 
         # Try ts-node first, fall back to tsc + node
-        ts_node_result = await self.connection.run("which ts-node")
+        ts_node_result = await self.run("which ts-node")
         if ts_node_result.returncode == 0:
             cmd = f"cd {self._remote_work_dir} && timeout {self.timeout} ts-node {script_path}"  # noqa: E501
         else:
@@ -281,7 +289,7 @@ class SshExecutionEnvironment(ExecutionEnvironment):
                 f"npx tsc {script_path} && node script.js"
             )
 
-        return await self.connection.run(cmd)
+        return await self.run(cmd)
 
     def _inject_tool_server(self, code: str) -> str:
         """Inject tool server URL into Python code if available."""
@@ -307,7 +315,7 @@ os.environ['TOOL_SERVER_PORT'] = '{self.server_info.port}'
 
         try:
             cmd = f"cd {self._remote_work_dir} && timeout {self.timeout} {command}"
-            result = await self.connection.run(cmd)
+            result = await self.run(cmd)
 
             duration = time.time() - start_time
             success = result.returncode == 0
@@ -348,22 +356,22 @@ os.environ['TOOL_SERVER_PORT'] = '{self.server_info.port}'
 
         if self.language == "python":
             script_path = f"{self._remote_work_dir}/script.py"
-            await self.connection.run(f"cat > {script_path} << 'EOF'\n{code}\nEOF")
+            await self.run(f"cat > {script_path} << 'EOF'\n{code}\nEOF")
 
             # Build uv run command with dependencies
             if self.dependencies:
                 with_args = " ".join(f"--with {dep}" for dep in self.dependencies)
-                cmd = f"cd {self._remote_work_dir} && uv run {with_args} python {script_path}"  # noqa: E501
+                cmd = f"cd {self._remote_work_dir} && uv run {with_args} python {script_path}"
             else:
                 cmd = f"cd {self._remote_work_dir} && uv run python {script_path}"
         else:
             # Similar logic for JS/TS...
             script_path = f"{self._remote_work_dir}/script.{'js' if self.language == 'javascript' else 'ts'}"  # noqa: E501
-            await self.connection.run(f"cat > {script_path} << 'EOF'\n{code}\nEOF")
+            await self.run(f"cat > {script_path} << 'EOF'\n{code}\nEOF")
             cmd = f"cd {self._remote_work_dir} && node {script_path}"
 
-        # Stream execution
-        async with self.connection.create_process(cmd) as process:
+        # Stream execution - wrap command for login shell
+        async with self.connection.create_process(wrap_command(cmd)) as process:
             async for line in process.stdout:
                 yield line.rstrip("\n\r")
 
@@ -374,6 +382,18 @@ os.environ['TOOL_SERVER_PORT'] = '{self.server_info.port}'
             raise RuntimeError(msg)
 
         cmd = f"cd {self._remote_work_dir} && {command}"
-        async with self.connection.create_process(cmd) as process:
+        async with self.connection.create_process(wrap_command(cmd)) as process:
             async for line in process.stdout:
                 yield line.rstrip("\n\r")
+
+
+if __name__ == "__main__":
+
+    async def _main():
+        async with SshExecutionEnvironment("91.99.102.138", "root") as sandbox:
+            result = await sandbox.execute_command("ls")
+            print(result)
+
+    import asyncio
+
+    asyncio.run(_main())
