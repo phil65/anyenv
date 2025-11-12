@@ -491,7 +491,7 @@ executeMain().then(result => {{
 }});
 """
 
-    def _parse_modal_output(self, output: str) -> tuple[Any, dict | None]:
+    def _parse_modal_output(self, output: str) -> tuple[Any, dict[str, Any] | None]:
         """Parse result from Modal sandbox output."""
         import anyenv
 

@@ -224,7 +224,7 @@ if __name__ == "__main__":
         print("__DAYTONA_RESULT__", json.dumps(error_result, default=str))
 """
 
-    def _parse_daytona_output(self, output: str) -> tuple[Any, dict | None]:
+    def _parse_daytona_output(self, output: str) -> tuple[Any, dict[str, Any] | None]:
         """Parse result from Daytona sandbox output."""
         try:
             lines = output.strip().split("\n")

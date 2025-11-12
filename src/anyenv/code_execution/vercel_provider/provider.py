@@ -521,7 +521,7 @@ executeMain().then(result => {{
 }});
 """
 
-    def _parse_vercel_output(self, output: str) -> tuple[Any, dict | None]:
+    def _parse_vercel_output(self, output: str) -> tuple[Any, dict[str, Any] | None]:
         """Parse result from Vercel sandbox output."""
         import anyenv
 

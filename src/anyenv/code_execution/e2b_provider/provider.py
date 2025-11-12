@@ -333,7 +333,7 @@ executeMain().then(result => {{
 }});
 """  # noqa: E501
 
-    def _parse_e2b_output(self, output: str) -> tuple[Any, dict | None]:
+    def _parse_e2b_output(self, output: str) -> tuple[Any, dict[str, Any] | None]:
         """Parse result from E2B sandbox output."""
         import anyenv
 

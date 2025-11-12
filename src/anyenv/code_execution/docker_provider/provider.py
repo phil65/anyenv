@@ -422,7 +422,7 @@ executeMain().then(result => {{
 }});
 """  # noqa: E501
 
-    def _parse_docker_output(self, output: str) -> tuple[Any, dict | None]:
+    def _parse_docker_output(self, output: str) -> tuple[Any, dict[str, Any] | None]:
         """Parse result from Docker container output."""
         import anyenv
 

@@ -282,7 +282,7 @@ async function executeMain() {{
 }})();
 """
 
-    def _parse_beam_output(self, output: str) -> tuple[Any, dict | None]:
+    def _parse_beam_output(self, output: str) -> tuple[Any, dict[str, Any] | None]:
         """Parse the execution output to extract result and error information."""
         import anyenv
 
