@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.models import ExecutionResult
-from anyenv.code_execution.parse_output import parse_output
+from anyenv.code_execution.parse_output import parse_output, wrap_python_code
 
 
 if TYPE_CHECKING:
@@ -128,8 +128,7 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
 
         try:
             # Wrap code for execution with result capture
-            wrapped_code = self._wrap_code_for_daytona(code)
-
+            wrapped_code = wrap_python_code(code)
             # Execute code in sandbox
             response = await self.sandbox.process.exec(
                 f"python -c '{wrapped_code}'", timeout=int(self.timeout)
@@ -178,52 +177,6 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
                 error=str(e),
                 error_type=type(e).__name__,
             )
-
-    def _wrap_code_for_daytona(self, code: str) -> str:
-        """Wrap user code for Daytona execution with result capture."""
-        return f"""
-import asyncio
-import json
-import traceback
-import inspect
-
-# User code
-{code}
-
-# Execution wrapper
-async def _execute_main():
-    try:
-        if "main" in globals() and callable(globals()["main"]):
-            main_func = globals()["main"]
-            if inspect.iscoroutinefunction(main_func):
-                result = await main_func()
-            else:
-                result = main_func()
-        else:
-            result = globals().get("_result")
-        return {{"result": result, "success": True}}
-    except Exception as e:
-        return {{
-            "success": False,
-            "error": str(e),
-            "type": type(e).__name__,
-            "traceback": traceback.format_exc()
-        }}
-
-# Run and output result
-if __name__ == "__main__":
-    try:
-        execution_result = asyncio.run(_execute_main())
-        print("__RESULT__", json.dumps(execution_result, default=str))
-    except Exception as e:
-        error_result = {{
-            "success": False,
-            "error": str(e),
-            "type": type(e).__name__,
-            "traceback": traceback.format_exc()
-        }}
-        print("__RESULT__", json.dumps(error_result, default=str))
-"""
 
     async def execute_command(self, command: str) -> ExecutionResult:
         """Execute a terminal command in the Daytona sandbox."""

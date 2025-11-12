@@ -31,3 +31,141 @@ def parse_output(output: str) -> tuple[Any, dict[str, Any] | None]:
         return None, {"error": str(e), "type": type(e).__name__}
     else:
         return None, {"error": "No execution result found", "type": "ParseError"}
+
+
+def wrap_python_code(code: str) -> str:
+    """Wrap Python code for execution."""
+    return f"""
+import asyncio
+import json
+import traceback
+import inspect
+
+# User code
+{code}
+
+# Execution wrapper
+async def _execute_main():
+try:
+    if "main" in globals() and callable(globals()["main"]):
+        main_func = globals()["main"]
+        if inspect.iscoroutinefunction(main_func):
+            result = await main_func()
+        else:
+            result = main_func()
+    else:
+        result = globals().get("_result")
+    return {{"result": result, "success": True}}
+except Exception as e:
+    return {{
+        "success": False,
+        "error": str(e),
+        "type": type(e).__name__,
+        "traceback": traceback.format_exc()
+    }}
+
+# Run and output result
+if __name__ == "__main__":
+try:
+    execution_result = asyncio.run(_execute_main())
+    print("__RESULT__", json.dumps(execution_result, default=str))
+except Exception as e:
+    error_result = {{
+        "success": False,
+        "error": str(e),
+        "type": type(e).__name__,
+        "traceback": traceback.format_exc()
+    }}
+    print("__RESULT__", json.dumps(error_result, default=str))
+"""
+
+
+def wrap_javascript_code(code: str) -> str:
+    """Wrap JavaScript code for execution."""
+    return f"""
+// User code
+{code}
+
+// Execution wrapper
+async function executeMain() {{
+try {{
+    let result;
+    if (typeof main === 'function') {{
+        result = await main();
+    }} else if (typeof _result !== 'undefined') {{
+        result = _result;
+    }}
+    return {{ result: result, success: true }};
+}} catch (error) {{
+    return {{
+        success: false,
+        error: error.message,
+        type: error.name,
+        traceback: error.stack
+    }};
+}}
+}}
+
+// Run and output result
+(async () => {{
+try {{
+    const executionResult = await executeMain();
+    console.log("__RESULT__", JSON.stringify(executionResult));
+}} catch (error) {{
+    const errorResult = {{
+        success: false,
+        error: error.message,
+        type: error.name,
+        traceback: error.stack
+    }};
+    console.log("__RESULT__", JSON.stringify(errorResult));
+}}
+}})();
+"""
+
+
+def wrap_typescript_code(code: str) -> str:
+    """Wrap TypeScript code for execution."""
+    return f"""
+// User code
+{code}
+
+// Execution wrapper
+async function executeMain(): Promise<{{
+    result: any;
+    success: boolean;
+    error?: string;
+    type?: string;
+    traceback?: string;
+}}> {{
+    try {{
+        let result: any;
+        if (typeof main === 'function') {{
+            result = await main();
+        }} else if (typeof _result !== 'undefined') {{
+            result = (global as any)._result;
+        }}
+        return {{ result: result, success: true }};
+    }} catch (error: any) {{
+        return {{
+            success: false,
+            error: error.message,
+            type: error.name,
+            traceback: error.stack
+        }};
+    }}
+}}
+
+// Run and output result
+executeMain().then(result => {{
+    console.log('__RESULT__', JSON.stringify(result));
+}}).catch(error => {{
+    const errorResult = {{
+        success: false,
+        error: error.message,
+        type: error.name,
+        traceback: error.stack
+    }};
+    console.log('__RESULT__', JSON.stringify(errorResult));
+}});
+"""

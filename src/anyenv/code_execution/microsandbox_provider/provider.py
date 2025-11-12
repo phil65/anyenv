@@ -64,15 +64,7 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
         # Start tool server via base class
         await super().__aenter__()
 
-        # Import here to avoid import issues if microsandbox package not installed
-        try:
-            from microsandbox import NodeSandbox, PythonSandbox
-        except ImportError as e:
-            error_msg = (
-                "microsandbox package is required for MicrosandboxExecutionEnvironment. "
-                "Install it with: pip install microsandbox"
-            )
-            raise ImportError(error_msg) from e
+        from microsandbox import NodeSandbox, PythonSandbox
 
         # Select appropriate sandbox type based on language
         match self.language:

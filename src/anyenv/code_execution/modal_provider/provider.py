@@ -8,7 +8,12 @@ from typing import TYPE_CHECKING, Any, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.models import ExecutionResult
-from anyenv.code_execution.parse_output import parse_output
+from anyenv.code_execution.parse_output import (
+    parse_output,
+    wrap_javascript_code,
+    wrap_python_code,
+    wrap_typescript_code,
+)
 
 
 if TYPE_CHECKING:
@@ -77,17 +82,8 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
         # Start tool server via base class
         await super().__aenter__()
 
-        # Import here to avoid import issues if modal package not installed
-        try:
-            import modal
-        except ImportError as e:
-            error_msg = (
-                "modal package is required for ModalExecutionEnvironment. "
-                "Install it with: pip install modal"
-            )
-            raise ImportError(error_msg) from e
+        import modal
 
-        # Create or lookup app
         self.app = modal.App.lookup(self.app_name, create_if_missing=True)
 
         # Use default image if none provided
@@ -141,6 +137,24 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
 
         # Cleanup server via base class
         await super().__aexit__(exc_type, exc_val, exc_tb)
+
+    async def send(self, message: str):
+        """Test the Modal environment."""
+        # https://modal.com/docs/guide/sandbox-networking
+        import websockets
+
+        import anyenv
+
+        # Create a connect token, optionally including arbitrary user metadata.
+        assert self.sandbox
+        creds = self.sandbox.create_connect_token(user_metadata={"user_id": "foo"})
+        # Make an HTTP request, passing the token in the Authorization header.
+        await anyenv.get(creds.url, headers={"Authorization": f"Bearer {creds.token}"})
+        # You can also put the token in a `_modal_connect_token` query param.
+        url = f"{creds.url}/?_modal_connect_token={creds.token}"
+        ws_url = url.replace("https://", "wss://")
+        async with websockets.connect(ws_url) as socket:
+            await socket.send(message)
 
     def get_fs(self) -> ModalFS:
         """Return a ModalFS instance for the sandbox."""
@@ -352,145 +366,13 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
         """Wrap user code for Modal execution with result capture."""
         match self.language:
             case "python":
-                return self._wrap_python_code(code)
+                return wrap_python_code(code)
             case "javascript":
-                return self._wrap_javascript_code(code)
+                return wrap_javascript_code(code)
             case "typescript":
-                return self._wrap_typescript_code(code)
+                return wrap_typescript_code(code)
             case _:
-                return self._wrap_python_code(code)
-
-    def _wrap_python_code(self, code: str) -> str:
-        """Wrap Python code for execution."""
-        return f"""
-import asyncio
-import json
-import traceback
-import inspect
-
-# User code
-{code}
-
-# Execution wrapper
-async def _execute_main():
-    try:
-        if "main" in globals() and callable(globals()["main"]):
-            main_func = globals()["main"]
-            if inspect.iscoroutinefunction(main_func):
-                result = await main_func()
-            else:
-                result = main_func()
-        else:
-            result = globals().get("_result")
-        return {{"result": result, "success": True}}
-    except Exception as e:
-        return {{
-            "success": False,
-            "error": str(e),
-            "type": type(e).__name__,
-            "traceback": traceback.format_exc()
-        }}
-
-# Run and output result
-if __name__ == "__main__":
-    try:
-        execution_result = asyncio.run(_execute_main())
-        print("__RESULT__", json.dumps(execution_result, default=str))
-    except Exception as e:
-        error_result = {{
-            "success": False,
-            "error": str(e),
-            "type": type(e).__name__,
-            "traceback": traceback.format_exc()
-        }}
-        print("__RESULT__", json.dumps(error_result, default=str))
-"""
-
-    def _wrap_javascript_code(self, code: str) -> str:
-        """Wrap JavaScript code for execution."""
-        return f"""
-// User code
-{code}
-
-// Execution wrapper
-async function executeMain() {{
-    try {{
-        let result;
-        if (typeof main === 'function') {{
-            result = await main();
-        }} else if (typeof _result !== 'undefined') {{
-            result = _result;
-        }}
-        return {{ result: result, success: true }};
-    }} catch (error) {{
-        return {{
-            success: false,
-            error: error.message,
-            type: error.name,
-            traceback: error.stack
-        }};
-    }}
-}}
-
-// Run and output result
-executeMain().then(result => {{
-    console.log('__RESULT__', JSON.stringify(result));
-}}).catch(error => {{
-    const errorResult = {{
-        success: false,
-        error: error.message,
-        type: error.name,
-        traceback: error.stack
-    }};
-    console.log('__RESULT__', JSON.stringify(errorResult));
-}});
-"""
-
-    def _wrap_typescript_code(self, code: str) -> str:
-        """Wrap TypeScript code for execution."""
-        return f"""
-// User code
-{code}
-
-// Execution wrapper
-async function executeMain(): Promise<{{
-    result: any;
-    success: boolean;
-    error?: string;
-    type?: string;
-    traceback?: string;
-}}> {{
-    try {{
-        let result: any;
-        if (typeof main === 'function') {{
-            result = await main();
-        }} else if (typeof _result !== 'undefined') {{
-            result = (global as any)._result;
-        }}
-        return {{ result: result, success: true }};
-    }} catch (error: any) {{
-        return {{
-            success: false,
-            error: error.message,
-            type: error.name,
-            traceback: error.stack
-        }};
-    }}
-}}
-
-// Run and output result
-executeMain().then(result => {{
-    console.log('__RESULT__', JSON.stringify(result));
-}}).catch(error => {{
-    const errorResult = {{
-        success: false,
-        error: error.message,
-        type: error.name,
-        traceback: error.stack
-    }};
-    console.log('__RESULT__', JSON.stringify(errorResult));
-}});
-"""
+                return wrap_python_code(code)
 
 
 if __name__ == "__main__":
