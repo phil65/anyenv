@@ -11,6 +11,8 @@ if TYPE_CHECKING:
     from contextlib import AbstractAsyncContextManager
     from typing import Any
 
+    from fsspec.asyn import AsyncFileSystem
+
     from anyenv.code_execution.models import ExecutionResult, ServerInfo
 
 
@@ -51,6 +53,11 @@ class ExecutionEnvironment(ABC):
     async def execute(self, code: str) -> ExecutionResult:
         """Execute code and return result with metadata."""
         ...
+
+    def get_fs(self) -> AsyncFileSystem:
+        """Return a MicrosandboxFS instance for the sandbox."""
+        msg = "VFS is not supported"
+        raise NotImplementedError(msg)
 
     async def execute_stream(self, code: str) -> AsyncIterator[str]:
         """Execute code and stream output line by line (optional).

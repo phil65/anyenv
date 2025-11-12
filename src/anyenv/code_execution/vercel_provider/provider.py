@@ -30,6 +30,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
     from contextlib import AbstractAsyncContextManager
 
+    from upathtools.filesystems.vercel_fs import VercelFS
     from vercel.sandbox import AsyncSandbox
 
     from anyenv.code_execution.models import Language, ServerInfo
@@ -130,6 +131,13 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
         """Get domain for the Vercel sandbox."""
         assert self.sandbox
         return self.sandbox.domain(port)
+
+    def get_fs(self) -> VercelFS:
+        """Return a VercelFS instance for the sandbox."""
+        from upathtools.filesystems.vercel_fs import VercelFS
+
+        assert self.sandbox
+        return VercelFS(sandbox=self.sandbox)
 
     def _get_default_runtime(self) -> VercelRuntime:
         """Get default runtime based on language."""

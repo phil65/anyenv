@@ -13,6 +13,8 @@ from anyenv.code_execution.models import ExecutionResult
 if TYPE_CHECKING:
     from contextlib import AbstractAsyncContextManager
 
+    from upathtools.filesystems.microsandbox_fs import MicrosandboxFS
+
     from anyenv.code_execution.models import Language, ServerInfo
 
 
@@ -111,6 +113,13 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
 
         # Cleanup server via base class
         await super().__aexit__(exc_type, exc_val, exc_tb)
+
+    def get_fs(self) -> MicrosandboxFS:
+        """Return a MicrosandboxFS instance for the sandbox."""
+        from upathtools.filesystems.microsandbox_fs import MicrosandboxFS
+
+        assert self.sandbox
+        return MicrosandboxFS(sandbox=self.sandbox)
 
     async def execute(self, code: str) -> ExecutionResult:
         """Execute code in the Microsandbox environment."""
