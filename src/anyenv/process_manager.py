@@ -12,6 +12,7 @@ from typing import Any
 import uuid
 
 from anyenv.log import get_logger
+from anyenv.processes import create_process
 
 
 logger = get_logger(__name__)
@@ -187,13 +188,13 @@ class ProcessManager:
 
         try:
             # Start process
-            process = await asyncio.create_subprocess_exec(
+            process = await create_process(
                 command,
                 *args,
                 cwd=work_dir,
                 env=proc_env,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
+                stdout="pipe",
+                stderr="pipe",
             )
 
             # Create tracking object

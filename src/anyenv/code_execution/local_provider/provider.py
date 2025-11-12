@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.models import ExecutionResult
+from anyenv.processes import create_process, create_shell_process
 
 
 if TYPE_CHECKING:
@@ -71,17 +72,13 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
         # Install dependencies if specified and in isolated mode
         if self.isolated and self.dependencies and self.language == "python":
             deps_str = " ".join(self.dependencies)
+            cmd = f"pip install {deps_str}"
             try:
-                process = await asyncio.create_subprocess_shell(
-                    f"pip install {deps_str}",
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                )
+                process = await create_shell_process(cmd, stdout="pipe", stderr="pipe")
                 await asyncio.wait_for(process.communicate(), timeout=self.timeout)
             except Exception:  # noqa: BLE001
                 # Log warning but don't fail - code might still work
                 pass
-
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
@@ -213,38 +210,32 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
 
         try:
             wrapped_code = self._wrap_code_for_subprocess(code)
-            subprocess_args = self._get_subprocess_args()
-
-            process = await asyncio.create_subprocess_exec(
-                *subprocess_args,
-                stdin=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
+            process = await create_process(
+                *self._get_subprocess_args(),
+                stdin="pipe",
+                stdout="pipe",
+                stderr="pipe",
             )
             self.process = process
-
             stdout_data, stderr_data = await asyncio.wait_for(
                 process.communicate(wrapped_code.encode()),
                 timeout=self.timeout,
             )
-
-            duration = time.time() - start_time
             stdout = stdout_data.decode() if stdout_data else ""
             stderr = stderr_data.decode() if stderr_data else ""
-
             if process.returncode == 0:
                 execution_result, error_info = _parse_subprocess_output(stdout)
                 if error_info is None:
                     return ExecutionResult(
                         result=execution_result,
-                        duration=duration,
+                        duration=time.time() - start_time,
                         success=True,
                         stdout=stdout,
                         stderr=stderr,
                     )
                 return ExecutionResult(
                     result=None,
-                    duration=duration,
+                    duration=time.time() - start_time,
                     success=False,
                     error=error_info.get("error", "Subprocess execution failed"),
                     error_type=error_info.get("type", "SubprocessError"),
@@ -253,7 +244,7 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
                 )
             return ExecutionResult(
                 result=None,
-                duration=duration,
+                duration=time.time() - start_time,
                 success=False,
                 error=stderr or "Subprocess execution failed",
                 error_type="SubprocessError",
@@ -262,22 +253,20 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
             )
 
         except TimeoutError:
-            duration = time.time() - start_time
             if self.process:
                 self.process.kill()
                 await self.process.wait()
             return ExecutionResult(
                 result=None,
-                duration=duration,
+                duration=time.time() - start_time,
                 success=False,
                 error=f"Execution timed out after {self.timeout} seconds",
                 error_type="TimeoutError",
             )
         except Exception as e:  # noqa: BLE001
-            duration = time.time() - start_time
             return ExecutionResult(
                 result=None,
-                duration=duration,
+                duration=time.time() - start_time,
                 success=False,
                 error=str(e),
                 error_type=type(e).__name__,
@@ -552,19 +541,17 @@ _anyenv_execute();
     async def _execute_stream_subprocess(self, code: str) -> AsyncIterator[str]:
         """Execute code in subprocess and stream output line by line."""
         try:
-            wrapped_code = self._wrap_code_for_subprocess(code)
-            subprocess_args = self._get_subprocess_args()
-
-            process = await asyncio.create_subprocess_exec(
-                *subprocess_args,
-                stdin=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.STDOUT,
+            process = await create_process(
+                *self._get_subprocess_args(),
+                stdin="pipe",
+                stdout="pipe",
+                stderr="stdout",
             )
             self.process = process
 
             # Send code to subprocess
             if process.stdin:
+                wrapped_code = self._wrap_code_for_subprocess(code)
                 process.stdin.write(wrapped_code.encode())
                 process.stdin.close()
 
@@ -594,12 +581,7 @@ _anyenv_execute();
         start_time = time.time()
 
         try:
-            process = await asyncio.create_subprocess_shell(
-                command,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-
+            process = await create_shell_process(command, stdout="pipe", stderr="pipe")
             stdout_data, stderr_data = await asyncio.wait_for(
                 process.communicate(), timeout=self.timeout
             )
@@ -641,11 +623,7 @@ _anyenv_execute();
     async def execute_command_stream(self, command: str) -> AsyncIterator[str]:
         """Execute a shell command and stream output line by line."""
         try:
-            process = await asyncio.create_subprocess_shell(
-                command,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.STDOUT,
-            )
+            process = await create_shell_process(command, stdout="pipe", stderr="stdout")
 
             if process.stdout is not None:
                 while True:
