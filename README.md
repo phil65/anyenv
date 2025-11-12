@@ -41,8 +41,8 @@ from anyenv.code_execution import get_environment
 # Local execution (same process)
 env = get_environment("local")
 
-# Subprocess execution (separate Python process)
-env = get_environment("subprocess")
+# Subprocess execution (separate process when executing python code)
+env = get_environment("local", isolated=True)
 
 # Docker execution (containerized)
 env = get_environment("docker")
@@ -67,27 +67,9 @@ env = get_environment("local", timeout=30.0)
 
 **Parameters:**
 - `timeout` (float): Execution timeout in seconds (default: 30.0)
-
-**Use cases:** Quick prototyping, testing, simple computations
-
-### Subprocess Provider
-Executes code in a separate Python process for basic isolation.
-
-```python
-env = get_environment(
-    "subprocess",
-    executable="python3",
-    timeout=60.0,
-    language="python"
-)
-```
-
-**Parameters:**
-- `executable` (str): Python executable to use (default: "python")
-- `timeout` (float): Execution timeout in seconds (default: 30.0)
+- `isolated` (bool): Whether to execute code in a separate process (default: False)
 - `language` (Language): Programming language (default: "python")
 
-**Use cases:** Isolated execution, testing with different Python versions
 
 ### Docker Provider
 Executes code in Docker containers for strong isolation and reproducible environments.
@@ -107,7 +89,6 @@ env = get_environment(
 - `timeout` (float): Execution timeout in seconds (default: 60.0)
 - `language` (Language): Programming language (default: "python")
 
-**Use cases:** Reproducible builds, testing across environments, security isolation
 
 ### Daytona Provider
 Executes code in remote Daytona sandboxes for cloud-based development environments.
@@ -130,7 +111,6 @@ env = get_environment(
 - `timeout` (float): Execution timeout in seconds (default: 300.0)
 - `keep_alive` (bool): Keep sandbox running after execution (default: False)
 
-**Use cases:** Remote development, cloud-based CI/CD, collaborative coding
 
 ### E2B Provider
 Executes code in E2B sandboxes for secure, ephemeral execution environments.
@@ -151,7 +131,6 @@ env = get_environment(
 - `keep_alive` (bool): Keep sandbox running after execution (default: False)
 - `language` (Language): Programming language (default: "python")
 
-**Use cases:** Secure code execution, AI code generation, online code runners
 
 ### Beam Provider
 Executes code in Beam cloud sandboxes for scalable, serverless execution environments.
@@ -174,7 +153,6 @@ env = get_environment(
 - `timeout` (float): Execution timeout in seconds (default: 300.0)
 - `language` (Language): Programming language (default: "python")
 
-**Use cases:** Serverless execution, auto-scaling workloads, GPU-accelerated computing
 
 ### MCP Provider
 Executes Python code with Model Context Protocol support for AI integrations.
@@ -193,7 +171,6 @@ env = get_environment(
 - `allow_networking` (bool): Allow network access (default: True)
 - `timeout` (float): Execution timeout in seconds (default: 30.0)
 
-**Use cases:** AI model integrations, dynamic code execution with dependencies
 
 ## Code Execution Patterns
 
@@ -305,8 +282,7 @@ async with env:
             print(f"✓ {line}")
 ```
 
-**Supported providers:** `subprocess`, `docker`, `local`, `beam`
-**Use cases:** Progress monitoring, real-time feedback, large output processing
+**Supported providers:** `docker`, `local`, `beam`, `e2b`, `modal`, `vercel`, `ssh`, `daytona`
 
 ## HTTP Downloads
 

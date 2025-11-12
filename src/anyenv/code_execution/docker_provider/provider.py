@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import base64
 import contextlib
+import tempfile
 import time
 from typing import TYPE_CHECKING, Any, Self
 
@@ -45,15 +45,21 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
         self.timeout = timeout
         self.language = language
         self.container: DockerContainer | None = None
+        self.host_workdir: str | None = None
 
     async def __aenter__(self) -> Self:
         # Start tool server via base class
         await super().__aenter__()
 
+        # Create temporary directory on host for shared filesystem
+        self.host_workdir = tempfile.mkdtemp()
+
         # Create and setup Docker container
         from testcontainers.core.container import DockerContainer
 
-        self.container = DockerContainer(self.image)
+        self.container = DockerContainer(self.image).with_volume_mapping(
+            self.host_workdir, "/workspace", "rw"
+        )
 
         # Build install commands
         install_commands = []
@@ -93,8 +99,26 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
             with contextlib.suppress(Exception):
                 self.container.stop()
 
+        # Cleanup host working directory
+        if self.host_workdir:
+            import shutil
+
+            with contextlib.suppress(Exception):
+                shutil.rmtree(self.host_workdir)
+
         # Cleanup server via base class
         await super().__aexit__(exc_type, exc_val, exc_tb)
+
+    def get_fs(self):
+        """Return a DirFileSystem instance for the shared host directory."""
+        from fsspec.implementations.dirfs import DirFileSystem
+        from morefs.asyn_local import AsyncLocalFileSystem
+
+        if not self.host_workdir:
+            msg = "Docker environment not started"
+            raise RuntimeError(msg)
+
+        return DirFileSystem(path=self.host_workdir, fs=AsyncLocalFileSystem())
 
     async def execute(self, code: str) -> ExecutionResult:
         """Execute code in Docker container."""
@@ -104,16 +128,23 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
             if not self.container:
                 error_msg = "Docker environment not properly initialized"
                 raise RuntimeError(error_msg)  # noqa: TRY301
-            wrapped_code = self._wrap_code_for_docker(code)  # Create execution script
-            # Write code to a temporary file in the container using Python
-            self.container.exec("mkdir -p /tmp/anyenv")
-            encoded_code = base64.b64encode(wrapped_code.encode()).decode()
-            cmd = (
-                f'python -c "import base64; '
-                f"open('/tmp/anyenv/script.py', 'w').write("
-                f"base64.b64decode('{encoded_code}').decode())\""
-            )
-            self.container.exec(cmd)
+
+            if not self.host_workdir:
+                error_msg = "Host working directory not initialized"
+                raise RuntimeError(error_msg)  # noqa: TRY301
+
+            # Write code directly to shared filesystem
+            wrapped_code = self._wrap_code_for_docker(code)
+            script_extension = {
+                "python": ".py",
+                "javascript": ".js",
+                "typescript": ".ts",
+            }.get(self.language, ".py")
+
+            script_path = f"{self.host_workdir}/script{script_extension}"
+            with open(script_path, "w") as f:  # noqa: PTH123
+                f.write(wrapped_code)
+
             command = self._get_execution_command()
             result = self.container.exec(command)  # Execute the script
             duration = time.time() - start_time
@@ -158,13 +189,13 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
         """Get the appropriate execution command based on language."""
         match self.language:
             case "python":
-                return "python /tmp/anyenv/script.py"
+                return "sh -c 'cd /workspace && python script.py'"
             case "javascript":
-                return "node /tmp/anyenv/script.js"
+                return "sh -c 'cd /workspace && node script.js'"
             case "typescript":
-                return "npx ts-node /tmp/anyenv/script.ts"
+                return "sh -c 'cd /workspace && npx ts-node script.ts'"
             case _:
-                return "python /tmp/anyenv/script.py"
+                return "sh -c 'cd /workspace && python script.py'"
 
     def _wrap_code_for_docker(self, code: str) -> str:
         """Wrap user code for Docker execution with HTTP tool calls."""
@@ -432,17 +463,22 @@ executeMain().then(result => {{
             if not self.container:
                 error_msg = "Docker environment not properly initialized"
                 raise RuntimeError(error_msg)  # noqa: TRY301
-            wrapped_code = self._wrap_code_for_docker(code)  # Create execution script
 
-            # Write code to a temporary file in the container using Python
-            self.container.exec("mkdir -p /tmp/anyenv")
-            encoded_code = base64.b64encode(wrapped_code.encode()).decode()
-            cmd = (
-                f'python -c "import base64; '
-                f"open('/tmp/anyenv/script.py', 'w').write("
-                f"base64.b64decode('{encoded_code}').decode())\""
-            )
-            self.container.exec(cmd)
+            if not self.host_workdir:
+                error_msg = "Host working directory not initialized"
+                raise RuntimeError(error_msg)  # noqa: TRY301
+
+            # Write code directly to shared filesystem
+            wrapped_code = self._wrap_code_for_docker(code)
+            script_extension = {
+                "python": ".py",
+                "javascript": ".js",
+                "typescript": ".ts",
+            }.get(self.language, ".py")
+
+            script_path = f"{self.host_workdir}/script{script_extension}"
+            with open(script_path, "w") as f:  # noqa: PTH123
+                f.write(wrapped_code)
 
             # Execute the script with streaming using underlying docker container
             command = self._get_execution_command()
@@ -525,10 +561,10 @@ executeMain().then(result => {{
             )
 
     async def execute_command_stream(self, command: str) -> AsyncIterator[str]:
-        """Execute a terminal command in Docker container and stream output line by line.
+        """Execute a shell command and stream output line by line.
 
         Args:
-            command: Terminal command to execute
+            command: Shell command to execute
 
         Yields:
             Lines of output as they are produced
@@ -538,9 +574,10 @@ executeMain().then(result => {{
                 error_msg = "Docker environment not properly initialized"
                 raise RuntimeError(error_msg)  # noqa: TRY301
 
-            # Execute and stream output using underlying docker container
+            # Execute command in /workspace directory with streaming
+            full_command = f"sh -c 'cd /workspace && {command}'"
             docker_container = self.container.get_wrapped_container()
-            result = docker_container.exec_run(command, stream=True)
+            result = docker_container.exec_run(full_command, stream=True)
 
             # Stream output line by line
             for chunk in result.output:

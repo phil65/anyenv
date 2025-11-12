@@ -60,7 +60,7 @@ class LanguageFormatter(ABC):
 
     def __init__(
         self,
-        execution_env: ExecutionEnvironment | ExecutionEnvironmentStr = "subprocess",
+        execution_env: ExecutionEnvironment | ExecutionEnvironmentStr = "local",
     ):
         """Initialize formatter with execution environment.
 
@@ -410,7 +410,7 @@ class FormatterRegistry:
 
     def __init__(
         self,
-        execution_env: ExecutionEnvironment | ExecutionEnvironmentStr = "subprocess",
+        execution_env: ExecutionEnvironment | ExecutionEnvironmentStr = "local",
     ):
         """Initialize registry with default execution environment.
 

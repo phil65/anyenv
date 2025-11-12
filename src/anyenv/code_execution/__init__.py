@@ -31,7 +31,7 @@ from anyenv.code_execution.remote_callable import (
 )
 
 # from anyenv.code_execution.server import fastapi_tool_server
-from anyenv.code_execution.subprocess_provider import SubprocessExecutionEnvironment
+
 from anyenv.code_execution.ssh_provider import SshExecutionEnvironment
 
 if TYPE_CHECKING:
@@ -42,7 +42,6 @@ if TYPE_CHECKING:
 
 ExecutionEnvironmentStr = Literal[
     "local",
-    "subprocess",
     "docker",
     "ssh",
     "mcp",
@@ -61,18 +60,10 @@ def get_environment(
     *,
     lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
     timeout: float = 30.0,
-) -> LocalExecutionEnvironment: ...
-
-
-@overload
-def get_environment(
-    provider: Literal["subprocess"],
-    *,
-    lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
-    executable: str = "python",
-    timeout: float = 30.0,
+    isolated: bool = False,
+    executable: str | None = None,
     language: Language = "python",
-) -> SubprocessExecutionEnvironment: ...
+) -> LocalExecutionEnvironment: ...
 
 
 @overload
@@ -255,8 +246,6 @@ def get_environment(  # noqa: PLR0911
     match provider:
         case "local":
             return LocalExecutionEnvironment(**kwargs)
-        case "subprocess":
-            return SubprocessExecutionEnvironment(**kwargs)
         case "docker":
             return DockerExecutionEnvironment(**kwargs)
         case "ssh":
@@ -293,7 +282,6 @@ __all__ = [
     "ModalExecutionEnvironment",
     "ServerInfo",
     "SshExecutionEnvironment",
-    "SubprocessExecutionEnvironment",
     "ToolCallRequest",
     "ToolCallResponse",
     "VercelExecutionEnvironment",

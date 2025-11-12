@@ -43,7 +43,7 @@ Source = "https://github.com/phil65/anyenv"
 aiohttp = ["aiohttp", "aiohttp-client-cache"]
 beam = ["beam-client>=0.2.187"]
 daytona = ["daytona; python_version < '3.14'"]
-docker = ["testcontainers"]
+docker = ["testcontainers", "morefs"]
 e2b = ["e2b-code-interpreter"]
 httpx = ["httpx", "hishel[async]>=1.0.0"]
 mcp = ["fastmcp", "mcp-run-python"]

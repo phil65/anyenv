@@ -350,25 +350,28 @@ os.environ['TOOL_SERVER_PORT'] = '{self.server_info.port}'
 
     async def execute_stream(self, code: str) -> AsyncIterator[str]:
         """Execute code and stream output line by line."""
+        cwd = self._remote_work_dir
         if not self.connection:
             msg = "SSH connection not established"
             raise RuntimeError(msg)
 
         if self.language == "python":
-            script_path = f"{self._remote_work_dir}/script.py"
+            script_path = f"{cwd}/script.py"
             await self.run(f"cat > {script_path} << 'EOF'\n{code}\nEOF")
 
             # Build uv run command with dependencies
             if self.dependencies:
                 with_args = " ".join(f"--with {dep}" for dep in self.dependencies)
-                cmd = f"cd {self._remote_work_dir} && uv run {with_args} python {script_path}"
+                cmd = f"cd {cwd} && uv run {with_args} python {script_path}"
             else:
-                cmd = f"cd {self._remote_work_dir} && uv run python {script_path}"
+                cmd = f"cd {cwd} && uv run python {script_path}"
         else:
             # Similar logic for JS/TS...
-            script_path = f"{self._remote_work_dir}/script.{'js' if self.language == 'javascript' else 'ts'}"  # noqa: E501
+            script_path = (
+                f"{cwd}/script.{'js' if self.language == 'javascript' else 'ts'}"
+            )
             await self.run(f"cat > {script_path} << 'EOF'\n{code}\nEOF")
-            cmd = f"cd {self._remote_work_dir} && node {script_path}"
+            cmd = f"cd {cwd} && node {script_path}"
 
         # Stream execution - wrap command for login shell
         async with self.connection.create_process(wrap_command(cmd)) as process:
