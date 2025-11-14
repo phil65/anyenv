@@ -80,7 +80,7 @@ class MultiEventHandler[HandlerT]:
             List of results from all handlers.
         """
 
-        async def event_handler(*args, **kwargs):
+        async def event_handler(*args: Any, **kwargs: Any) -> list[Any]:
             if not self._wrapped_handlers:
                 return []
 
@@ -172,13 +172,10 @@ class MultiEventHandler[HandlerT]:
 
     def __repr__(self) -> str:
         """Return string representation showing handlers and mode."""
-        handler_names = []
-        for handler in self._handlers:
-            if hasattr(handler, "__qualname__"):
-                handler_names.append(handler.__qualname__)
-            else:
-                handler_names.append(repr(handler))
-
+        handler_names = [
+            h.__qualname__ if hasattr(h, "__qualname__") else repr(h)
+            for h in self._handlers
+        ]
         return f"MultiEventHandler(handlers={handler_names}, mode={self._mode!r})"
 
 
