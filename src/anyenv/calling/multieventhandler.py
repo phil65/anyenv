@@ -14,13 +14,14 @@ if TYPE_CHECKING:
 
 
 ExecutionMode = Literal["sequential", "parallel", "task"]
+DefaultMode = Literal["parallel"]
 
 # Generic handler type bound to callable returning Any or Awaitable[Any]
 P = ParamSpec("P")
 HandlerT = Callable[P, Any]
 
 
-class MultiEventHandler[HandlerT, Mode: ExecutionMode]:
+class MultiEventHandler[HandlerT, Mode: ExecutionMode = DefaultMode]:
     """Manages multiple callbacks/event handlers with various execution modes.
 
     Provides a unified interface for executing multiple callbacks either sequentially,

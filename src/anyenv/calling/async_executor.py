@@ -10,7 +10,15 @@ import inspect
 import queue
 import threading
 import types
-from typing import TYPE_CHECKING, Any, Concatenate, Union, get_args, get_origin, overload
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Concatenate,
+    Union,
+    get_args,
+    get_origin,
+    overload,
+)
 import warnings
 
 from anyenv.calling.multieventhandler import MultiEventHandler
@@ -33,6 +41,7 @@ class AsyncExecutor[**P, T]:
         self._is_bound = is_bound
         # Initialize observer system
         self._observers = MultiEventHandler[Callable[[T], Any]]()
+        self._observer_mode: ExecutionMode = "parallel"
         # Track filtered handlers by type for cleanup
         self._filtered_handlers: dict[
             tuple[type, ...] | tuple[str, int],
@@ -63,7 +72,7 @@ class AsyncExecutor[**P, T]:
 
         # Emit to all observers
         if self._observers:
-            await self._observers(result)
+            await self._observers.call_handlers(self._observer_mode, result)
 
         return result
 
@@ -125,11 +134,11 @@ class AsyncExecutor[**P, T]:
     @property
     def observer_mode(self) -> ExecutionMode:
         """Sequential or parallel observer execution."""
-        return self._observers.mode
+        return self._observer_mode
 
     @observer_mode.setter
     def observer_mode(self, mode: ExecutionMode) -> None:
-        self._observers.mode = mode
+        self._observer_mode = mode
 
     def __getitem__[E](
         self, event_types: type[E] | types.UnionType
@@ -231,6 +240,7 @@ class AsyncIteratorExecutor[**P, T]:
         self._is_bound = is_bound
         # Initialize observer system for each yielded item
         self._observers = MultiEventHandler[Callable[[T], Any]]()
+        self._observer_mode: ExecutionMode = "parallel"
         # Track filtered handlers by type for cleanup
         self._filtered_handlers: dict[
             tuple[type, ...] | tuple[str, int],
@@ -264,7 +274,7 @@ class AsyncIteratorExecutor[**P, T]:
         async for item in async_iter:
             # Emit each item to observers
             if self._observers:
-                await self._observers(item)
+                await self._observers.call_handlers(self._observer_mode, item)
             yield item
 
     def sync(self, *args: P.args, **kwargs: P.kwargs) -> Iterator[T]:
@@ -404,13 +414,13 @@ class AsyncIteratorExecutor[**P, T]:
         return len(self._observers)
 
     @property
-    def observer_mode(self) -> str:
+    def observer_mode(self) -> ExecutionMode:
         """Sequential or parallel observer execution."""
-        return self._observers.mode
+        return self._observer_mode
 
     @observer_mode.setter
     def observer_mode(self, mode: ExecutionMode) -> None:
-        self._observers.mode = mode
+        self._observer_mode = mode
 
     def __getitem__[E](
         self, event_types: type[E] | types.UnionType
