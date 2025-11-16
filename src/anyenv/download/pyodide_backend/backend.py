@@ -68,7 +68,9 @@ class PyodideSession(Session):
     Each request is independent, but we maintain consistent headers and base URL.
     """
 
-    def __init__(self, base_url: str | None = None, headers: HeaderType | None = None) -> None:
+    def __init__(
+        self, base_url: str | None = None, headers: HeaderType | None = None
+    ) -> None:
         self._base_url = base_url
         self._headers = headers or {}
 
