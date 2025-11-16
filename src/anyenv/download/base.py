@@ -142,7 +142,7 @@ class Session(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    async def close(self):
+    async def close(self) -> None:
         """Close the session."""
         raise NotImplementedError
 
@@ -272,7 +272,7 @@ class HttpBackend(abc.ABC):
         progress_callback: ProgressCallback | None = None,
         cache: bool = False,
         cache_backend: CacheType = "file",
-    ):
+    ) -> None:
         """Download a file with optional progress reporting."""
         raise NotImplementedError
 
@@ -285,7 +285,7 @@ class HttpBackend(abc.ABC):
         progress_callback: ProgressCallback | None = None,
         cache: bool = False,
         cache_backend: CacheType = "file",
-    ):
+    ) -> None:
         """Synchronous version of download."""
         import anyio
 

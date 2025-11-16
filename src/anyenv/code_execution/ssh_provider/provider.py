@@ -64,7 +64,7 @@ class SshExecutionEnvironment(ExecutionEnvironment):
         self.cwd = cwd
         self.ssh_kwargs = ssh_kwargs
 
-        self._connection_cm: _ACMWrapper | None = None
+        self._connection_cm: _ACMWrapper[SSHClientConnection] | None = None
         self.connection: SSHClientConnection | None = None
         self._remote_work_dir: str | None = None
 

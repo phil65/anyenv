@@ -8,7 +8,7 @@ import httpx
 class JSTransport(httpx.AsyncBaseTransport):
     """JSTransport for Pyodide."""
 
-    async def handle_async_request(self, request):
+    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
         """Handle an asynchronous HTTP request using the Pyodide fetch API."""
         import js  # pyright: ignore
 

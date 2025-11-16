@@ -10,6 +10,7 @@ from anyenv.code_execution.models import ExecutionResult
 
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
     from contextlib import AbstractAsyncContextManager
 
     from fastmcp import Client
@@ -205,7 +206,7 @@ class McpPythonExecutionEnvironment(ExecutionEnvironment):
         msg = "Terminal command execution is not supported in MCP Python environment"
         raise NotImplementedError(msg)
 
-    async def execute_command_stream(self, command: str):
+    async def execute_command_stream(self, command: str) -> AsyncIterator[str]:
         """Execute a terminal command and stream output.
 
         (not supported in MCP Python environment).

@@ -554,7 +554,7 @@ if __name__ == "__main__":
         total: int
 
     @function_spawner
-    async def event_stream():
+    async def event_stream() -> AsyncIterator[StartEvent | DataEvent | EndEvent]:
         """Event stream example with filtering."""
         yield StartEvent("Starting process")
         for i in range(3):
@@ -573,7 +573,7 @@ if __name__ == "__main__":
         """End event handler."""
         print(f"✅ Finished with total: {event.total}")
 
-    def data_or_end_handler(event) -> None:
+    def data_or_end_handler(event: DataEvent | EndEvent) -> None:
         """Union event handler."""
         print(f"🔄 Union handler: {type(event).__name__}")
 

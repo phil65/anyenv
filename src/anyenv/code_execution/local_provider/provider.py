@@ -21,6 +21,8 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
     from contextlib import AbstractAsyncContextManager
 
+    from morefs.asyn_local import AsyncLocalFileSystem
+
     from anyenv.code_execution.models import Language, ServerInfo
 
 
@@ -93,7 +95,7 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
         # Cleanup server via base class
         await super().__aexit__(exc_type, exc_val, exc_tb)
 
-    def get_fs(self):
+    def get_fs(self) -> AsyncLocalFileSystem:
         """Return an AsyncLocalFileSystem for the current working directory."""
         from morefs.asyn_local import AsyncLocalFileSystem
 
@@ -164,7 +166,7 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
                 main_func = namespace["main"]
                 if inspect.iscoroutinefunction(main_func):
                     # Run async function in executor to handle blocking calls properly
-                    def run_in_thread():
+                    def run_in_thread() -> Any:
                         loop = asyncio.new_event_loop()
                         asyncio.set_event_loop(loop)
                         try:
@@ -471,7 +473,7 @@ _anyenv_execute();
                                     self.queue.put_nowait(line.rstrip("\n\r"))
                     return result
 
-                def flush(self):
+                def flush(self) -> None:
                     return self.original_stream.flush()
 
             stdout_capture = StreamCapture(sys.stdout, output_queue)

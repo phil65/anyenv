@@ -132,7 +132,7 @@ if __name__ == "__main__":
     # Example using context variables
     ctx_var = contextvars.ContextVar("example", default="default")
 
-    def test_with_context():
+    def test_with_context() -> str:
         """Test for context preservation."""
         return ctx_var.get()
 
