@@ -45,7 +45,7 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
         isolated: bool = False,
         executable: str | None = None,
         language: Language = "python",
-    ):
+    ) -> None:
         """Initialize local environment.
 
         Args:
@@ -456,7 +456,7 @@ _anyenv_execute();
             output_queue: asyncio.Queue[str] = asyncio.Queue()
 
             class StreamCapture(io.StringIO):
-                def __init__(self, original_stream, queue: asyncio.Queue[str]):
+                def __init__(self, original_stream, queue: asyncio.Queue[str]) -> None:
                     super().__init__()
                     self.original_stream = original_stream
                     self.queue = queue
@@ -478,7 +478,7 @@ _anyenv_execute();
             stderr_capture = StreamCapture(sys.stderr, output_queue)
             execution_done = False
 
-            async def execute_code():
+            async def execute_code() -> None:
                 nonlocal execution_done
                 try:
                     namespace = {"__builtins__": __builtins__}

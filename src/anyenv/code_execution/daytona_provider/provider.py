@@ -33,7 +33,7 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
         timeout: float = 300.0,
         keep_alive: bool = False,
         language: Language = "python",
-    ):
+    ) -> None:
         """Initialize Daytona environment.
 
         Args:
@@ -245,7 +245,7 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
 
 if __name__ == "__main__":
 
-    async def _main():
+    async def _main() -> None:
         async with DaytonaExecutionEnvironment() as sandbox:
             await sandbox.execute_command("mkdir test")
             result = await sandbox.execute_command("ls")

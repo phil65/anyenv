@@ -33,7 +33,7 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
         timeout: float = 180.0,
         language: Language = "python",
         image: str | None = None,
-    ):
+    ) -> None:
         """Initialize Microsandbox environment.
 
         Args:

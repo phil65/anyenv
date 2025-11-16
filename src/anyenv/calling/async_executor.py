@@ -281,15 +281,15 @@ class AsyncIteratorExecutor[**P, T]:
         """Synchronous version that returns a truly lazy iterator."""
 
         class LazyAsyncIterator:
-            def __init__(self, async_iter_func):
+            def __init__(self, async_iter_func) -> None:
                 self.async_iter_func = async_iter_func
                 self.q: queue.Queue[T | Exception | object] = queue.Queue()
                 self.thread = None
                 self.started = False
                 self.sentinel = object()  # Unique sentinel for end
 
-            def _run_async(self):
-                async def collect():
+            def _run_async(self) -> None:
+                async def collect() -> None:
                     try:
                         async for item in self.async_iter_func():
                             self.q.put(item)
@@ -561,19 +561,19 @@ if __name__ == "__main__":
             yield DataEvent(i * 10)
         yield EndEvent(total=30)
 
-    def start_handler(event: StartEvent):
+    def start_handler(event: StartEvent) -> None:
         """Start event handler."""
         print(f"🚀 {event.message}")
 
-    def data_handler(event: DataEvent):
+    def data_handler(event: DataEvent) -> None:
         """Data event handler."""
         print(f"📊 Data: {event.value}")
 
-    def end_handler(event: EndEvent):
+    def end_handler(event: EndEvent) -> None:
         """End event handler."""
         print(f"✅ Finished with total: {event.total}")
 
-    def data_or_end_handler(event):
+    def data_or_end_handler(event) -> None:
         """Union event handler."""
         print(f"🔄 Union handler: {type(event).__name__}")
 

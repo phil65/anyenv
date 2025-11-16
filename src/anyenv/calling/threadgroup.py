@@ -19,7 +19,7 @@ class ContextExecutor(concurrent.futures.ThreadPoolExecutor):
     initializes each worker thread with this context.
     """
 
-    def __init__(self, max_workers: int | None = None):
+    def __init__(self, max_workers: int | None = None) -> None:
         """Initialize with the current context variables.
 
         Args:
@@ -28,7 +28,7 @@ class ContextExecutor(concurrent.futures.ThreadPoolExecutor):
         self.context = contextvars.copy_context()
         super().__init__(max_workers=max_workers, initializer=self._set_child_context)
 
-    def _set_child_context(self):
+    def _set_child_context(self) -> None:
         """Set the captured context variables in the worker thread."""
         for var, value in self.context.items():
             var.set(value)
@@ -42,7 +42,7 @@ class ThreadGroup[R = Any]:
         max_workers: int | None = None,
         raise_exceptions: bool = True,
         preserve_context: bool = False,
-    ):
+    ) -> None:
         """Thread task group that executes functions in parallel.
 
         Supports both sync and async context managers.
@@ -109,11 +109,11 @@ class ThreadGroup[R = Any]:
         """Enter the async context manager."""
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
         """Exit the async context manager."""
         self.__exit__(exc_type, exc_val, exc_tb)
 
-    def shutdown(self):
+    def shutdown(self) -> None:
         """Shutdown the executor when done with the ThreadGroup."""
         self.executor.shutdown()
 

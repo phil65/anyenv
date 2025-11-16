@@ -34,7 +34,7 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
         keep_warm_seconds: int = 600,
         timeout: float = 300.0,
         language: Language = "python",
-    ):
+    ) -> None:
         """Initialize Beam environment.
 
         Args:
@@ -281,7 +281,7 @@ def _parse_beam_output(output: str) -> tuple[Any, dict[str, Any] | None]:
 
 if __name__ == "__main__":
 
-    async def _main():
+    async def _main() -> None:
         async with BeamExecutionEnvironment() as sandbox:
             await sandbox.execute_command("mkdir test")
             result = await sandbox.execute_command("ls")

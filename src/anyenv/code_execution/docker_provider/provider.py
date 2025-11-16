@@ -31,7 +31,7 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
         image: str = "python:3.13-slim",
         timeout: float = 60.0,
         language: Language = "python",
-    ):
+    ) -> None:
         """Initialize Docker environment.
 
         Args:

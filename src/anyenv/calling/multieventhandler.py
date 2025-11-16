@@ -273,11 +273,11 @@ if __name__ == "__main__":
 
     type HandlerType = Callable[[int, str], Any]
 
-    def handler(a: int, b: str):
+    def handler(a: int, b: str) -> None:
         """Handler function."""
         print(f"Handler: {a}, {b}")
 
-    async def async_handler(a: int, b: str):
+    async def async_handler(a: int, b: str) -> None:
         """Async handler function."""
         await asyncio.sleep(0.1)
         print(f"Async Handler: {a}, {b}")
@@ -285,7 +285,7 @@ if __name__ == "__main__":
     class SomeClass:
         """Some class."""
 
-        def __call__(self, a: int, b: str):
+        def __call__(self, a: int, b: str) -> None:
             """Test class call method."""
             print(f"Class Handler: {a}, {b}")
 
@@ -301,7 +301,7 @@ if __name__ == "__main__":
     print(parallel_handler)
 
     # Demo usage (would need to run in async context)
-    async def demo():
+    async def demo() -> None:
         """Demo the handlers."""
         # Type-safe task execution
         tasks = await task_handler(42, "test")

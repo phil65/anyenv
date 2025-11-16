@@ -61,7 +61,7 @@ class LanguageFormatter(ABC):
     def __init__(
         self,
         execution_env: ExecutionEnvironment | ExecutionEnvironmentStr = "local",
-    ):
+    ) -> None:
         """Initialize formatter with execution environment.
 
         Args:
@@ -411,7 +411,7 @@ class FormatterRegistry:
     def __init__(
         self,
         execution_env: ExecutionEnvironment | ExecutionEnvironmentStr = "local",
-    ):
+    ) -> None:
         """Initialize registry with default execution environment.
 
         Args:

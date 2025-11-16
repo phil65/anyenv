@@ -31,7 +31,7 @@ class McpPythonExecutionEnvironment(ExecutionEnvironment):
         dependencies: list[str] | None = None,
         allow_networking: bool = True,
         timeout: float = 30.0,
-    ):
+    ) -> None:
         """Initialize MCP Python execution environment.
 
         Args:
@@ -259,7 +259,7 @@ def _parse_xml_result(xml_content: str, duration: float) -> ExecutionResult:
 if __name__ == "__main__":
     import asyncio
 
-    async def test():
+    async def test() -> None:
         """Quick test of MCP Python execution."""
         print("Testing FastMCP Python execution environment...")
 

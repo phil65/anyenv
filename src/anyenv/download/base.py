@@ -155,7 +155,7 @@ class Session(abc.ABC):
         exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: types.TracebackType | None,
-    ):
+    ) -> None:
         """Exit async context."""
         await self.close()
 
@@ -173,11 +173,11 @@ class Session(abc.ABC):
         exc_type: type[BaseException] | None,
         exc_val: BaseException | None,
         exc_tb: types.TracebackType | None,
-    ):
+    ) -> None:
         """Exit sync context."""
         import anyio
 
-        async def wrapper():
+        async def wrapper() -> None:
             await self.__aexit__(exc_type, exc_val, exc_tb)
 
         anyio.run(wrapper)
@@ -190,7 +190,7 @@ class HttpBackend(abc.ABC):
         self,
         cache_dir: StrPath | None = None,
         cache_ttl: int | str | None = None,
-    ):
+    ) -> None:
         """Initialize HTTP backend.
 
         Args:
@@ -289,7 +289,7 @@ class HttpBackend(abc.ABC):
         """Synchronous version of download."""
         import anyio
 
-        async def wrapper():
+        async def wrapper() -> None:
             await self.download(
                 url,
                 path,
@@ -339,7 +339,7 @@ class HttpBackend(abc.ABC):
         callback: ProgressCallback,
         current: int,
         total: int,
-    ):
+    ) -> None:
         """Handle both sync and async callbacks."""
         if inspect.iscoroutinefunction(callback):
             await callback(current, total)

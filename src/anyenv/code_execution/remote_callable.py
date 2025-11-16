@@ -289,7 +289,7 @@ if __name__ == "__main__":
         """Create and return a Person BaseModel."""
         return Person(name=name, age=age, email=email)
 
-    async def main():
+    async def main() -> None:
         """Run the main program."""
         print("\n=== Testing Pydantic BaseModel round-trip ===")
         remote_create_person = create_remote_callable(

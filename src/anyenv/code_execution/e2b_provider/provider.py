@@ -31,7 +31,7 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
         timeout: float = 300.0,
         keep_alive: bool = False,
         language: Language = "python",
-    ):
+    ) -> None:
         """Initialize E2B environment.
 
         Args:
@@ -229,13 +229,13 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
             stdout_lines = []
             stderr_lines = []
 
-            def on_stdout(data):
+            def on_stdout(data) -> None:
                 # E2B passes string data directly to callbacks
                 line = data.rstrip("\n\r")
                 if line:
                     stdout_lines.append(line)
 
-            def on_stderr(data):
+            def on_stderr(data) -> None:
                 # E2B passes string data directly to callbacks
                 line = data.rstrip("\n\r")
                 if line:
@@ -265,7 +265,7 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
 
 if __name__ == "__main__":
 
-    async def _main():
+    async def _main() -> None:
         async with E2bExecutionEnvironment() as sandbox:
             await sandbox.execute_command("mkdir test")
             result = await sandbox.execute_command("ls")

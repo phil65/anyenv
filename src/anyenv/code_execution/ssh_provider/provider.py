@@ -37,7 +37,7 @@ class SshExecutionEnvironment(ExecutionEnvironment):
         language: Language = "python",
         cwd: str | None = None,
         **ssh_kwargs: Any,
-    ):
+    ) -> None:
         """Initialize SSH environment.
 
         Args:
@@ -385,7 +385,7 @@ os.environ['TOOL_SERVER_PORT'] = '{self.server_info.port}'
 
 if __name__ == "__main__":
 
-    async def _main():
+    async def _main() -> None:
         async with SshExecutionEnvironment("91.99.102.138", "root") as sandbox:
             result = await sandbox.execute_command("ls")
             print(result)

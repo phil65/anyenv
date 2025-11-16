@@ -137,7 +137,7 @@ class RunningProcess:
 class ProcessManager:
     """Manages background processes for an agent pool."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize process manager."""
         self._processes: dict[str, RunningProcess] = {}
         self._output_tasks: dict[str, asyncio.Task[None]] = {}

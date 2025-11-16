@@ -43,7 +43,7 @@ def get_storage(
 class AiohttpResponse(HttpResponse):
     """aiohttp implementation of HTTP response."""
 
-    def __init__(self, response: aiohttp.ClientResponse):
+    def __init__(self, response: aiohttp.ClientResponse) -> None:
         self._response = response
 
     @property
@@ -82,7 +82,7 @@ class AiohttpResponse(HttpResponse):
 class AiohttpSession(Session):
     """aiohttp implementation of HTTP session."""
 
-    def __init__(self, session: CachedSession, base_url: str | None = None):
+    def __init__(self, session: CachedSession, base_url: str | None = None) -> None:
         self._session = session
         self._base_url = base_url
 
@@ -157,7 +157,7 @@ class AiohttpSession(Session):
 
         return check_response(aiohttp_response)
 
-    async def close(self):
+    async def close(self) -> None:
         """Close the session."""
         await self._session.close()
 

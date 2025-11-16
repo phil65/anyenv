@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 class HttpError(Exception):
     """Base class for HTTP errors."""
 
-    def __init__(self, message: str, response: HttpResponse | None = None):
+    def __init__(self, message: str, response: HttpResponse | None = None) -> None:
         super().__init__(message)
         self.response = response
 
@@ -20,7 +20,7 @@ class HttpError(Exception):
 class RequestError(HttpError):
     """Exception raised when a request fails due to network or connection issues."""
 
-    def __init__(self, message: str, original_error: Exception | None = None):
+    def __init__(self, message: str, original_error: Exception | None = None) -> None:
         super().__init__(message)
         self.__cause__ = original_error
 
@@ -28,7 +28,7 @@ class RequestError(HttpError):
 class ResponseError(HttpError):
     """Exception raised when a response contains an error status code."""
 
-    def __init__(self, message: str, response: HttpResponse):
+    def __init__(self, message: str, response: HttpResponse) -> None:
         super().__init__(message, response)
         self.status_code = response.status_code
 

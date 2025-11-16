@@ -24,7 +24,7 @@ class ExecutionEnvironment(ABC):
         lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
         dependencies: list[str] | None = None,
         **kwargs,
-    ):
+    ) -> None:
         """Initialize execution environment with optional lifespan handler.
 
         Args:

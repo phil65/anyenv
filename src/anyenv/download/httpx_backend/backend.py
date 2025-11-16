@@ -72,7 +72,7 @@ def get_cache_policy() -> hishel.CachePolicy:
 class HttpxResponse(HttpResponse):
     """HTTPX implementation of HTTP response."""
 
-    def __init__(self, response: httpx.Response):
+    def __init__(self, response: httpx.Response) -> None:
         self._response = response
 
     @property
@@ -113,7 +113,7 @@ class HttpxResponse(HttpResponse):
 class HttpxSession(Session):
     """HTTPX implementation of HTTP session."""
 
-    def __init__(self, client: httpx.AsyncClient, base_url: str | None = None):
+    def __init__(self, client: httpx.AsyncClient, base_url: str | None = None) -> None:
         self._client = client
         self._base_url = base_url
 
@@ -164,7 +164,7 @@ class HttpxSession(Session):
 
         return check_response(httpx_response)
 
-    async def close(self):
+    async def close(self) -> None:
         """Close the HTTPX client."""
         await self._client.aclose()
 
@@ -297,7 +297,7 @@ class HttpxBackend(HttpBackend):
 
 if __name__ == "__main__":
 
-    async def main():
+    async def main() -> None:
         """Test the HTTPX backend."""
         backend = HttpxBackend()
         await backend.download(

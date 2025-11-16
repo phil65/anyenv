@@ -343,7 +343,7 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
 
 if __name__ == "__main__":
 
-    async def _main():
+    async def _main() -> None:
         async with VercelExecutionEnvironment() as sandbox:
             await sandbox.execute_command("mkdir test")
             result = await sandbox.execute_command("ls")

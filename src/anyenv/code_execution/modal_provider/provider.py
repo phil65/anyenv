@@ -41,7 +41,7 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
         idle_timeout: int | None = None,
         workdir: str = "/tmp",
         language: Language = "python",
-    ):
+    ) -> None:
         """Initialize Modal sandbox environment.
 
         Args:
@@ -135,7 +135,7 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
         # Cleanup server via base class
         await super().__aexit__(exc_type, exc_val, exc_tb)
 
-    async def send(self, message: str):
+    async def send(self, message: str) -> None:
         """Test the Modal environment."""
         # https://modal.com/docs/guide/sandbox-networking
         import websockets
@@ -318,7 +318,7 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
 
 if __name__ == "__main__":
 
-    async def _main():
+    async def _main() -> None:
         async with ModalExecutionEnvironment() as sandbox:
             await sandbox.execute_command("mkdir test")
             result = await sandbox.execute_command("ls")
