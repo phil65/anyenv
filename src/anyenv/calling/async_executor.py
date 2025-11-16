@@ -284,7 +284,7 @@ class AsyncIteratorExecutor[**P, T]:
             def __init__(self, async_iter_func) -> None:
                 self.async_iter_func = async_iter_func
                 self.q: queue.Queue[T | Exception | object] = queue.Queue()
-                self.thread = None
+                self.thread: threading.Thread | None = None
                 self.started = False
                 self.sentinel = object()  # Unique sentinel for end
 
