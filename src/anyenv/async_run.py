@@ -137,7 +137,7 @@ async def gather[T](
     async with anyio.create_task_group() as tg:
         for i, coro in enumerate(coros_or_futures):
 
-            async def run_and_store(idx: int = i, awaitable: Awaitable[T] = coro):
+            async def run_and_store(idx: int = i, awaitable: Awaitable[T] = coro) -> None:
                 try:
                     results[idx] = await awaitable
                 except BaseException as exc:

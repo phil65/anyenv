@@ -10,7 +10,7 @@ import json
 import shutil
 import sys
 import time
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, Any, Self, TextIO
 
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.models import ExecutionResult
@@ -20,6 +20,7 @@ from anyenv.processes import create_process, create_shell_process
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
     from contextlib import AbstractAsyncContextManager
+    from types import TracebackType
 
     from morefs.asyn_local import AsyncLocalFileSystem
 
@@ -83,7 +84,12 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
                 pass
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         if self.process and self.process.returncode is None:
             self.process.terminate()
             try:
@@ -458,7 +464,11 @@ _anyenv_execute();
             output_queue: asyncio.Queue[str] = asyncio.Queue()
 
             class StreamCapture(io.StringIO):
-                def __init__(self, original_stream, queue: asyncio.Queue[str]) -> None:
+                def __init__(
+                    self,
+                    original_stream: TextIO,
+                    queue: asyncio.Queue[str],
+                ) -> None:
                     super().__init__()
                     self.original_stream = original_stream
                     self.queue = queue

@@ -15,7 +15,9 @@ from anyenv.code_execution.parse_output import parse_output
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
     from contextlib import AbstractAsyncContextManager
+    from types import TracebackType
 
+    from fsspec.implementations.dirfs import DirFileSystem
     from testcontainers.core.container import DockerContainer
 
     from anyenv.code_execution.models import Language, ServerInfo
@@ -94,7 +96,12 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
         self.container.start()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         # Cleanup container
         if self.container:
             with contextlib.suppress(Exception):
@@ -110,7 +117,7 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
         # Cleanup server via base class
         await super().__aexit__(exc_type, exc_val, exc_tb)
 
-    def get_fs(self):
+    def get_fs(self) -> DirFileSystem:
         """Return a DirFileSystem instance for the shared host directory."""
         from fsspec.implementations.dirfs import DirFileSystem
         from morefs.asyn_local import AsyncLocalFileSystem

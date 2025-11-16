@@ -16,6 +16,7 @@ from anyenv.code_execution.parse_output import get_script_path, parse_output, wr
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
     from contextlib import AbstractAsyncContextManager
+    from types import TracebackType
 
     from modal import App, Image, Sandbox
     from upathtools.filesystems.modal_fs import ModalFS
@@ -126,7 +127,12 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
         self.sandbox = modal.Sandbox.create(**sandbox_kwargs)
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Cleanup sandbox."""
         if self.sandbox:
             with contextlib.suppress(Exception):

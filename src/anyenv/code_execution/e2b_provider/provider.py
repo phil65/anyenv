@@ -12,7 +12,9 @@ from anyenv.code_execution.parse_output import get_script_path, parse_output, wr
 
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
     from contextlib import AbstractAsyncContextManager
+    from types import TracebackType
 
     from e2b import AsyncSandbox
     from upathtools.filesystems.e2b_fs import E2BFS
@@ -86,7 +88,12 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
 
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Cleanup sandbox."""
         if self.sandbox and not self.keep_alive:
             with contextlib.suppress(Exception):
@@ -218,7 +225,7 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
                 error_type=error_type,
             )
 
-    async def execute_command_stream(self, command: str):
+    async def execute_command_stream(self, command: str) -> AsyncIterator[str]:
         """Execute a terminal command and stream output in the E2B sandbox."""
         if not self.sandbox:
             error_msg = "E2B environment not properly initialized"
@@ -229,13 +236,13 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
             stdout_lines = []
             stderr_lines = []
 
-            def on_stdout(data) -> None:
+            def on_stdout(data: str) -> None:
                 # E2B passes string data directly to callbacks
                 line = data.rstrip("\n\r")
                 if line:
                     stdout_lines.append(line)
 
-            def on_stderr(data) -> None:
+            def on_stderr(data: str) -> None:
                 # E2B passes string data directly to callbacks
                 line = data.rstrip("\n\r")
                 if line:

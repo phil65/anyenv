@@ -14,6 +14,7 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Concatenate,
+    Self,
     Union,
     get_args,
     get_origin,
@@ -281,7 +282,10 @@ class AsyncIteratorExecutor[**P, T]:
         """Synchronous version that returns a truly lazy iterator."""
 
         class LazyAsyncIterator:
-            def __init__(self, async_iter_func) -> None:
+            def __init__(
+                self,
+                async_iter_func: Callable[..., AsyncIterator[Any]],
+            ) -> None:
                 self.async_iter_func = async_iter_func
                 self.q: queue.Queue[T | Exception | object] = queue.Queue()
                 self.thread: threading.Thread | None = None
@@ -313,10 +317,10 @@ class AsyncIteratorExecutor[**P, T]:
                     # No running loop, safe to use asyncio.run
                     asyncio.run(collect())
 
-            def __iter__(self):
+            def __iter__(self) -> Self:
                 return self
 
-            def __next__(self):
+            def __next__(self) -> Any:
                 if not self.started:
                     self.thread = threading.Thread(target=self._run_async, daemon=True)
                     self.thread.start()
@@ -327,14 +331,14 @@ class AsyncIteratorExecutor[**P, T]:
                     raise StopIteration
                 if isinstance(item, Exception):
                     raise item
-                return item
+                return item  # pyright: ignore[reportReturnType]
 
         return LazyAsyncIterator(lambda: self(*args, **kwargs))  # type: ignore[return-value]
 
     def task(self, *args: P.args, **kwargs: P.kwargs) -> asyncio.Task[list[T]]:
         """Create a Task that collects all values into a list."""
 
-        async def _collect():
+        async def _collect() -> list[T]:
             return [item async for item in self(*args, **kwargs)]
 
         return asyncio.create_task(_collect())
@@ -351,7 +355,7 @@ class AsyncIteratorExecutor[**P, T]:
     ) -> list[T]:
         """Collect all values with timeout."""
 
-        async def _collect():
+        async def _collect() -> list[T]:
             return [item async for item in self(*args, **kwargs)]
 
         return await asyncio.wait_for(_collect(), timeout_sec)
@@ -466,7 +470,9 @@ def method_spawner[**P, T](
 ) -> AsyncIteratorExecutor[P, T]: ...
 
 
-def method_spawner[**P, T](func) -> AsyncExecutor[P, T] | AsyncIteratorExecutor[P, T]:
+def method_spawner[**P, T](
+    func: Callable[Concatenate[Any, P], Awaitable[T] | AsyncIterator[T]],
+) -> AsyncExecutor[P, T] | AsyncIteratorExecutor[P, T]:
     """Decorator for async methods and async generator methods.
 
     Usage:
@@ -506,7 +512,9 @@ def function_spawner[**P, T](
 ) -> AsyncIteratorExecutor[P, T]: ...
 
 
-def function_spawner[**P, T](func) -> AsyncExecutor[P, T] | AsyncIteratorExecutor[P, T]:
+def function_spawner[**P, T](
+    func: Callable[P, Awaitable[T] | AsyncIterator[T]],
+) -> AsyncExecutor[P, T] | AsyncIteratorExecutor[P, T]:
     """Decorator for standalone async functions and async generators.
 
     Usage:

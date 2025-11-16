@@ -11,7 +11,9 @@ from anyenv.code_execution.parse_output import parse_output, wrap_python_code
 
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
     from contextlib import AbstractAsyncContextManager
+    from types import TracebackType
 
     from daytona._async.sandbox import AsyncSandbox
     from upathtools.filesystems.daytona_fs import DaytonaFS
@@ -98,7 +100,12 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
 
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Cleanup sandbox."""
         if self.sandbox and not self.keep_alive:
             try:
@@ -219,7 +226,7 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
                 error_type=type(e).__name__,
             )
 
-    async def execute_command_stream(self, command: str):
+    async def execute_command_stream(self, command: str) -> AsyncIterator[str]:
         """Execute a terminal command and stream output in the Daytona sandbox."""
         if not self.sandbox:
             error_msg = "Daytona environment not properly initialized"

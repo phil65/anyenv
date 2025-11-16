@@ -5,6 +5,8 @@ from __future__ import annotations
 import inspect
 import json
 import shlex
+import sys
+import textwrap
 from typing import TYPE_CHECKING, Any, ParamSpec, get_type_hints
 
 from anyenv.code_execution.docker_provider.provider import DockerExecutionEnvironment
@@ -165,15 +167,11 @@ def create_remote_callable[R, **CallableP, **EnvP](
         # Handle __main__ module case
         is_main_module = module == "__main__"
         if is_main_module:
-            import textwrap
-
             # Get source and dedent it
             source_code = textwrap.dedent(inspect.getsource(callable_obj))
             func_name = callable_obj.__name__
 
             # Extract imports and class definitions from the main module
-            import sys
-
             main_module = sys.modules["__main__"]
             imports = []
             class_defs = []
@@ -206,7 +204,6 @@ def create_remote_callable[R, **CallableP, **EnvP](
 
     # Infer package dependencies
     dependencies = infer_package_dependencies(import_path)
-
     # Filter out invalid packages like __main__
     dependencies = [dep for dep in dependencies if not dep.startswith("__")]
 
@@ -239,7 +236,6 @@ def create_remote_callable[R, **CallableP, **EnvP](
         async with env_class(*args, **env_kwargs) as env:  # type: ignore
             args_json = json.dumps(func_args, default=str)
             kwargs_json = json.dumps(func_kwargs, default=str)
-
             # Execute with arguments passed as command line args
             # Use shlex.quote to properly escape the arguments
             escaped_code = shlex.quote(code)
@@ -257,9 +253,8 @@ def create_remote_callable[R, **CallableP, **EnvP](
             # Parse result with type validation if return type is available
             if return_type is not None:
                 try:
-                    return anyenv.load_json(
-                        result.stdout or "null", return_type=return_type
-                    )
+                    result_str = result.stdout or "null"
+                    return anyenv.load_json(result_str, return_type=return_type)
                 except TypeError:
                     # Fallback: if type validation fails, try reconstructing from dict
                     data = anyenv.load_json(result.stdout or "null")

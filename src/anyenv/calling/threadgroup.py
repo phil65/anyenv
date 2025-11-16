@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from types import TracebackType
 
 
 class ContextExecutor(concurrent.futures.ThreadPoolExecutor):
@@ -91,7 +92,12 @@ class ThreadGroup[R = Any]:
         """Enter the context manager."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Exit the context manager, collecting results from all futures."""
         for future in concurrent.futures.as_completed(self.futures):
             try:
@@ -109,7 +115,12 @@ class ThreadGroup[R = Any]:
         """Enter the async context manager."""
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Exit the async context manager."""
         self.__exit__(exc_type, exc_val, exc_tb)
 

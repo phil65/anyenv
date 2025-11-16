@@ -65,7 +65,7 @@ def get_environment(
 def get_environment(
     provider: Literal["docker"],
     *,
-    lifespan_handler,  # AbstractAsyncContextManager[ServerInfo]
+    lifespan_handler: AbstractAsyncContextManager[ServerInfo],
     image: str = "python:3.13-slim",
     timeout: float = 60.0,
     language: Language = "python",
@@ -193,7 +193,7 @@ def get_environment(
 
 def get_environment(  # noqa: PLR0911
     provider: ExecutionEnvironmentStr,
-    **kwargs,
+    **kwargs: Any,
 ) -> ExecutionEnvironment:
     """Get an execution environment based on provider name.
 

@@ -7,9 +7,11 @@ import asyncio
 from dataclasses import dataclass
 from pathlib import Path
 import tempfile
-from typing import cast
+from typing import TYPE_CHECKING
 
-from anyenv.code_execution import ExecutionEnvironment, ExecutionEnvironmentStr
+
+if TYPE_CHECKING:
+    from anyenv.code_execution import ExecutionEnvironment, ExecutionEnvironmentStr
 
 
 @dataclass
@@ -418,7 +420,9 @@ class FormatterRegistry:
             execution_env: Default execution environment for all formatters
         """
         self.formatters: list[LanguageFormatter] = []
-        self.default_execution_env = execution_env
+        self.default_execution_env: ExecutionEnvironment | ExecutionEnvironmentStr = (
+            execution_env
+        )
 
     def register(self, formatter: LanguageFormatter) -> None:
         """Register a formatter."""
@@ -426,13 +430,10 @@ class FormatterRegistry:
 
     def register_default_formatters(self) -> None:
         """Register all default formatters with the registry's execution environment."""
-        env = cast(
-            ExecutionEnvironment | ExecutionEnvironmentStr, self.default_execution_env
-        )
-        self.register(PythonFormatter(env))
-        self.register(TOMLFormatter(env))
-        self.register(TypeScriptFormatter(env))
-        self.register(RustFormatter(env))
+        self.register(PythonFormatter(self.default_execution_env))
+        self.register(TOMLFormatter(self.default_execution_env))
+        self.register(TypeScriptFormatter(self.default_execution_env))
+        self.register(RustFormatter(self.default_execution_env))
 
     def get_formatter(self, path: Path) -> LanguageFormatter | None:
         """Get formatter for given file path."""

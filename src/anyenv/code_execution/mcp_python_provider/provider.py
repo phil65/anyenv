@@ -12,6 +12,7 @@ from anyenv.code_execution.models import ExecutionResult
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
     from contextlib import AbstractAsyncContextManager
+    from types import TracebackType
 
     from fastmcp import Client
 
@@ -84,7 +85,12 @@ class McpPythonExecutionEnvironment(ExecutionEnvironment):
         await self._client.ping()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Cleanup the MCP Python environment."""
         if self._client:
             await self._client.__aexit__(exc_type, exc_val, exc_tb)

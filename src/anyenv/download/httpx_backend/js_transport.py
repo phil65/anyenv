@@ -12,13 +12,10 @@ class JSTransport(httpx.AsyncBaseTransport):
         """Handle an asynchronous HTTP request using the Pyodide fetch API."""
         import js  # pyright: ignore
 
-        url = str(request.url)
-        options = {
-            "method": request.method,
-            "headers": dict(request.headers),
-            "body": await request.aread(),
-        }
-        fetch_response = await js.fetch(url, options)
+        body = await request.aread()
+        headers = dict(request.headers)
+        options = {"method": request.method, "headers": headers, "body": body}
+        fetch_response = await js.fetch(str(request.url), options)
         status_code = fetch_response.status
         headers = dict(fetch_response.headers)
         buffer = await fetch_response.arrayBuffer()

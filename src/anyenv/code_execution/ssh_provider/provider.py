@@ -13,6 +13,7 @@ from anyenv.code_execution.parse_output import wrap_command
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
     from contextlib import AbstractAsyncContextManager
+    from types import TracebackType
 
     from asyncssh import SSHClientConnection, SSHCompletedProcess
     from asyncssh.misc import _ACMWrapper
@@ -131,7 +132,12 @@ class SshExecutionEnvironment(ExecutionEnvironment):
 
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Clean up remote environment and close SSH connection."""
         if self.connection and self._connection_cm:
             # Clean up temporary working directory if we created it

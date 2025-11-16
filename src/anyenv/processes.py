@@ -26,7 +26,7 @@ async def create_process(
     stdin: Mode | None = None,
     stdout: Mode | None = None,
     stderr: Mode | None = None,
-    limit=10 * 1024 * 1024,
+    limit: int = 10 * 1024 * 1024,
     env: dict[str, str] | None = None,
     cwd: str | os.PathLike[str] | None = None,
 ) -> Process:
@@ -44,11 +44,11 @@ async def create_process(
 
 
 async def create_shell_process(
-    command,
+    command: str,
     stdin: Mode | None = None,
     stdout: Mode | None = None,
     stderr: Mode | None = None,
-    limit=10 * 1024 * 1024,
+    limit: int = 10 * 1024 * 1024,
     cwd: str | os.PathLike[str] | None = None,
     env: dict[str, str] | None = None,
 ) -> Process:

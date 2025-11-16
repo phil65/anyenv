@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Self
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
     from contextlib import AbstractAsyncContextManager
+    from types import TracebackType
     from typing import Any
 
     from fsspec.asyn import AsyncFileSystem
@@ -23,7 +24,7 @@ class ExecutionEnvironment(ABC):
         self,
         lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
         dependencies: list[str] | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """Initialize execution environment with optional lifespan handler.
 
@@ -43,7 +44,12 @@ class ExecutionEnvironment(ABC):
             self.server_info = await self.lifespan_handler.__aenter__()
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Cleanup (stop server, kill process, etc.)."""
         # Cleanup server if provided
         if self.lifespan_handler:

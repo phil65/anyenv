@@ -162,7 +162,7 @@ class MultiEventHandler[HandlerT, Mode: ExecutionMode = DefaultMode]:
 
     def _execute_as_tasks(self, *args: Any, **kwargs: Any) -> list[asyncio.Task[Any]]:
         """Execute handlers as background tasks (non-blocking)."""
-        tasks = []
+        tasks: list[asyncio.Task[Any]] = []
         for handler in self._wrapped_handlers:
             result = handler(*args, **kwargs)
             # Ensure we have a coroutine for asyncio.create_task
@@ -170,7 +170,7 @@ class MultiEventHandler[HandlerT, Mode: ExecutionMode = DefaultMode]:
                 task = asyncio.create_task(result)
             else:
                 # If it's not a coroutine, wrap it in one
-                async def wrapper(captured_result=result):
+                async def wrapper(captured_result: Any = result) -> Any:
                     return captured_result
 
                 task = asyncio.create_task(wrapper())

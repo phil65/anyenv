@@ -212,7 +212,7 @@ class PyodideBackend(HttpBackend):
         progress_callback: ProgressCallback | None = None,
         cache: bool = False,
         cache_backend: CacheType = "file",
-    ):
+    ) -> None:
         """Download implementation for Pyodide."""
         from pyodide.http import pyfetch  # pyright:ignore[reportMissingImports]
 

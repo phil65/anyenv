@@ -15,6 +15,7 @@ from anyenv.code_execution.parse_output import wrap_code
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
     from contextlib import AbstractAsyncContextManager
+    from types import TracebackType
 
     from beam import Sandbox, SandboxInstance
     from upathtools.filesystems.beam_fs import BeamFS
@@ -100,7 +101,12 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
 
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Cleanup sandbox."""
         if self.instance and not self.instance.terminated:
             with contextlib.suppress(Exception):

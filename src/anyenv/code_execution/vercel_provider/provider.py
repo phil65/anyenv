@@ -30,6 +30,7 @@ DEFAULT_TIMEOUT_SECONDS = 60
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
     from contextlib import AbstractAsyncContextManager
+    from types import TracebackType
 
     from upathtools.filesystems.vercel_fs import VercelFS
     from vercel.sandbox import AsyncSandbox
@@ -117,7 +118,12 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
 
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """Cleanup sandbox."""
         if self.sandbox:
             with contextlib.suppress(Exception):
