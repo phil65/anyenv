@@ -55,13 +55,22 @@ class AsyncExecutor[**P, T]:
         """Descriptor protocol for method binding."""
         if instance is None:
             return self
-        # Always create bound wrapper to track instance
-        bound = type(self)(self._func, is_bound=self._is_bound)
-        bound._instance = instance  # noqa: SLF001
-        # Preserve observers and filtered handlers across bound instances
-        bound._observers = self._observers  # noqa: SLF001
-        bound._filtered_handlers = self._filtered_handlers  # noqa: SLF001
-        return bound
+
+        # Cache bound instances per object instance to maintain observer state
+        if not hasattr(instance, "_async_executor_cache"):
+            instance._async_executor_cache = {}  # noqa: SLF001
+
+        cache_key = id(self)
+        if cache_key not in instance._async_executor_cache:  # noqa: SLF001
+            # Create bound wrapper to track instance
+            bound = type(self)(self._func, is_bound=self._is_bound)
+            bound._instance = instance  # noqa: SLF001
+            # Each bound instance gets its own isolated observer state
+            # (observers, observer_mode, and filtered_handlers are
+            # already initialized by __init__)
+            instance._async_executor_cache[cache_key] = bound  # noqa: SLF001
+
+        return instance._async_executor_cache[cache_key]  # noqa: SLF001
 
     async def __call__(self, *args: P.args, **kwargs: P.kwargs) -> T:
         """Async call - normal behavior."""
@@ -256,13 +265,22 @@ class AsyncIteratorExecutor[**P, T]:
         """Descriptor protocol for method binding."""
         if instance is None:
             return self
-        # Always create bound wrapper to track instance
-        bound = type(self)(self._func, is_bound=self._is_bound)
-        bound._instance = instance  # noqa: SLF001
-        # Preserve observers and filtered handlers across bound instances
-        bound._observers = self._observers  # noqa: SLF001
-        bound._filtered_handlers = self._filtered_handlers  # noqa: SLF001
-        return bound
+
+        # Cache bound instances per object instance to maintain observer state
+        if not hasattr(instance, "_async_executor_cache"):
+            instance._async_executor_cache = {}  # noqa: SLF001
+
+        cache_key = id(self)
+        if cache_key not in instance._async_executor_cache:  # noqa: SLF001
+            # Create bound wrapper to track instance
+            bound = type(self)(self._func, is_bound=self._is_bound)
+            bound._instance = instance  # noqa: SLF001
+            # Each bound instance gets its own isolated observer state
+            # (observers, observer_mode, and filtered_handlers are already
+            # initialized by __init__)
+            instance._async_executor_cache[cache_key] = bound  # noqa: SLF001
+
+        return instance._async_executor_cache[cache_key]  # noqa: SLF001
 
     async def __call__(self, *args: P.args, **kwargs: P.kwargs) -> AsyncIterator[T]:
         """Return the async iterator with observer emission."""

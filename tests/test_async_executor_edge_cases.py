@@ -9,7 +9,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from anyenv.calling.async_executor import function_spawner
+from anyenv.calling.async_executor import function_spawner, method_spawner
 
 
 @dataclass
@@ -312,6 +312,62 @@ async def test_nested_generator_event_handling():
     assert len(slow_events) == 3  # noqa: PLR2004
     assert fast_events[0].data == 1
     assert fast_events[1].data == 999  # noqa: PLR2004
+
+
+async def test_isolated_observers_across_instances():
+    """Test that observers are isolated per instance when decorating methods."""
+    captured_events: list[tuple[str, Any]] = []
+
+    def handler1(event: FastEvent) -> None:
+        captured_events.append(("handler1", event))
+
+    def handler2(event: FastEvent) -> None:
+        captured_events.append(("handler2", event))
+
+    class EventEmitter:
+        def __init__(self, name: str):
+            self.name = name
+
+        @method_spawner
+        async def emit_events(self, count: int):
+            """Emit test events."""
+            for i in range(count):
+                yield FastEvent(i)
+
+    # Create two instances
+    emitter1 = EventEmitter("first")
+    emitter2 = EventEmitter("second")
+
+    # Connect handler1 to emitter1
+    emitter1.emit_events.connect(handler1)
+
+    # Connect handler2 to emitter2
+    emitter2.emit_events.connect(handler2)
+
+    # Process events from emitter1 - should trigger BOTH handlers due to sharing
+    async for _ in emitter1.emit_events(2):
+        pass
+
+    # Should have captured events only from handler1 for emitter1's events
+    handler1_events = [e for tag, e in captured_events if tag == "handler1"]
+    handler2_events = [e for tag, e in captured_events if tag == "handler2"]
+
+    # With isolated observers, only handler1 should fire for emitter1's events
+    assert len(handler1_events) == 2  # noqa: PLR2004
+    assert len(handler2_events) == 0  # handler2 should not see emitter1's events
+
+    captured_events.clear()
+
+    # Process events from emitter2 - again both handlers will fire
+    async for _ in emitter2.emit_events(1):
+        pass
+
+    handler1_events = [e for tag, e in captured_events if tag == "handler1"]
+    handler2_events = [e for tag, e in captured_events if tag == "handler2"]
+
+    # With isolated observers, only handler2 should fire for emitter2's events
+    assert len(handler1_events) == 0  # handler1 should not see emitter2's events
+    assert len(handler2_events) == 1
 
 
 # Run tests if executed directly
