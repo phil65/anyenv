@@ -9,7 +9,10 @@ import time
 from typing import TYPE_CHECKING, Any, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
-from anyenv.code_execution.local_provider.utils import execute_stream_local
+from anyenv.code_execution.local_provider.utils import (
+    execute_stream_local,
+    find_executable,
+)
 from anyenv.code_execution.models import ExecutionResult
 from anyenv.code_execution.parse_output import parse_output, wrap_code
 from anyenv.processes import create_process, create_shell_process
@@ -61,9 +64,7 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
         self.timeout = timeout
         self.isolated = isolated
         self.language: Language = language
-        self.executable = executable or (
-            self._find_executable(language) if isolated else None
-        )
+        self.executable = executable or (find_executable(language) if isolated else None)
         self.process: asyncio.subprocess.Process | None = None
 
     async def __aenter__(self) -> Self:
@@ -104,52 +105,6 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
         from morefs.asyn_local import AsyncLocalFileSystem
 
         return AsyncLocalFileSystem()
-
-    def _find_executable(self, language: Language) -> str:
-        """Find the best available executable for the given language."""
-        match language:
-            case "python":
-                for candidate in PYTHON_EXECUTABLES:
-                    if shutil.which(candidate):
-                        return candidate
-                error_msg = "No Python executable found"
-                raise RuntimeError(error_msg)
-
-            case "javascript":
-                candidates = ["node", "nodejs"]
-                for candidate in candidates:
-                    if shutil.which(candidate):
-                        return candidate
-                error_msg = "No Node.js executable found"
-                raise RuntimeError(error_msg)
-
-            case "typescript":
-                node_candidates = ["node", "nodejs"]
-                node_exe = None
-                for candidate in node_candidates:
-                    if shutil.which(candidate):
-                        node_exe = candidate
-                        break
-
-                if not node_exe:
-                    error_msg = "No Node.js executable found (required for TypeScript)"
-                    raise RuntimeError(error_msg)
-
-                # Check for TypeScript runners
-                ts_runners = ["ts-node", "tsx"]
-                for runner in ts_runners:
-                    if shutil.which(runner):
-                        return node_exe
-
-                return node_exe
-
-            case _:
-                candidates = ["python3", "python"]
-                for candidate in candidates:
-                    if shutil.which(candidate):
-                        return candidate
-                error_msg = f"No suitable executable found for language: {language}"
-                raise RuntimeError(error_msg)
 
     async def execute(self, code: str) -> ExecutionResult:
         """Execute code in same process or isolated subprocess."""

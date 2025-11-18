@@ -6,12 +6,15 @@ import asyncio
 import contextlib
 import inspect
 import io
+import shutil
 import sys
 from typing import TYPE_CHECKING, TextIO
 
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
+
+    from anyenv.code_execution.models import Language
 
 
 PYTHON_EXECUTABLES = [
@@ -117,3 +120,50 @@ async def execute_stream_local(code: str, timeout: float) -> AsyncIterator[str]:
 
     except Exception as e:  # noqa: BLE001
         yield f"ERROR: {e}"
+
+
+def find_executable(language: Language) -> str:
+    """Find the best available executable for the given language."""
+    match language:
+        case "python":
+            for candidate in PYTHON_EXECUTABLES:
+                if shutil.which(candidate):
+                    return candidate
+            error_msg = "No Python executable found"
+            raise RuntimeError(error_msg)
+
+        case "javascript":
+            candidates = ["node", "nodejs"]
+            for candidate in candidates:
+                if shutil.which(candidate):
+                    return candidate
+            error_msg = "No Node.js executable found"
+            raise RuntimeError(error_msg)
+
+        case "typescript":
+            node_candidates = ["node", "nodejs"]
+            node_exe = None
+            for candidate in node_candidates:
+                if shutil.which(candidate):
+                    node_exe = candidate
+                    break
+
+            if not node_exe:
+                error_msg = "No Node.js executable found (required for TypeScript)"
+                raise RuntimeError(error_msg)
+
+            # Check for TypeScript runners
+            ts_runners = ["ts-node", "tsx"]
+            for runner in ts_runners:
+                if shutil.which(runner):
+                    return node_exe
+
+            return node_exe
+
+        case _:
+            candidates = ["python3", "python"]
+            for candidate in candidates:
+                if shutil.which(candidate):
+                    return candidate
+            error_msg = f"No suitable executable found for language: {language}"
+            raise RuntimeError(error_msg)
