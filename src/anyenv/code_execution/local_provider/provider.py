@@ -11,11 +11,9 @@ import time
 from typing import TYPE_CHECKING, Any, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
-from anyenv.code_execution.local_provider.utils import (
-    StreamCapture,
-    parse_subprocess_output,
-)
+from anyenv.code_execution.local_provider.utils import StreamCapture
 from anyenv.code_execution.models import ExecutionResult
+from anyenv.code_execution.parse_output import parse_output, wrap_code
 from anyenv.processes import create_process, create_shell_process
 
 
@@ -64,7 +62,7 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
         super().__init__(lifespan_handler=lifespan_handler, dependencies=dependencies)
         self.timeout = timeout
         self.isolated = isolated
-        self.language = language
+        self.language: Language = language
         self.executable = executable or (
             self._find_executable(language) if isolated else None
         )
@@ -219,7 +217,7 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
         start_time = time.time()
 
         try:
-            wrapped_code = self._wrap_code_for_subprocess(code)
+            wrapped_code = wrap_code(code, self.language)
             process = await create_process(
                 *self._get_subprocess_args(),
                 stdin="pipe",
@@ -234,7 +232,7 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
             stdout = stdout_data.decode() if stdout_data else ""
             stderr = stderr_data.decode() if stderr_data else ""
             if process.returncode == 0:
-                execution_result, error_info = parse_subprocess_output(stdout)
+                execution_result, error_info = parse_output(stdout)
                 if error_info is None:
                     return ExecutionResult(
                         result=execution_result,
@@ -301,155 +299,6 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
                 return ["npx", "ts-node"]
             case _:
                 return [self.executable]
-
-    def _wrap_code_for_subprocess(self, code: str) -> str:
-        """Wrap user code for subprocess execution."""
-        match self.language:
-            case "python":
-                return self._wrap_python_code(code)
-            case "javascript":
-                return self._wrap_javascript_code(code)
-            case "typescript":
-                return self._wrap_typescript_code(code)
-            case _:
-                return self._wrap_python_code(code)
-
-    def _wrap_python_code(self, code: str) -> str:
-        """Wrap Python code for subprocess execution."""
-        server_url = self.server_info.url if self.server_info else "http://localhost:8000"
-
-        if self.server_info:
-            return f"""
-import asyncio
-import json
-import traceback
-import httpx
-
-# Simple HTTP proxy for tools
-async def http_tool_call(tool_name: str, **kwargs):
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{server_url}/api/tools/" + tool_name,
-            json={{"params": kwargs}}
-        )
-        result = response.json()
-        if result.get("error"):
-            raise RuntimeError(f"Tool " + tool_name + f" failed: " + result["error"])
-        return result.get("result")
-
-# User code
-{code}
-
-# Result handling
-async def _anyenv_execute():
-    try:
-        if "main" in globals() and callable(main):
-            if asyncio.iscoroutinefunction(main):
-                result = await main()
-            else:
-                result = main()
-        else:
-            result = globals().get("_result")
-
-        print("__RESULT_START__")
-        print(json.dumps({{"result": result, "type": type(result).__name__}}))
-        print("__RESULT_END__")
-    except Exception as e:
-        print("__ERROR_START__")
-        print(json.dumps({{"error": str(e), "type": type(e).__name__, "traceback": traceback.format_exc()}}))
-        print("__ERROR_END__")
-
-asyncio.run(_anyenv_execute())
-"""  # noqa: E501
-        return f"""
-import asyncio
-import json
-import traceback
-
-# User code
-{code}
-
-# Result handling
-async def _anyenv_execute():
-    try:
-        if "main" in globals() and callable(main):
-            if asyncio.iscoroutinefunction(main):
-                result = await main()
-            else:
-                result = main()
-        else:
-            result = globals().get("_result")
-
-        print("__RESULT_START__")
-        print(json.dumps({{"result": result, "type": type(result).__name__}}))
-        print("__RESULT_END__")
-    except Exception as e:
-        print("__ERROR_START__")
-        print(json.dumps({{"error": str(e), "type": type(e).__name__, "traceback": traceback.format_exc()}}))
-        print("__ERROR_END__")
-
-asyncio.run(_anyenv_execute())
-"""  # noqa: E501
-
-    def _wrap_javascript_code(self, code: str) -> str:
-        """Wrap JavaScript code for subprocess execution."""
-        return f"""
-const {{ spawn }} = require('child_process');
-
-// User code
-{code}
-
-// Result handling
-async function _anyenv_execute() {{
-    try {{
-        let result;
-        if (typeof main === 'function') {{
-            result = await Promise.resolve(main());
-        }} else if (typeof _result !== 'undefined') {{
-            result = _result;
-        }}
-
-        console.log('__RESULT_START__');
-        console.log(JSON.stringify({{result: result, type: typeof result}}));
-        console.log('__RESULT_END__');
-    }} catch (e) {{
-        console.log('__ERROR_START__');
-        console.log(JSON.stringify({{error: e.message, type: e.constructor.name, stack: e.stack}}));
-        console.log('__ERROR_END__');
-    }}
-}}
-
-_anyenv_execute();
-"""  # noqa: E501
-
-    def _wrap_typescript_code(self, code: str) -> str:
-        """Wrap TypeScript code for subprocess execution."""
-        return f"""
-// User code
-{code}
-
-// Result handling
-async function _anyenv_execute(): Promise<void> {{
-    try {{
-        let result: any;
-        if (typeof main === 'function') {{
-            result = await Promise.resolve(main());
-        }} else if (typeof _result !== 'undefined') {{
-            result = _result;
-        }}
-
-        console.log('__RESULT_START__');
-        console.log(JSON.stringify({{result: result, type: typeof result}}));
-        console.log('__RESULT_END__');
-    }} catch (e: any) {{
-        console.log('__ERROR_START__');
-        console.log(JSON.stringify({{error: e.message, type: e.constructor.name, stack: e.stack}}));
-        console.log('__ERROR_END__');
-    }}
-}}
-
-_anyenv_execute();
-"""  # noqa: E501
 
     async def execute_stream(self, code: str) -> AsyncIterator[str]:
         """Execute code and stream output line by line."""
@@ -541,7 +390,7 @@ _anyenv_execute();
 
             # Send code to subprocess
             if process.stdin:
-                wrapped_code = self._wrap_code_for_subprocess(code)
+                wrapped_code = wrap_code(code, self.language)
                 process.stdin.write(wrapped_code.encode())
                 process.stdin.close()
 
@@ -642,6 +491,7 @@ if __name__ == "__main__":
     provider = LocalExecutionEnvironment()
 
     async def main():
+        """Example."""
         async for line in provider.execute_command_stream("ls -l"):
             print(line)
 

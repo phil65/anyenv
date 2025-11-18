@@ -46,37 +46,37 @@ import inspect
 
 # Execution wrapper
 async def _execute_main():
-try:
-    if "main" in globals() and callable(globals()["main"]):
-        main_func = globals()["main"]
-        if inspect.iscoroutinefunction(main_func):
-            result = await main_func()
+    try:
+        if "main" in globals() and callable(globals()["main"]):
+            main_func = globals()["main"]
+            if inspect.iscoroutinefunction(main_func):
+                result = await main_func()
+            else:
+                result = main_func()
         else:
-            result = main_func()
-    else:
-        result = globals().get("_result")
-    return {{"result": result, "success": True}}
-except Exception as e:
-    return {{
-        "success": False,
-        "error": str(e),
-        "type": type(e).__name__,
-        "traceback": traceback.format_exc()
-    }}
+            result = globals().get("_result")
+        return {{"result": result, "success": True}}
+    except Exception as e:
+        return {{
+            "success": False,
+            "error": str(e),
+            "type": type(e).__name__,
+            "traceback": traceback.format_exc()
+        }}
 
 # Run and output result
 if __name__ == "__main__":
-try:
-    execution_result = asyncio.run(_execute_main())
-    print("__RESULT__", json.dumps(execution_result, default=str))
-except Exception as e:
-    error_result = {{
-        "success": False,
-        "error": str(e),
-        "type": type(e).__name__,
-        "traceback": traceback.format_exc()
-    }}
-    print("__RESULT__", json.dumps(error_result, default=str))
+    try:
+        execution_result = asyncio.run(_execute_main())
+        print("__RESULT__", json.dumps(execution_result, default=str))
+    except Exception as e:
+        error_result = {{
+            "success": False,
+            "error": str(e),
+            "type": type(e).__name__,
+            "traceback": traceback.format_exc()
+        }}
+        print("__RESULT__", json.dumps(error_result, default=str))
 """
 
 

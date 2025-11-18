@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.models import ExecutionResult
-from anyenv.code_execution.parse_output import parse_output
+from anyenv.code_execution.parse_output import parse_output, wrap_code
 
 
 if TYPE_CHECKING:
@@ -118,15 +118,13 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
             error_msg = "Host working directory not initialized"
             raise RuntimeError(error_msg)
         # Write code directly to shared filesystem
-        wrapped_code = self._wrap_code_for_docker(code)
-        script_extension = {
-            "python": ".py",
-            "javascript": ".js",
-            "typescript": ".ts",
-        }.get(self.language, ".py")
-        script_path = f"{self.host_workdir}/script{script_extension}"
+        wrapped_code = wrap_code(code, self.language)
+        # Use simple script names that match get_execution_command expectations
+        script_extensions = {"python": ".py", "javascript": ".js", "typescript": ".ts"}
+        ext = script_extensions.get(self.language, ".py")
+        host_script_path = f"{self.host_workdir}/script{ext}"
         try:
-            with open(script_path, "w") as f:  # noqa: PTH123
+            with open(host_script_path, "w") as f:  # noqa: PTH123
                 f.write(wrapped_code)
             command = get_execution_command(self.language)
             result = self.container.exec(command)  # Execute the script
@@ -165,231 +163,6 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
                 error_type=type(e).__name__,
             )
 
-    def _wrap_code_for_docker(self, code: str) -> str:
-        """Wrap user code for Docker execution with HTTP tool calls."""
-        server_url = self.server_info.url if self.server_info else "http://localhost:8000"
-
-        match self.language:
-            case "python":
-                return self._wrap_python_code(code, server_url)
-            case "javascript":
-                return self._wrap_javascript_code(code, server_url)
-            case "typescript":
-                return self._wrap_typescript_code(code, server_url)
-            case _:
-                return self._wrap_python_code(code, server_url)
-
-    def _wrap_python_code(self, code: str, server_url: str) -> str:
-        """Wrap Python code for execution."""
-        if self.server_info:
-            # With tool server
-            return f"""
-import asyncio
-import httpx
-import json
-import traceback
-
-# Simple HTTP proxy for tools
-async def http_tool_call(tool_name: str, **kwargs):
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            f"{server_url}/api/tools/" + tool_name,
-            json={{"params": kwargs}}
-        )
-        result = response.json()
-        if result.get("error"):
-            raise RuntimeError(f"Tool " + tool_name + f" failed: " + result["error"])
-        return result.get("result")
-
-# User code
-{code}
-
-# Execution wrapper
-async def _execute_main():
-    try:
-        if "main" in globals():
-            result = await main()
-        else:
-            result = globals().get("_result")
-        return {{"result": result, "success": True}}
-    except Exception as e:
-        return {{
-            "success": False,
-            "error": str(e),
-            "type": type(e).__name__,
-            "traceback": traceback.format_exc()
-        }}
-
-# Run and output result
-if __name__ == "__main__":
-    try:
-        execution_result = asyncio.run(_execute_main())
-        print("__RESULT__", json.dumps(execution_result, default=str))
-    except Exception as e:
-        error_result = {{
-            "success": False,
-            "error": str(e),
-            "type": type(e).__name__,
-            "traceback": traceback.format_exc()
-        }}
-        print("__RESULT__", json.dumps(error_result, default=str))
-"""
-        # Without tool server
-        return f"""
-import asyncio
-import json
-import traceback
-
-# User code
-{code}
-
-# Execution wrapper
-async def _execute_main():
-    try:
-        if "main" in globals():
-            result = await main()
-        else:
-            result = globals().get("_result")
-        return {{"result": result, "success": True}}
-    except Exception as e:
-        return {{
-            "success": False,
-            "error": str(e),
-            "type": type(e).__name__,
-            "traceback": traceback.format_exc()
-        }}
-
-# Run and output result
-if __name__ == "__main__":
-    try:
-        execution_result = asyncio.run(_execute_main())
-        print("__RESULT__", json.dumps(execution_result, default=str))
-    except Exception as e:
-        error_result = {{
-            "success": False,
-            "error": str(e),
-            "type": type(e).__name__,
-            "traceback": traceback.format_exc()
-        }}
-        print("__RESULT__", json.dumps(error_result, default=str))
-"""
-
-    def _wrap_javascript_code(self, code: str, server_url: str) -> str:
-        """Wrap JavaScript code for execution."""
-        return f"""
-const axios = require('axios');
-
-// Simple HTTP proxy for tools
-async function httpToolCall(toolName, kwargs) {{
-    try {{
-        const response = await axios.post(
-            `{server_url}/api/tools/${{toolName}}`,
-            {{ params: kwargs }}
-        );
-        if (response.data.error) {{
-            throw new Error(`Tool ${{toolName}} failed: ${{response.data.error}}`);
-        }}
-        return response.data.result;
-    }} catch (error) {{
-        throw error;
-    }}
-}}
-
-// User code
-{code}
-
-// Execution wrapper
-async function executeMain() {{
-    try {{
-        let result;
-        if (typeof main === 'function') {{
-            result = await main();
-        }} else if (typeof _result !== 'undefined') {{
-            result = _result;
-        }}
-        return {{ result: result, success: true }};
-    }} catch (error) {{
-        return {{
-            success: false,
-            error: error.message,
-            type: error.name,
-            traceback: error.stack
-        }};
-    }}
-}}
-
-// Run and output result
-executeMain().then(result => {{
-    console.log('__RESULT__', JSON.stringify(result));
-}}).catch(error => {{
-    const errorResult = {{
-        success: false,
-        error: error.message,
-        type: error.name,
-        traceback: error.stack
-    }};
-    console.log('__RESULT__', JSON.stringify(errorResult));
-}});
-"""
-
-    def _wrap_typescript_code(self, code: str, server_url: str) -> str:
-        """Wrap TypeScript code for execution."""
-        return f"""
-import axios from 'axios';
-
-// Simple HTTP proxy for tools
-async function httpToolCall(toolName: string, kwargs: any): Promise<any> {{
-    try {{
-        const response = await axios.post(
-            `{server_url}/api/tools/${{toolName}}`,
-            {{ params: kwargs }}
-        );
-        if (response.data.error) {{
-            throw new Error(`Tool ${{toolName}} failed: ${{response.data.error}}`);
-        }}
-        return response.data.result;
-    }} catch (error) {{
-        throw error;
-    }}
-}}
-
-// User code
-{code}
-
-// Execution wrapper
-async function executeMain(): Promise<{{ result: any; success: boolean; error?: string; type?: string; traceback?: string }}> {{
-    try {{
-        let result: any;
-        if (typeof main === 'function') {{
-            result = await main();
-        }} else if (typeof _result !== 'undefined') {{
-            result = (global as any)._result;
-        }}
-        return {{ result: result, success: true }};
-    }} catch (error: any) {{
-        return {{
-            success: false,
-            error: error.message,
-            type: error.name,
-            traceback: error.stack
-        }};
-    }}
-}}
-
-// Run and output result
-executeMain().then(result => {{
-    console.log('__RESULT__', JSON.stringify(result));
-}}).catch(error => {{
-    const errorResult = {{
-        success: false,
-        error: error.message,
-        type: error.name,
-        traceback: error.stack
-    }};
-    console.log('__RESULT__', JSON.stringify(errorResult));
-}});
-"""  # noqa: E501
-
     async def execute_stream(self, code: str) -> AsyncIterator[str]:
         """Execute code in Docker container and stream output line by line.
 
@@ -409,14 +182,16 @@ executeMain().then(result => {{
                 raise RuntimeError(error_msg)  # noqa: TRY301
 
             # Write code directly to shared filesystem
-            wrapped_code = self._wrap_code_for_docker(code)
-            script_extension = {
+            wrapped_code = wrap_code(code, self.language)
+            # Use simple script names that match get_execution_command expectations
+            script_extensions = {
                 "python": ".py",
                 "javascript": ".js",
                 "typescript": ".ts",
-            }.get(self.language, ".py")
-            script_path = f"{self.host_workdir}/script{script_extension}"
-            with open(script_path, "w") as f:  # noqa: PTH123
+            }
+            ext = script_extensions.get(self.language, ".py")
+            host_script_path = f"{self.host_workdir}/script{ext}"
+            with open(host_script_path, "w") as f:  # noqa: PTH123
                 f.write(wrapped_code)
             command = get_execution_command(self.language)
             docker_container = self.container.get_wrapped_container()
