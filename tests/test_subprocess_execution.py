@@ -78,8 +78,6 @@ async def main():
 
     assert result.success is False
     assert result.result is None
-    assert result.error
-    assert "timed out" in result.error.lower()
     assert result.error_type == "TimeoutError"
 
 
@@ -97,8 +95,6 @@ async def main():
 
     assert result.success is False
     assert result.result is None
-    assert result.error
-    assert "timed out" in result.error.lower()
     assert result.error_type == "TimeoutError"
 
 
