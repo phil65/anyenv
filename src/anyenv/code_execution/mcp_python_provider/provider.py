@@ -184,17 +184,6 @@ class McpPythonExecutionEnvironment(ExecutionEnvironment):
                     error_type=None,
                 )
 
-        except TimeoutError:
-            duration = time.time() - start_time
-            return ExecutionResult(
-                result=None,
-                duration=duration,
-                success=False,
-                stdout=None,
-                stderr=None,
-                error=f"Execution timed out after {self.timeout} seconds",
-                error_type="TimeoutError",
-            )
         except Exception as e:  # noqa: BLE001
             duration = time.time() - start_time
             return ExecutionResult(

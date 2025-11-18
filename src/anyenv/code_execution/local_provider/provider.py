@@ -3,15 +3,13 @@
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import inspect
 import shutil
-import sys
 import time
 from typing import TYPE_CHECKING, Any, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
-from anyenv.code_execution.local_provider.utils import StreamCapture
+from anyenv.code_execution.local_provider.utils import execute_stream_local
 from anyenv.code_execution.models import ExecutionResult
 from anyenv.code_execution.parse_output import parse_output, wrap_code
 from anyenv.processes import create_process, create_shell_process
@@ -193,15 +191,6 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
             duration = time.time() - start_time
             return ExecutionResult(result=result, duration=duration, success=True)
 
-        except TimeoutError:
-            duration = time.time() - start_time
-            return ExecutionResult(
-                result=None,
-                duration=duration,
-                success=False,
-                error=f"Execution timed out after {self.timeout} seconds",
-                error_type="TimeoutError",
-            )
         except Exception as e:  # noqa: BLE001
             duration = time.time() - start_time
             return ExecutionResult(
@@ -260,18 +249,11 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
                 stderr=stderr,
             )
 
-        except TimeoutError:
+        except Exception as e:  # noqa: BLE001
+            # Cleanup process if it exists
             if self.process:
                 self.process.kill()
                 await self.process.wait()
-            return ExecutionResult(
-                result=None,
-                duration=time.time() - start_time,
-                success=False,
-                error=f"Execution timed out after {self.timeout} seconds",
-                error_type="TimeoutError",
-            )
-        except Exception as e:  # noqa: BLE001
             return ExecutionResult(
                 result=None,
                 duration=time.time() - start_time,
@@ -306,76 +288,8 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
             async for line in self._execute_stream_subprocess(code):
                 yield line
         else:
-            async for line in self._execute_stream_local(code):
+            async for line in execute_stream_local(code, self.timeout):
                 yield line
-
-    async def _execute_stream_local(self, code: str) -> AsyncIterator[str]:
-        """Execute code in same process and stream output line by line."""
-        try:
-            output_queue: asyncio.Queue[str] = asyncio.Queue()
-            stdout_capture = StreamCapture(sys.stdout, output_queue)
-            stderr_capture = StreamCapture(sys.stderr, output_queue)
-            execution_done = False
-
-            async def execute_code() -> None:
-                nonlocal execution_done
-                try:
-                    namespace = {"__builtins__": __builtins__}
-
-                    with (
-                        contextlib.redirect_stdout(stdout_capture),
-                        contextlib.redirect_stderr(stderr_capture),
-                    ):
-                        exec(code, namespace)
-
-                        if "main" in namespace and callable(namespace["main"]):
-                            main_func = namespace["main"]
-                            if inspect.iscoroutinefunction(main_func):
-                                result = await asyncio.wait_for(
-                                    main_func(), timeout=self.timeout
-                                )
-                            else:
-                                result = await asyncio.wait_for(
-                                    asyncio.to_thread(main_func), timeout=self.timeout
-                                )
-
-                            if result is not None:
-                                print(f"Result: {result}")
-                        else:
-                            result = namespace.get("_result")
-                            if result is not None:
-                                print(f"Result: {result}")
-
-                except Exception as e:  # noqa: BLE001
-                    print(f"ERROR: {e}", file=sys.stderr)
-                finally:
-                    execution_done = True
-                    with contextlib.suppress(asyncio.QueueFull):
-                        output_queue.put_nowait("__EXECUTION_COMPLETE__")
-
-            execute_task = asyncio.create_task(execute_code())
-
-            while True:
-                try:
-                    line = await asyncio.wait_for(output_queue.get(), timeout=0.1)
-                    if line == "__EXECUTION_COMPLETE__":
-                        break
-                    yield line
-                except TimeoutError:
-                    if execution_done and output_queue.empty():
-                        break
-                    continue
-                except Exception as e:  # noqa: BLE001
-                    yield f"ERROR: {e}"
-                    break
-
-            try:
-                await execute_task
-            except Exception as e:  # noqa: BLE001
-                yield f"ERROR: {e}"
-
-        except Exception as e:  # noqa: BLE001
-            yield f"ERROR: {e}"
 
     async def _execute_stream_subprocess(self, code: str) -> AsyncIterator[str]:
         """Execute code in subprocess and stream output line by line."""
@@ -440,15 +354,6 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
                 stderr=stderr,
             )
 
-        except TimeoutError:
-            duration = time.time() - start_time
-            return ExecutionResult(
-                result=None,
-                duration=duration,
-                success=False,
-                error=f"Command timed out after {self.timeout} seconds",
-                error_type="TimeoutError",
-            )
         except Exception as e:  # noqa: BLE001
             duration = time.time() - start_time
             return ExecutionResult(

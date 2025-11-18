@@ -4,8 +4,14 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import inspect
 import io
-from typing import TextIO
+import sys
+from typing import TYPE_CHECKING, TextIO
+
+
+if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
 
 
 PYTHON_EXECUTABLES = [
@@ -44,3 +50,70 @@ class StreamCapture(io.StringIO):
     def flush(self) -> None:
         """Flush the stream."""
         return self.original_stream.flush()
+
+
+async def execute_stream_local(code: str, timeout: float) -> AsyncIterator[str]:
+    """Execute code in same process and stream output line by line."""
+    try:
+        output_queue: asyncio.Queue[str] = asyncio.Queue()
+        stdout_capture = StreamCapture(sys.stdout, output_queue)
+        stderr_capture = StreamCapture(sys.stderr, output_queue)
+        execution_done = False
+
+        async def execute_code() -> None:
+            nonlocal execution_done
+            try:
+                namespace = {"__builtins__": __builtins__}
+
+                with (
+                    contextlib.redirect_stdout(stdout_capture),
+                    contextlib.redirect_stderr(stderr_capture),
+                ):
+                    exec(code, namespace)
+
+                    if "main" in namespace and callable(namespace["main"]):
+                        main_func = namespace["main"]
+                        if inspect.iscoroutinefunction(main_func):
+                            result = await asyncio.wait_for(main_func(), timeout=timeout)
+                        else:
+                            result = await asyncio.wait_for(
+                                asyncio.to_thread(main_func), timeout=timeout
+                            )
+
+                        if result is not None:
+                            print(f"Result: {result}")
+                    else:
+                        result = namespace.get("_result")
+                        if result is not None:
+                            print(f"Result: {result}")
+
+            except Exception as e:  # noqa: BLE001
+                print(f"ERROR: {e}", file=sys.stderr)
+            finally:
+                execution_done = True
+                with contextlib.suppress(asyncio.QueueFull):
+                    output_queue.put_nowait("__EXECUTION_COMPLETE__")
+
+        execute_task = asyncio.create_task(execute_code())
+
+        while True:
+            try:
+                line = await asyncio.wait_for(output_queue.get(), timeout=0.1)
+                if line == "__EXECUTION_COMPLETE__":
+                    break
+                yield line
+            except TimeoutError:
+                if execution_done and output_queue.empty():
+                    break
+                continue
+            except Exception as e:  # noqa: BLE001
+                yield f"ERROR: {e}"
+                break
+
+        try:
+            await execute_task
+        except Exception as e:  # noqa: BLE001
+            yield f"ERROR: {e}"
+
+    except Exception as e:  # noqa: BLE001
+        yield f"ERROR: {e}"
