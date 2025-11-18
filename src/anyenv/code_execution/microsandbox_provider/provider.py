@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import shlex
 import time
 from typing import TYPE_CHECKING, Self
 
@@ -106,10 +107,8 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
         """Cleanup sandbox."""
         if self.sandbox:
             with contextlib.suppress(Exception):
-                # Exit the context manager properly
                 await self.sandbox.stop()
 
-        # Cleanup server via base class
         await super().__aexit__(exc_type, exc_val, exc_tb)
 
     def get_fs(self) -> MicrosandboxFS:
@@ -126,19 +125,12 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
             raise RuntimeError(error_msg)
 
         start_time = time.time()
-
         try:
-            # Execute code using sandbox.run() method
             execution = await self.sandbox.run(code)
             duration = time.time() - start_time
-
-            # Get output and error from execution
             stdout = await execution.output()
             stderr = await execution.error()
-
-            # Check if execution was successful
             success = not execution.has_error()
-
             if success:
                 return ExecutionResult(
                     result=stdout if stdout else None,
@@ -175,11 +167,8 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
             raise RuntimeError(error_msg)
 
         start_time = time.time()
-
         try:
             # Parse command into command and args
-            import shlex
-
             parts = shlex.split(command)
             if not parts:
                 error_msg = "Empty command provided"
@@ -187,21 +176,13 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
 
             cmd = parts[0]
             args = parts[1:] if len(parts) > 1 else []
-
-            # Execute command using sandbox.command.run() method
             execution = await self.sandbox.command.run(cmd, args)
-            duration = time.time() - start_time
-
-            # Get output and error from command execution
             stdout = await execution.output()
             stderr = await execution.error()
-
-            # Check success based on exit code
             success = execution.success
-
             return ExecutionResult(
                 result=stdout if success else None,
-                duration=duration,
+                duration=time.time() - start_time,
                 success=success,
                 error=stderr if not success else None,
                 error_type="CommandError" if not success else None,
@@ -210,10 +191,9 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
             )
 
         except Exception as e:  # noqa: BLE001
-            duration = time.time() - start_time
             return ExecutionResult(
                 result=None,
-                duration=duration,
+                duration=time.time() - start_time,
                 success=False,
                 error=str(e),
                 error_type=type(e).__name__,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import time
 from typing import TYPE_CHECKING, Any, Self
 
@@ -46,30 +47,7 @@ class McpPythonExecutionEnvironment(ExecutionEnvironment):
         self.allow_networking = allow_networking
         self.timeout = timeout
         self._client: Client | None = None
-        self._server_config = self._build_server_config()
-
-    def _build_server_config(self) -> dict[str, Any]:
-        """Build MCP server configuration for deno + JSR package."""
-        cmd = [
-            "deno",
-            "run",
-            "-N",
-            "-R=node_modules",
-            "-W=node_modules",
-            "--node-modules-dir=auto",
-            "jsr:@pydantic/mcp-run-python",
-            "stdio",
-        ]
-
-        return {
-            "mcpServers": {
-                "python_executor": {
-                    "transport": "stdio",
-                    "command": cmd[0],
-                    "args": cmd[1:],
-                }
-            }
-        }
+        self._server_config = build_server_config()
 
     async def __aenter__(self) -> Self:
         """Setup the MCP Python environment."""
@@ -213,8 +191,6 @@ class McpPythonExecutionEnvironment(ExecutionEnvironment):
 
 def _parse_xml_result(xml_content: str, duration: float) -> ExecutionResult:
     """Parse XML-formatted result from MCP server."""
-    import re
-
     import anyenv
 
     # Extract status
@@ -250,6 +226,30 @@ def _parse_xml_result(xml_content: str, duration: float) -> ExecutionResult:
         error=error,
         error_type=status if status != "success" else None,
     )
+
+
+def build_server_config() -> dict[str, Any]:
+    """Build MCP server configuration for deno + JSR package."""
+    cmd = [
+        "deno",
+        "run",
+        "-N",
+        "-R=node_modules",
+        "-W=node_modules",
+        "--node-modules-dir=auto",
+        "jsr:@pydantic/mcp-run-python",
+        "stdio",
+    ]
+
+    return {
+        "mcpServers": {
+            "python_executor": {
+                "transport": "stdio",
+                "command": cmd[0],
+                "args": cmd[1:],
+            }
+        }
+    }
 
 
 if __name__ == "__main__":
