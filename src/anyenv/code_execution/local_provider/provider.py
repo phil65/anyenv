@@ -5,14 +5,16 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import inspect
-import io
-import json
 import shutil
 import sys
 import time
-from typing import TYPE_CHECKING, Any, Self, TextIO
+from typing import TYPE_CHECKING, Any, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
+from anyenv.code_execution.local_provider.utils import (
+    StreamCapture,
+    parse_subprocess_output,
+)
 from anyenv.code_execution.models import ExecutionResult
 from anyenv.processes import create_process, create_shell_process
 
@@ -232,7 +234,7 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
             stdout = stdout_data.decode() if stdout_data else ""
             stderr = stderr_data.decode() if stderr_data else ""
             if process.returncode == 0:
-                execution_result, error_info = _parse_subprocess_output(stdout)
+                execution_result, error_info = parse_subprocess_output(stdout)
                 if error_info is None:
                     return ExecutionResult(
                         result=execution_result,
@@ -462,30 +464,6 @@ _anyenv_execute();
         """Execute code in same process and stream output line by line."""
         try:
             output_queue: asyncio.Queue[str] = asyncio.Queue()
-
-            class StreamCapture(io.StringIO):
-                def __init__(
-                    self,
-                    original_stream: TextIO,
-                    queue: asyncio.Queue[str],
-                ) -> None:
-                    super().__init__()
-                    self.original_stream = original_stream
-                    self.queue = queue
-
-                def write(self, text: str) -> int:
-                    result = self.original_stream.write(text)
-                    if text:
-                        lines = text.splitlines(keepends=True)
-                        for line in lines:
-                            if line.strip():
-                                with contextlib.suppress(asyncio.QueueFull):
-                                    self.queue.put_nowait(line.rstrip("\n\r"))
-                    return result
-
-                def flush(self) -> None:
-                    return self.original_stream.flush()
-
             stdout_capture = StreamCapture(sys.stdout, output_queue)
             stderr_capture = StreamCapture(sys.stderr, output_queue)
             execution_done = False
@@ -658,48 +636,13 @@ _anyenv_execute();
             yield f"ERROR: {e}"
 
 
-def _parse_subprocess_output(output: str) -> tuple[Any, dict[str, Any] | None]:
-    """Parse subprocess output to extract result or error."""
-    lines = output.strip().split("\n")
+if __name__ == "__main__":
+    import asyncio
 
-    # Look for result markers
-    result_start = None
-    result_end = None
-    error_start = None
-    error_end = None
+    provider = LocalExecutionEnvironment()
 
-    for i, line in enumerate(lines):
-        if "__RESULT_START__" in line:
-            result_start = i + 1
-        elif "__RESULT_END__" in line:
-            result_end = i
-        elif "__ERROR_START__" in line:
-            error_start = i + 1
-        elif "__ERROR_END__" in line:
-            error_end = i
+    async def main():
+        async for line in provider.execute_command_stream("ls -l"):
+            print(line)
 
-    # Parse error first (takes precedence)
-    if error_start is not None and error_end is not None:
-        try:
-            error_json = "\n".join(lines[error_start:error_end])
-            return None, json.loads(error_json)
-        except json.JSONDecodeError:
-            return None, {
-                "error": "Failed to parse error output",
-                "type": "ParseError",
-            }
-
-    # Parse result
-    if result_start is not None and result_end is not None:
-        try:
-            result_json = "\n".join(lines[result_start:result_end])
-            result_data = json.loads(result_json)
-            return result_data.get("result"), None
-        except json.JSONDecodeError:
-            return None, {
-                "error": "Failed to parse result output",
-                "type": "ParseError",
-            }
-
-    # No markers found
-    return None, {"error": "No execution result found", "type": "ParseError"}
+    asyncio.run(main())
