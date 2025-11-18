@@ -5,11 +5,11 @@ from __future__ import annotations
 import contextlib
 import shlex
 import time
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.models import ExecutionResult
-from anyenv.code_execution.parse_output import wrap_code
+from anyenv.code_execution.parse_output import parse_output, wrap_code
 
 
 if TYPE_CHECKING:
@@ -135,7 +135,7 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
             duration = time.time() - start_time
             assert isinstance(response, SandboxProcessResponse)
             output = response.result
-            result, error_info = _parse_beam_output(output)
+            result, error_info = parse_output(output)
             success = response.exit_code == 0 and error_info is None
 
             if success:
@@ -244,55 +244,16 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
             yield f"ERROR: {e}"
 
 
-def _parse_beam_output(output: str) -> tuple[Any, dict[str, Any] | None]:
-    """Parse the execution output to extract result and error information."""
-    import anyenv
-
-    if not output:
-        return None, None
-
-    lines = output.strip().split("\n")
-
-    for line in lines:
-        if "__RESULT__" in line:
-            try:
-                json_part = line.split("__RESULT__", 1)[1].strip()
-                result_data = anyenv.load_json(json_part, return_type=dict)
-
-                if result_data.get("success"):
-                    return result_data.get("result"), None
-                return None, {
-                    "error": result_data.get("error"),
-                    "type": result_data.get("type"),
-                    "traceback": result_data.get("traceback"),
-                }
-            except (anyenv.JsonLoadError, IndexError, ValueError):
-                continue
-
-    # If no structured result found, check for common patterns
-    # Look for Python output that might indicate successful execution with no return
-    if output.strip() and not any(
-        keyword in output.lower() for keyword in ["error", "traceback", "exception"]
-    ):
-        # If output looks like print statements, return None
-        # (successful execution, no result)
-        return None, None
-
-    # If we have output but no structured result, it might be an error
-    if output.strip():
-        return None, {"error": output.strip(), "type": "ExecutionError"}
-
-    return None, None
-
-
 if __name__ == "__main__":
-
-    async def _main() -> None:
-        async with BeamExecutionEnvironment() as sandbox:
-            await sandbox.execute_command("mkdir test")
-            result = await sandbox.execute_command("ls")
-            print(result)
-
     import asyncio
 
-    asyncio.run(_main())
+    async def main():
+        """Example."""
+        async with BeamExecutionEnvironment() as provider:
+            result = await provider.execute("""
+async def main():
+    return "Hello from Beam!"
+""")
+            print(f"Success: {result.success}, Result: {result.result}")
+
+    asyncio.run(main())
