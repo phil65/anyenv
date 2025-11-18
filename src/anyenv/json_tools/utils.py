@@ -76,7 +76,7 @@ def prepare_numpy_arrays(data: Any) -> Any:
             | np.uint64,
         ):
             return int(obj)
-        if isinstance(obj, np.float_ | np.float16 | np.float32 | np.float64):
+        if isinstance(obj, np.float16 | np.float32 | np.float64):  # np.float_
             return float(obj)
         if isinstance(obj, (np.bool_)):
             return bool(obj)
