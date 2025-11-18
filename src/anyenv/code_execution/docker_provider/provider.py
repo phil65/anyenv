@@ -241,7 +241,9 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
                         )
 
             # Execute the command cleanly (no dependency installation output)
-            result = self.container.exec(command)
+            # Run in /workspace directory to match execute_command_stream behavior
+            full_command = f"sh -c 'cd /workspace && {command}'"
+            result = self.container.exec(full_command)
             duration = time.time() - start_time
 
             stdout = result.output.decode() if result.output else ""
@@ -309,3 +311,16 @@ def get_execution_command(language: Language) -> str:
             return "sh -c 'cd /workspace && npx ts-node script.ts'"
         case _:
             return "sh -c 'cd /workspace && python script.py'"
+
+
+if __name__ == "__main__":
+    import asyncio
+
+    async def main():
+        """Example."""
+        async with DockerExecutionEnvironment() as provider:
+            await provider.execute_command("mkdir test")
+            async for line in provider.execute_command_stream("ls"):
+                print(line)
+
+    asyncio.run(main())
