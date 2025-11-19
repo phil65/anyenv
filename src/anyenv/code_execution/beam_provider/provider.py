@@ -8,6 +8,7 @@ import time
 from typing import TYPE_CHECKING, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
+from anyenv.code_execution.beam_provider.helpers import get_image
 from anyenv.code_execution.models import ExecutionResult
 from anyenv.code_execution.parse_output import parse_output, wrap_code
 
@@ -17,7 +18,7 @@ if TYPE_CHECKING:
     from contextlib import AbstractAsyncContextManager
     from types import TracebackType
 
-    from beam import Sandbox, SandboxInstance
+    from beam import SandboxInstance
     from upathtools.filesystems.beam_fs import BeamFS
 
     from anyenv.code_execution.models import Language, ServerInfo
@@ -52,8 +53,7 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
         self.memory = memory
         self.keep_warm_seconds = keep_warm_seconds
         self.timeout = timeout
-        self.language = language
-        self.sandbox: Sandbox | None = None
+        self.language: Language = language
         self.instance: SandboxInstance | None = None
 
     def get_fs(self) -> BeamFS:
@@ -66,40 +66,25 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
     async def __aenter__(self) -> Self:
         """Setup Beam sandbox."""
         await super().__aenter__()
-        from beam import Image, Sandbox
+        from beam import Sandbox
 
-        match self.language:
-            case "python":
-                image = Image(
-                    python_version="python3.12",
-                    python_packages=self.dependencies,
-                )
-            case "javascript" | "typescript":
-                # Use a Node.js base image for JS/TS
-                image = Image(base_image="node:20")
-                if self.dependencies:
-                    deps = " ".join(self.dependencies)
-                    image.add_commands(f"npm install {deps}")
-            case _:
-                image = Image(
-                    python_version="python3.12",
-                    python_packages=self.dependencies,
-                )
-
-        self.sandbox = Sandbox(
+        image = get_image(self.language, self.dependencies)
+        sandbox = Sandbox(
             cpu=self.cpu,
             memory=self.memory,
             image=image,
             keep_warm_seconds=self.keep_warm_seconds,
         )
-        assert self.sandbox
-        self.instance = self.sandbox.create()
-        assert self.instance
-        if not self.instance.ok:
-            error_msg = f"Failed to create Beam sandbox: {self.instance.error_msg}"
-            raise RuntimeError(error_msg)
-
+        self.instance = sandbox.create()
+        self.validate_instance()
         return self
+
+    def validate_instance(self) -> SandboxInstance:
+        """Validate the Beam sandbox instance."""
+        if not self.instance or not self.instance.ok:
+            error_msg = "Beam environment not properly initialized"
+            raise RuntimeError(error_msg)
+        return self.instance
 
     async def __aexit__(
         self,
@@ -117,22 +102,16 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
         """Execute code in the Beam sandbox."""
         from beam import SandboxProcessResponse
 
-        if not self.instance or not self.instance.ok:
-            error_msg = "Beam environment not properly initialized"
-            raise RuntimeError(error_msg)
-
+        self.instance = self.validate_instance()
         start_time = time.time()
-
         try:
-            wrapped_code = wrap_code(
-                code, "javascript" if self.language == "typescript" else "python"
-            )
+            lang = "javascript" if self.language == "typescript" else "python"
+            wrapped_code = wrap_code(code, lang)
             response = await asyncio.to_thread(
                 self.instance.process.run_code,
                 wrapped_code,
                 blocking=True,
             )
-            duration = time.time() - start_time
             assert isinstance(response, SandboxProcessResponse)
             output = response.result
             result, error_info = parse_output(output)
@@ -141,14 +120,14 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
             if success:
                 return ExecutionResult(
                     result=result,
-                    duration=duration,
+                    duration=time.time() - start_time,
                     success=True,
                     stdout=output,
                     stderr="",  # Beam combines stdout/stderr in result
                 )
             return ExecutionResult(
                 result=None,
-                duration=duration,
+                duration=time.time() - start_time,
                 success=False,
                 error=error_info.get("error", output) if error_info else output,
                 error_type=error_info.get("type", "CommandError")
@@ -159,10 +138,9 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
             )
 
         except Exception as e:  # noqa: BLE001
-            duration = time.time() - start_time
             return ExecutionResult(
                 result=None,
-                duration=duration,
+                duration=time.time() - start_time,
                 success=False,
                 error=str(e),
                 error_type=type(e).__name__,
@@ -172,10 +150,7 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
         """Execute code and stream output using Beam's real-time streaming."""
         from beam import SandboxProcess
 
-        if not self.instance or not self.instance.ok:
-            error_msg = "Beam environment not properly initialized"
-            raise RuntimeError(error_msg)
-
+        self.instance = self.validate_instance()
         try:
             process = self.instance.process.run_code(code, blocking=False)
             assert isinstance(process, SandboxProcess)
@@ -187,10 +162,7 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
 
     async def execute_command(self, command: str) -> ExecutionResult:
         """Execute a terminal command in the Beam sandbox."""
-        if not self.instance or not self.instance.ok:
-            error_msg = "Beam environment not properly initialized"
-            raise RuntimeError(error_msg)
-
+        self.instance = self.validate_instance()
         start_time = time.time()
         try:
             cmd_parts = shlex.split(command)
@@ -224,10 +196,7 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
 
     async def execute_command_stream(self, command: str) -> AsyncIterator[str]:
         """Execute a terminal command and stream output in the Beam sandbox."""
-        if not self.instance or not self.instance.ok:
-            error_msg = "Beam environment not properly initialized"
-            raise RuntimeError(error_msg)
-
+        self.instance = self.validate_instance()
         try:
             cmd_parts = shlex.split(command)
             if not cmd_parts:
@@ -237,10 +206,8 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
             process = self.instance.process.exec(*cmd_parts)
             for line in process.logs:
                 yield line.rstrip("\n\r")
-
             if process.exit_code > 0:  # Check final exit code if available
                 yield f"ERROR: Command exited with code {process.exit_code}"
-
         except Exception as e:  # noqa: BLE001
             yield f"ERROR: {e}"
 

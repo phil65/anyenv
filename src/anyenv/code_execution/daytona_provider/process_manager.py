@@ -64,21 +64,14 @@ class DaytonaTerminalManager(ProcessManagerProtocol):
         """Create a new terminal session using Daytona's session management."""
         terminal_id = f"daytona_term_{uuid.uuid4().hex[:8]}"
         args = args or []
-        env = env or {}
-
-        # Build full command
         full_command = f"{command} {' '.join(args)}" if args else command
-
-        # Create unique session ID for this terminal
         session_id = f"term_session_{uuid.uuid4().hex[:8]}"
-
-        # Create terminal
         terminal = DaytonaTerminal(
             terminal_id=terminal_id,
             command=command,
             args=args,
             cwd=str(cwd) if cwd else None,
-            env=env,
+            env=env or {},
             session_id=session_id,
             output_limit=output_limit or 1048576,
         )
@@ -86,10 +79,7 @@ class DaytonaTerminalManager(ProcessManagerProtocol):
         self._terminals[terminal_id] = terminal
 
         try:
-            # Create Daytona session
             await self.sandbox.process.create_session(session_id)
-
-            # Start the command asynchronously in the session
             from daytona.common.process import SessionExecuteRequest
 
             request = SessionExecuteRequest(command=full_command, runAsync=True)
@@ -97,10 +87,7 @@ class DaytonaTerminalManager(ProcessManagerProtocol):
                 session_id, request
             )
 
-            # Store the command ID for tracking
             terminal.set_command_id(str(response.cmd_id))
-
-            # Start background task to collect output
             asyncio.create_task(self._collect_output(terminal))  # noqa: RUF006
             msg = "Created Daytona terminal %s (session %s, command %s): %s"
             logger.info(msg, terminal_id, session_id, response.cmd_id, full_command)
@@ -118,11 +105,10 @@ class DaytonaTerminalManager(ProcessManagerProtocol):
 
     async def _collect_output(self, terminal: DaytonaTerminal) -> None:
         """Collect output from Daytona session command using streaming logs."""
+        if not terminal.command_id:
+            return
         try:
-            if not terminal.command_id:
-                return
 
-            # Use Daytona's streaming logs to collect output in real-time
             def on_logs(chunk: str) -> None:
                 terminal.add_output(chunk)
 
