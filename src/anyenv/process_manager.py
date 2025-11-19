@@ -181,7 +181,7 @@ class RunningProcess:
                 pass
 
 
-class ProcessManager:
+class ProcessManager(TerminalManagerProtocol):
     """Manages background processes for an agent pool."""
 
     def __init__(self) -> None:
@@ -498,15 +498,14 @@ class ProcessManager:
 
 
 @dataclass
-class TerminalTask:
-    """Represents a running terminal task."""
+class BaseTerminal:
+    """Base class for terminal sessions across all providers."""
 
     terminal_id: str
     command: str
     args: list[str]
     cwd: str | None
     env: dict[str, str]
-    task: asyncio.Task[Any]
     created_at: datetime = field(default_factory=datetime.now)
     output_limit: int = 1048576
     _output_buffer: list[str] = field(default_factory=list)
@@ -544,8 +543,8 @@ class TerminalTask:
         return output
 
     def is_running(self) -> bool:
-        """Check if task is still running."""
-        return not self.task.done()
+        """Check if terminal is still running. Override in subclasses."""
+        return self._exit_code is None
 
     def set_exit_code(self, exit_code: int) -> None:
         """Set the exit code."""
@@ -554,6 +553,17 @@ class TerminalTask:
     def get_exit_code(self) -> int | None:
         """Get the exit code if available."""
         return self._exit_code
+
+
+@dataclass
+class TerminalTask(BaseTerminal):
+    """Represents a running terminal task for the generic implementation."""
+
+    task: asyncio.Task[Any] | None = field(default=None)
+
+    def is_running(self) -> bool:
+        """Check if task is still running."""
+        return self.task is not None and not self.task.done()
 
 
 class EnvironmentTerminalManager:
@@ -663,9 +673,10 @@ class EnvironmentTerminalManager:
         terminal = self._terminals[terminal_id]
 
         if terminal.is_running():
-            terminal.task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await terminal.task
+            if terminal.task:
+                terminal.task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await terminal.task
             terminal.set_exit_code(130)  # SIGINT exit code
 
         logger.info("Killed terminal %s", terminal_id)
@@ -681,6 +692,12 @@ class EnvironmentTerminalManager:
         # Kill if still running
         if terminal.is_running():
             await self.kill_terminal(terminal_id)
+
+        # Cancel task if it exists
+        if terminal.task and not terminal.task.done():
+            terminal.task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await terminal.task
 
         # Remove from tracking
         del self._terminals[terminal_id]

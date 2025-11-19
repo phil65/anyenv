@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-from dataclasses import dataclass, field
-from datetime import datetime
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 import uuid
 
 from anyenv.log import get_logger
+from anyenv.process_manager import BaseTerminal, TerminalManagerProtocol
 
 
 if TYPE_CHECKING:
@@ -20,52 +20,12 @@ logger = get_logger(__name__)
 
 
 @dataclass
-class DaytonaTerminal:
+class DaytonaTerminal(BaseTerminal):
     """Represents a terminal session using Daytona's session management."""
 
-    terminal_id: str
-    command: str
-    args: list[str]
-    cwd: str | None
-    env: dict[str, str]
     session_id: str
     command_id: str | None = None
-    created_at: datetime = field(default_factory=datetime.now)
-    output_limit: int = 1048576
-    _output_buffer: list[str] = field(default_factory=list)
-    _output_size: int = 0
-    _truncated: bool = False
-    _exit_code: int | None = None
     _completed: bool = False
-
-    def add_output(self, output: str) -> None:
-        """Add output to buffer, applying size limits."""
-        if not output:
-            return
-
-        self._output_buffer.append(output)
-        self._output_size += len(output.encode())
-
-        # Apply truncation if limit exceeded
-        if self._output_size > self.output_limit:
-            self._truncate_output()
-
-    def _truncate_output(self) -> None:
-        """Truncate output from beginning to stay within limit."""
-        target_size = int(self.output_limit * 0.9)  # Keep 90% of limit
-
-        # Remove chunks from beginning until under limit
-        while self._output_buffer and self._output_size > target_size:
-            removed = self._output_buffer.pop(0)
-            self._output_size -= len(removed.encode())
-            self._truncated = True
-
-    def get_output(self) -> str:
-        """Get current buffered output."""
-        output = "".join(self._output_buffer)
-        if self._truncated:
-            output = "(output truncated)\n" + output
-        return output
 
     def is_running(self) -> bool:
         """Check if terminal is still running."""
@@ -76,16 +36,12 @@ class DaytonaTerminal:
         self._exit_code = exit_code
         self._completed = True
 
-    def get_exit_code(self) -> int | None:
-        """Get the exit code if available."""
-        return self._exit_code
-
     def set_command_id(self, command_id: str) -> None:
         """Set the Daytona command ID."""
         self.command_id = command_id
 
 
-class DaytonaTerminalManager:
+class DaytonaTerminalManager(TerminalManagerProtocol):
     """Terminal manager that uses Daytona's session-based process management."""
 
     def __init__(self, sandbox: AsyncSandbox) -> None:

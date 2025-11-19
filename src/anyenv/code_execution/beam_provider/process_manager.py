@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-from dataclasses import dataclass, field
-from datetime import datetime
+from dataclasses import dataclass
 import shlex
 from typing import TYPE_CHECKING, Any
 import uuid
 
 from anyenv.log import get_logger
+from anyenv.process_manager import BaseTerminal, TerminalManagerProtocol
 
 
 if TYPE_CHECKING:
@@ -21,51 +21,11 @@ logger = get_logger(__name__)
 
 
 @dataclass
-class BeamTerminal:
+class BeamTerminal(BaseTerminal):
     """Represents a terminal session using Beam's process management."""
 
-    terminal_id: str
-    command: str
-    args: list[str]
-    cwd: str | None
-    env: dict[str, str]
-    created_at: datetime = field(default_factory=datetime.now)
-    output_limit: int = 1048576
     _process: Any = None  # SandboxProcess
-    _output_buffer: list[str] = field(default_factory=list)
-    _output_size: int = 0
-    _truncated: bool = False
-    _exit_code: int | None = None
     _task: asyncio.Task[Any] | None = None
-
-    def add_output(self, output: str) -> None:
-        """Add output to buffer, applying size limits."""
-        if not output:
-            return
-
-        self._output_buffer.append(output)
-        self._output_size += len(output.encode())
-
-        # Apply truncation if limit exceeded
-        if self._output_size > self.output_limit:
-            self._truncate_output()
-
-    def _truncate_output(self) -> None:
-        """Truncate output from beginning to stay within limit."""
-        target_size = int(self.output_limit * 0.9)  # Keep 90% of limit
-
-        # Remove chunks from beginning until under limit
-        while self._output_buffer and self._output_size > target_size:
-            removed = self._output_buffer.pop(0)
-            self._output_size -= len(removed.encode())
-            self._truncated = True
-
-    def get_output(self) -> str:
-        """Get current buffered output."""
-        output = "".join(self._output_buffer)
-        if self._truncated:
-            output = "(output truncated)\n" + output
-        return output
 
     def is_running(self) -> bool:
         """Check if terminal is still running."""
@@ -81,10 +41,6 @@ class BeamTerminal:
                 return exit_code < 0  # Beam uses -1 for running processes
 
         return False
-
-    def set_exit_code(self, exit_code: int) -> None:
-        """Set the exit code."""
-        self._exit_code = exit_code
 
     def get_exit_code(self) -> int | None:
         """Get the exit code if available."""
@@ -107,7 +63,7 @@ class BeamTerminal:
         self._task = task
 
 
-class BeamTerminalManager:
+class BeamTerminalManager(TerminalManagerProtocol):
     """Terminal manager that uses Beam's native process management."""
 
     def __init__(self, sandbox_instance: SandboxInstance) -> None:

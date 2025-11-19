@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass, field
-from datetime import datetime
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 import uuid
 
 from anyenv.log import get_logger
+from anyenv.process_manager import BaseTerminal, TerminalManagerProtocol
 
 
 if TYPE_CHECKING:
@@ -20,51 +20,11 @@ logger = get_logger(__name__)
 
 
 @dataclass
-class E2BTerminal:
+class E2BTerminal(BaseTerminal):
     """Represents a terminal session using E2B's process management."""
 
-    terminal_id: str
-    command: str
-    args: list[str]
-    cwd: str | None
-    env: dict[str, str]
     pid: int | None = None
-    created_at: datetime = field(default_factory=datetime.now)
-    output_limit: int = 1048576
     _handle: AsyncCommandHandle | None = None
-    _output_buffer: list[str] = field(default_factory=list)
-    _output_size: int = 0
-    _truncated: bool = False
-    _exit_code: int | None = None
-
-    def add_output(self, output: str) -> None:
-        """Add output to buffer, applying size limits."""
-        if not output:
-            return
-
-        self._output_buffer.append(output)
-        self._output_size += len(output.encode())
-
-        # Apply truncation if limit exceeded
-        if self._output_size > self.output_limit:
-            self._truncate_output()
-
-    def _truncate_output(self) -> None:
-        """Truncate output from beginning to stay within limit."""
-        target_size = int(self.output_limit * 0.9)  # Keep 90% of limit
-
-        # Remove chunks from beginning until under limit
-        while self._output_buffer and self._output_size > target_size:
-            removed = self._output_buffer.pop(0)
-            self._output_size -= len(removed.encode())
-            self._truncated = True
-
-    def get_output(self) -> str:
-        """Get current buffered output."""
-        output = "".join(self._output_buffer)
-        if self._truncated:
-            output = "(output truncated)\n" + output
-        return output
 
     def is_running(self) -> bool:
         """Check if terminal is still running."""
@@ -74,10 +34,6 @@ class E2BTerminal:
             # Check if handle has exit_code property (None means still running)
             return self._handle.exit_code is None
         return False
-
-    def set_exit_code(self, exit_code: int) -> None:
-        """Set the exit code."""
-        self._exit_code = exit_code
 
     def get_exit_code(self) -> int | None:
         """Get the exit code if available."""
@@ -95,7 +51,7 @@ class E2BTerminal:
         self.pid = handle.pid
 
 
-class E2BTerminalManager:
+class E2BTerminalManager(TerminalManagerProtocol):
     """Terminal manager that uses E2B's native process management."""
 
     def __init__(self, sandbox: AsyncSandbox) -> None:
