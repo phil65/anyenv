@@ -155,7 +155,6 @@ class VercelTerminalManager(ProcessManagerProtocol):
                 pass  # Best effort
 
         output = terminal.get_output()
-        terminal.is_running()
         exit_code = terminal.get_exit_code()
 
         return ProcessOutput(

@@ -109,7 +109,9 @@ class BeamTerminalManager(ProcessManagerProtocol):
                 raise ValueError(msg)  # noqa: TRY301
 
             # Use Beam's process.exec for direct command execution
-            process = self.sandbox_instance.process.exec(*cmd_parts, cwd=cwd, env=env)
+            process = self.sandbox_instance.process.exec(
+                *cmd_parts, cwd=str(cwd) if cwd else None, env=env
+            )
             terminal.set_process(process)
 
             # Start background task to collect output
@@ -157,7 +159,6 @@ class BeamTerminalManager(ProcessManagerProtocol):
 
         terminal = self._terminals[process_id]
         output = terminal.get_output()
-        terminal.is_running()
         exit_code = terminal.get_exit_code()
 
         return ProcessOutput(

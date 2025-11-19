@@ -103,7 +103,7 @@ class E2BTerminalManager(ProcessManagerProtocol):
                 full_command,
                 background=True,
                 envs=env,
-                cwd=cwd,
+                cwd=str(cwd) if cwd else None,
                 on_stdout=on_stdout,
                 on_stderr=on_stderr,
             )
@@ -133,7 +133,6 @@ class E2BTerminalManager(ProcessManagerProtocol):
 
         terminal = self._terminals[process_id]
         output = terminal.get_output()
-        terminal.is_running()
         exit_code = terminal.get_exit_code()
 
         return ProcessOutput(
