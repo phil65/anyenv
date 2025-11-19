@@ -182,6 +182,7 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
                         result=execution_result,
                         duration=time.time() - start_time,
                         success=True,
+                        exit_code=process.returncode,
                         stdout=stdout,
                         stderr=stderr,
                     )
@@ -191,6 +192,7 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
                     success=False,
                     error=error_info.get("error", "Subprocess execution failed"),
                     error_type=error_info.get("type", "SubprocessError"),
+                    exit_code=process.returncode,
                     stdout=stdout,
                     stderr=stderr,
                 )
@@ -200,6 +202,7 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
                 success=False,
                 error=stderr or "Subprocess execution failed",
                 error_type="SubprocessError",
+                exit_code=process.returncode,
                 stdout=stdout,
                 stderr=stderr,
             )
@@ -307,6 +310,7 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
                 error_type="CommandError" if not success else None,
                 stdout=stdout,
                 stderr=stderr,
+                exit_code=process.returncode,
             )
 
         except Exception as e:  # noqa: BLE001

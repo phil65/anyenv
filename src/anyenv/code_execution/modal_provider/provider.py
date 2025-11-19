@@ -193,6 +193,7 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
                     duration=duration,
                     success=True,
                     stdout=stdout,
+                    exit_code=process.returncode,
                     stderr=stderr,
                 )
 
@@ -201,6 +202,7 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
                 duration=duration,
                 success=False,
                 error=error_info.get("error", stderr) if error_info else stderr,
+                exit_code=process.returncode,
                 error_type=error_info.get("type", "ExecutionError")
                 if error_info
                 else "ExecutionError",
@@ -262,25 +264,22 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
 
             stdout = process.stdout.read() if process.stdout else ""
             stderr = process.stderr.read() if process.stderr else ""
-
-            duration = time.time() - start_time
             success = process.returncode == 0
-
             return ExecutionResult(
                 result=stdout if success else None,
-                duration=duration,
+                duration=time.time() - start_time,
                 success=success,
                 error=stderr if not success else None,
+                exit_code=process.returncode,
                 error_type="CommandError" if not success else None,
                 stdout=stdout,
                 stderr=stderr,
             )
 
         except Exception as e:  # noqa: BLE001
-            duration = time.time() - start_time
             return ExecutionResult(
                 result=None,
-                duration=duration,
+                duration=time.time() - start_time,
                 success=False,
                 error=str(e),
                 error_type=type(e).__name__,

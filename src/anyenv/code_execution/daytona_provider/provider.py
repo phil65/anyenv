@@ -160,6 +160,7 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
                         success=True,
                         stdout=response.result,
                         stderr="",
+                        exit_code=int(response.exit_code),
                     )
                 return ExecutionResult(
                     result=None,
@@ -169,6 +170,7 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
                     error_type=error_info.get("type", "ExecutionError"),
                     stdout=response.result,
                     stderr="",
+                    exit_code=int(response.exit_code),
                 )
 
             return ExecutionResult(
@@ -176,6 +178,7 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
                 duration=duration,
                 success=False,
                 error=response.result if response.result else "Command execution failed",
+                exit_code=int(response.exit_code),
                 error_type="CommandError",
                 stdout=response.result,
                 stderr="",

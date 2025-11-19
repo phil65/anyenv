@@ -221,6 +221,7 @@ class SshExecutionEnvironment(ExecutionEnvironment):
                 if not success
                 else None,
                 error_type="RemoteExecutionError" if not success else None,
+                exit_code=result.returncode,
                 stdout=result.stdout.decode()
                 if isinstance(result.stdout, bytes)
                 else result.stdout,

@@ -136,6 +136,7 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
                     result=execution_result,
                     duration=duration,
                     success=True,
+                    exit_code=result.exit_code,
                     stdout=result.output.decode() if result.output else "",
                     stderr="",
                 )
@@ -149,6 +150,7 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
                 error_type=error_info.get("type", "ContainerError")
                 if error_info
                 else "ContainerError",
+                exit_code=result.exit_code,
                 stdout=result.output.decode() if result.output else "",
                 stderr="",
             )
@@ -234,6 +236,7 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
                             success=False,
                             error=error_msg,
                             error_type="DependencyError",
+                            exit_code=install_result.exit_code,
                             stdout="",
                             stderr=install_result.output.decode()
                             if install_result.output
@@ -257,6 +260,7 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
                 if not success
                 else None,  # Docker exec puts errors in stdout
                 error_type="CommandError" if not success else None,
+                exit_code=result.exit_code,
                 stdout=stdout,
                 stderr="",
             )

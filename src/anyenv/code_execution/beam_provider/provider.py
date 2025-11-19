@@ -208,6 +208,7 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
                 success=success,
                 error=output if not success else None,
                 error_type="CommandError" if not success else None,
+                exit_code=exit_code,
                 stdout=output,
                 stderr="",  # Beam combines stdout/stderr
             )

@@ -46,3 +46,6 @@ class ExecutionResult:
 
     stderr: str | None = None
     """The standard error of the code execution."""
+
+    exit_code: int | None = None
+    """The exit code of the command execution (for command execution only)."""

@@ -133,6 +133,7 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
                     result=execution_result,
                     duration=time.time() - start_time,
                     success=True,
+                    exit_code=result.exit_code,
                     stdout=result.stdout,
                     stderr=result.stderr,
                 )
@@ -141,6 +142,7 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
                 result=None,
                 duration=time.time() - start_time,
                 success=False,
+                exit_code=result.exit_code,
                 error=error_info.get("error", "Command execution failed")
                 if error_info
                 else "Command execution failed",

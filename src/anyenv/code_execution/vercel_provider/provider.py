@@ -179,6 +179,7 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
                     duration=duration,
                     success=True,
                     stdout=stdout,
+                    exit_code=result.exit_code,
                     stderr=stderr,
                 )
 
@@ -187,6 +188,7 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
                 duration=duration,
                 success=False,
                 error=(error_info or {}).get("error", "Command execution failed"),
+                exit_code=result.exit_code,
                 error_type=(error_info or {}).get("type", "ExecutionError"),
                 stdout=stdout,
                 stderr=stderr,
