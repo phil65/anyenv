@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 from dataclasses import dataclass, field
+import shlex
 from typing import TYPE_CHECKING, Any
 import uuid
 
@@ -54,17 +55,7 @@ class EnvironmentTerminalManager(ProcessManagerProtocol):
         terminal_id = f"proc_{uuid.uuid4().hex[:8]}"
         args = args or []
         env = env or {}
-
-        # Build full command with proper shell escaping
-        if args:
-            # Use shell-safe command construction
-            import shlex
-
-            full_command = shlex.join([command, *args])
-        else:
-            full_command = command
-
-        # Create terminal task
+        full_command = shlex.join([command, *args]) if args else command
         terminal = TerminalTask(
             terminal_id=terminal_id,
             command=command,
@@ -74,7 +65,6 @@ class EnvironmentTerminalManager(ProcessManagerProtocol):
             task=asyncio.create_task(self._run_terminal(terminal_id, full_command)),
             output_limit=output_limit or 1048576,
         )
-
         self._terminals[terminal_id] = terminal
         logger.info("Created terminal %s: %s", terminal_id, full_command)
         return terminal_id
@@ -82,15 +72,12 @@ class EnvironmentTerminalManager(ProcessManagerProtocol):
     async def _run_terminal(self, terminal_id: str, command: str) -> None:
         """Run terminal command in background."""
         terminal = self._terminals[terminal_id]
-
         try:
             result = await self.env.execute_command(command)
-
             if result.stdout:
                 terminal.add_output(result.stdout)
             if result.stderr:
                 terminal.add_output(result.stderr)
-
             # Use actual exit code if available, otherwise infer from success
             if result.exit_code is not None:
                 terminal.set_exit_code(result.exit_code)
@@ -124,7 +111,6 @@ class EnvironmentTerminalManager(ProcessManagerProtocol):
             raise ValueError(msg)
 
         terminal = self._terminals[process_id]
-
         try:
             assert terminal.task
             await terminal.task
@@ -142,7 +128,6 @@ class EnvironmentTerminalManager(ProcessManagerProtocol):
             raise ValueError(msg)
 
         terminal = self._terminals[process_id]
-
         if terminal.is_running():
             if terminal.task:
                 terminal.task.cancel()
@@ -157,19 +142,12 @@ class EnvironmentTerminalManager(ProcessManagerProtocol):
         if process_id not in self._terminals:
             msg = f"Process {process_id} not found"
             raise ValueError(msg)
-
         terminal = self._terminals[process_id]
-
-        # Kill if still running
         if terminal.is_running():
             await self.kill_process(process_id)
-
-        # Cancel task if it exists
         if terminal.task and not terminal.task.done():
             terminal.task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await terminal.task
-
-        # Remove from tracking
         del self._terminals[process_id]
         logger.info("Released process %s", process_id)
