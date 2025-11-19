@@ -239,23 +239,27 @@ class DaytonaTerminalManager(ProcessManagerProtocol):
         del self._terminals[process_id]
         logger.info("Released process %s", process_id)
 
-    def list_processes(self) -> dict[str, dict[str, Any]]:
-        """List all tracked terminals and their status."""
-        result = {}
-        for terminal_id, terminal in self._terminals.items():
-            result[terminal_id] = {
-                "terminal_id": terminal_id,
-                "command": terminal.command,
-                "args": terminal.args,
-                "cwd": terminal.cwd,
-                "session_id": terminal.session_id,
-                "command_id": terminal.command_id,
-                "created_at": terminal.created_at.isoformat(),
-                "is_running": terminal.is_running(),
-                "exit_code": terminal.get_exit_code(),
-                "output_limit": terminal.output_limit,
-            }
-        return result
+    def list_processes(self) -> list[str]:
+        """List all tracked terminals."""
+        return list(self._terminals.keys())
+
+    # def list_processes(self) -> dict[str, dict[str, Any]]:
+    #     """List all tracked terminals and their status."""
+    #     result = {}
+    #     for terminal_id, terminal in self._terminals.items():
+    #         result[terminal_id] = {
+    #             "terminal_id": terminal_id,
+    #             "command": terminal.command,
+    #             "args": terminal.args,
+    #             "cwd": terminal.cwd,
+    #             "session_id": terminal.session_id,
+    #             "command_id": terminal.command_id,
+    #             "created_at": terminal.created_at.isoformat(),
+    #             "is_running": terminal.is_running(),
+    #             "exit_code": terminal.get_exit_code(),
+    #             "output_limit": terminal.output_limit,
+    #         }
+    #     return result
 
     async def get_sandbox_sessions(self) -> dict[str, dict[str, Any]]:
         """Get all sessions in the Daytona sandbox."""

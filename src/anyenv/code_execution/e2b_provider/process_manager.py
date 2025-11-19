@@ -200,22 +200,26 @@ class E2BTerminalManager(ProcessManagerProtocol):
         del self._terminals[process_id]
         logger.info("Released process %s", process_id)
 
-    def list_processes(self) -> dict[str, dict[str, Any]]:
-        """List all tracked terminals and their status."""
-        result = {}
-        for terminal_id, terminal in self._terminals.items():
-            result[terminal_id] = {
-                "terminal_id": terminal_id,
-                "command": terminal.command,
-                "args": terminal.args,
-                "cwd": terminal.cwd,
-                "pid": terminal.pid,
-                "created_at": terminal.created_at.isoformat(),
-                "is_running": terminal.is_running(),
-                "exit_code": terminal.get_exit_code(),
-                "output_limit": terminal.output_limit,
-            }
-        return result
+    # def list_processes(self) -> dict[str, dict[str, Any]]:
+    #     """List all tracked terminals and their status."""
+    #     result = {}
+    #     for terminal_id, terminal in self._terminals.items():
+    #         result[terminal_id] = {
+    #             "terminal_id": terminal_id,
+    #             "command": terminal.command,
+    #             "args": terminal.args,
+    #             "cwd": terminal.cwd,
+    #             "pid": terminal.pid,
+    #             "created_at": terminal.created_at.isoformat(),
+    #             "is_running": terminal.is_running(),
+    #             "exit_code": terminal.get_exit_code(),
+    #             "output_limit": terminal.output_limit,
+    #         }
+    #     return result
+
+    def list_processes(self) -> list[str]:
+        """List all tracked terminals."""
+        return list(self._terminals.keys())
 
     async def get_sandbox_processes(self) -> dict[int, dict[str, Any]]:
         """Get all processes running in the E2B sandbox."""

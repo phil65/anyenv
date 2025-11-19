@@ -151,3 +151,7 @@ class EnvironmentTerminalManager(ProcessManagerProtocol):
                 await terminal.task
         del self._terminals[process_id]
         logger.info("Released process %s", process_id)
+
+    def list_processes(self) -> list[str]:
+        """List all tracked terminals."""
+        return list(self._terminals.keys())

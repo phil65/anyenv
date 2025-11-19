@@ -57,3 +57,7 @@ class ProcessManagerProtocol(Protocol):
     async def release_process(self, process_id: str) -> None:
         """Release process resources."""
         ...
+
+    def list_processes(self) -> list[str]:
+        """List all running processes."""
+        ...
