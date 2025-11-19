@@ -12,11 +12,13 @@ from anyenv.code_execution.models import ExecutionResult
 
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator
     from contextlib import AbstractAsyncContextManager
     from types import TracebackType
 
     from upathtools.filesystems.microsandbox_fs import MicrosandboxFS
 
+    from anyenv.code_execution.events import ExecutionEvent
     from anyenv.code_execution.models import Language, ServerInfo
 
 
@@ -203,3 +205,81 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
     # support real-time streaming
     # The base class will raise NotImplementedError for execute_stream()
     # and execute_command_stream()
+
+    async def stream_code(self, code: str) -> AsyncIterator[ExecutionEvent]:
+        """Execute code and emit combined events (no real-time streaming)."""
+        from anyenv.code_execution.events import (
+            OutputEvent,
+            ProcessCompletedEvent,
+            ProcessErrorEvent,
+            ProcessStartedEvent,
+        )
+
+        process_id = f"microsandbox_{id(self.sandbox)}"
+        yield ProcessStartedEvent(
+            process_id=process_id, command=f"execute({len(code)} chars)"
+        )
+
+        try:
+            result = await self.execute(code)
+
+            # Emit output as single combined event
+            if result.stdout:
+                yield OutputEvent(
+                    process_id=process_id, data=result.stdout, stream="combined"
+                )
+
+            if result.success:
+                yield ProcessCompletedEvent(
+                    process_id=process_id, exit_code=result.exit_code or 0
+                )
+            else:
+                yield ProcessErrorEvent(
+                    process_id=process_id,
+                    error=result.error or "Unknown error",
+                    error_type=result.error_type or "ExecutionError",
+                    exit_code=result.exit_code,
+                )
+
+        except Exception as e:  # noqa: BLE001
+            yield ProcessErrorEvent(
+                process_id=process_id, error=str(e), error_type=type(e).__name__
+            )
+
+    async def stream_command(self, command: str) -> AsyncIterator[ExecutionEvent]:
+        """Execute terminal command and emit combined events (no real-time streaming)."""
+        from anyenv.code_execution.events import (
+            OutputEvent,
+            ProcessCompletedEvent,
+            ProcessErrorEvent,
+            ProcessStartedEvent,
+        )
+
+        process_id = f"microsandbox_cmd_{id(self.sandbox)}"
+        yield ProcessStartedEvent(process_id=process_id, command=command)
+
+        try:
+            result = await self.execute_command(command)
+
+            # Emit output as single combined event
+            if result.stdout:
+                yield OutputEvent(
+                    process_id=process_id, data=result.stdout, stream="combined"
+                )
+
+            if result.success:
+                yield ProcessCompletedEvent(
+                    process_id=process_id, exit_code=result.exit_code or 0
+                )
+            else:
+                yield ProcessErrorEvent(
+                    process_id=process_id,
+                    error=result.error or "Unknown error",
+                    error_type=result.error_type or "CommandError",
+                    exit_code=result.exit_code,
+                )
+
+        except Exception as e:  # noqa: BLE001
+            yield ProcessErrorEvent(
+                process_id=process_id, error=str(e), error_type=type(e).__name__
+            )

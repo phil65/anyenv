@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from e2b import AsyncSandbox
     from upathtools.filesystems.e2b_fs import E2BFS
 
+    from anyenv.code_execution.events import ExecutionEvent
     from anyenv.code_execution.models import Language, ServerInfo
 
 
@@ -227,30 +228,111 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
                 error_type=error_type,
             )
 
-    async def execute_command_stream(self, command: str) -> AsyncIterator[str]:
-        """Execute a terminal command and stream output in the E2B sandbox."""
-        if not self.sandbox:
-            error_msg = "E2B environment not properly initialized"
-            raise RuntimeError(error_msg)
+    async def stream_code(self, code: str) -> AsyncIterator[ExecutionEvent]:
+        """Execute code and stream events in the E2B sandbox."""
+        from anyenv.code_execution.events import (
+            OutputEvent,
+            ProcessCompletedEvent,
+            ProcessErrorEvent,
+            ProcessStartedEvent,
+        )
+
+        process_id = f"e2b_{id(self.sandbox)}"
+        yield ProcessStartedEvent(
+            process_id=process_id, command=f"execute({len(code)} chars)"
+        )
 
         try:
-            # Stream output using E2B's commands.run() with callbacks
-            stdout_lines = []
-            stderr_lines = []
+            if not self.sandbox:
+                yield ProcessErrorEvent(
+                    process_id=process_id,
+                    error="E2B environment not properly initialized",
+                    error_type="RuntimeError",
+                )
+                return
+
+            stdout_events = []
+            stderr_events = []
 
             def on_stdout(data: str) -> None:
-                # E2B passes string data directly to callbacks
                 line = data.rstrip("\n\r")
                 if line:
-                    stdout_lines.append(line)
+                    stdout_events.append(
+                        OutputEvent(process_id=process_id, data=line, stream="stdout")
+                    )
 
             def on_stderr(data: str) -> None:
-                # E2B passes string data directly to callbacks
                 line = data.rstrip("\n\r")
                 if line:
-                    stderr_lines.append(line)
+                    stderr_events.append(
+                        OutputEvent(process_id=process_id, data=line, stream="stderr")
+                    )
 
-            # Execute command with streaming callbacks
+            result = await self.sandbox.notebook.exec_cell(
+                code,
+                timeout=int(self.timeout),
+                on_stdout=on_stdout,
+                on_stderr=on_stderr,
+            )
+
+            for event in stdout_events:
+                yield event
+            for event in stderr_events:
+                yield event
+
+            if result.error:
+                yield ProcessErrorEvent(
+                    process_id=process_id,
+                    error=str(result.error),
+                    error_type="ExecutionError",
+                    exit_code=1,
+                )
+            else:
+                yield ProcessCompletedEvent(process_id=process_id, exit_code=0)
+
+        except Exception as e:  # noqa: BLE001
+            yield ProcessErrorEvent(
+                process_id=process_id, error=str(e), error_type=type(e).__name__
+            )
+
+    async def stream_command(self, command: str) -> AsyncIterator[ExecutionEvent]:
+        """Execute a terminal command and stream events in the E2B sandbox."""
+        from anyenv.code_execution.events import (
+            OutputEvent,
+            ProcessCompletedEvent,
+            ProcessErrorEvent,
+            ProcessStartedEvent,
+        )
+
+        process_id = f"e2b_cmd_{id(self.sandbox)}"
+        yield ProcessStartedEvent(process_id=process_id, command=command)
+
+        try:
+            if not self.sandbox:
+                yield ProcessErrorEvent(
+                    process_id=process_id,
+                    error="E2B environment not properly initialized",
+                    error_type="RuntimeError",
+                )
+                return
+
+            stdout_events = []
+            stderr_events = []
+
+            def on_stdout(data: str) -> None:
+                line = data.rstrip("\n\r")
+                if line:
+                    stdout_events.append(
+                        OutputEvent(process_id=process_id, data=line, stream="stdout")
+                    )
+
+            def on_stderr(data: str) -> None:
+                line = data.rstrip("\n\r")
+                if line:
+                    stderr_events.append(
+                        OutputEvent(process_id=process_id, data=line, stream="stderr")
+                    )
+
             result = await self.sandbox.commands.run(
                 command,
                 timeout=int(self.timeout),
@@ -258,18 +340,27 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
                 on_stderr=on_stderr,
             )
 
-            # Yield all collected output lines
-            for line in stdout_lines:
-                yield line
-            for line in stderr_lines:
-                yield f"STDERR: {line}"
+            for event in stdout_events:
+                yield event
+            for event in stderr_events:
+                yield event
 
-            # Yield final result info
-            if result.exit_code != 0:
-                yield f"ERROR: Command exited with code {result.exit_code}"
+            if result.exit_code == 0:
+                yield ProcessCompletedEvent(
+                    process_id=process_id, exit_code=result.exit_code
+                )
+            else:
+                yield ProcessErrorEvent(
+                    process_id=process_id,
+                    error=f"Command exited with code {result.exit_code}",
+                    error_type="CommandError",
+                    exit_code=result.exit_code,
+                )
 
         except Exception as e:  # noqa: BLE001
-            yield f"ERROR: {e}"
+            yield ProcessErrorEvent(
+                process_id=process_id, error=str(e), error_type=type(e).__name__
+            )
 
 
 if __name__ == "__main__":

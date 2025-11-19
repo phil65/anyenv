@@ -35,6 +35,7 @@ if TYPE_CHECKING:
     from upathtools.filesystems.vercel_fs import VercelFS
     from vercel.sandbox import AsyncSandbox
 
+    from anyenv.code_execution.events import ExecutionEvent
     from anyenv.code_execution.models import Language, ServerInfo
 
 
@@ -204,39 +205,6 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
                 error_type=type(e).__name__,
             )
 
-    async def execute_stream(self, code: str) -> AsyncIterator[str]:
-        """Execute code and stream output line by line."""
-        if not self.sandbox:
-            error_msg = "Vercel environment not properly initialized"
-            raise RuntimeError(error_msg)
-
-        try:
-            script_path, wrapped_code = self._prepare_code_execution(code)
-            await self.sandbox.write_files([
-                {"path": script_path, "content": wrapped_code.encode()}
-            ])
-            # Execute the script in detached mode for streaming
-            cmd_name, args = self._get_execution_command(script_path)
-            cmd = await self.sandbox.run_command_detached(cmd_name, args)
-            # Stream logs from the command
-            async for log_line in self.sandbox.client.get_logs(
-                sandbox_id=self.sandbox.sandbox_id, cmd_id=cmd.cmd_id
-            ):
-                # LogLine has stream and data attributes
-                # Split batched content into individual lines
-                if log_line.data:
-                    for line in log_line.data.splitlines():
-                        if line.strip():  # Skip empty lines
-                            yield line
-
-            # Wait for command completion and yield final status
-            finished = await cmd.wait()
-            if finished.exit_code != 0:
-                yield f"ERROR: Command exited with code {finished.exit_code}"
-
-        except Exception as e:  # noqa: BLE001
-            yield f"ERROR: {e}"
-
     async def execute_command(self, command: str) -> ExecutionResult:
         """Execute a terminal command in the Vercel sandbox."""
         if not self.sandbox:
@@ -279,42 +247,125 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
                 error_type=type(e).__name__,
             )
 
-    async def execute_command_stream(self, command: str) -> AsyncIterator[str]:
-        """Execute a terminal command and stream output line by line."""
-        if not self.sandbox:
-            error_msg = "Vercel environment not properly initialized"
-            raise RuntimeError(error_msg)
+    async def stream_code(self, code: str) -> AsyncIterator[ExecutionEvent]:
+        """Execute code and stream events in the Vercel sandbox."""
+        from anyenv.code_execution.events import (
+            OutputEvent,
+            ProcessCompletedEvent,
+            ProcessErrorEvent,
+            ProcessStartedEvent,
+        )
+
+        process_id = f"vercel_{id(self.sandbox)}"
+        yield ProcessStartedEvent(
+            process_id=process_id, command=f"execute({len(code)} chars)"
+        )
 
         try:
+            if not self.sandbox:
+                yield ProcessErrorEvent(
+                    process_id=process_id,
+                    error="Vercel environment not properly initialized",
+                    error_type="RuntimeError",
+                )
+                return
+
+            script_path, wrapped_code = self._prepare_code_execution(code)
+            await self.sandbox.write_files([
+                {"path": script_path, "content": wrapped_code.encode()}
+            ])
+
+            cmd_name, args = self._get_execution_command(script_path)
+            cmd = await self.sandbox.run_command_detached(cmd_name, args)
+
+            async for log_line in self.sandbox.client.get_logs(
+                sandbox_id=self.sandbox.sandbox_id, cmd_id=cmd.cmd_id
+            ):
+                if log_line.data:
+                    for line in log_line.data.splitlines():
+                        if line.strip():
+                            yield OutputEvent(
+                                process_id=process_id, data=line, stream="combined"
+                            )
+
+            finished = await cmd.wait()
+            if finished.exit_code == 0:
+                yield ProcessCompletedEvent(
+                    process_id=process_id, exit_code=finished.exit_code
+                )
+            else:
+                yield ProcessErrorEvent(
+                    process_id=process_id,
+                    error=f"Process exited with code {finished.exit_code}",
+                    error_type="ProcessError",
+                    exit_code=finished.exit_code,
+                )
+
+        except Exception as e:  # noqa: BLE001
+            yield ProcessErrorEvent(
+                process_id=process_id, error=str(e), error_type=type(e).__name__
+            )
+
+    async def stream_command(self, command: str) -> AsyncIterator[ExecutionEvent]:
+        """Execute a terminal command and stream events in the Vercel sandbox."""
+        from anyenv.code_execution.events import (
+            OutputEvent,
+            ProcessCompletedEvent,
+            ProcessErrorEvent,
+            ProcessStartedEvent,
+        )
+
+        process_id = f"vercel_cmd_{id(self.sandbox)}"
+        yield ProcessStartedEvent(process_id=process_id, command=command)
+
+        try:
+            if not self.sandbox:
+                yield ProcessErrorEvent(
+                    process_id=process_id,
+                    error="Vercel environment not properly initialized",
+                    error_type="RuntimeError",
+                )
+                return
+
             parts = shlex.split(command)
             if not parts:
-                yield "ERROR: Empty command provided"
+                yield ProcessErrorEvent(
+                    process_id=process_id, error="Empty command", error_type="ValueError"
+                )
                 return
 
             cmd_name = parts[0]
             args = parts[1:] if len(parts) > 1 else None
 
-            # Execute command in detached mode for streaming
             cmd = await self.sandbox.run_command_detached(cmd_name, args)
 
-            # Stream logs from the command
             async for log_line in self.sandbox.client.get_logs(
                 sandbox_id=self.sandbox.sandbox_id, cmd_id=cmd.cmd_id
             ):
-                # LogLine has stream and data attributes
-                # Split batched content into individual lines
                 if log_line.data:
                     for line in log_line.data.splitlines():
-                        if line.strip():  # Skip empty lines
-                            yield line
+                        if line.strip():
+                            yield OutputEvent(
+                                process_id=process_id, data=line, stream="combined"
+                            )
 
-            # Wait for command completion and yield final status
             finished = await cmd.wait()
-            if finished.exit_code != 0:
-                yield f"ERROR: Command exited with code {finished.exit_code}"
+            if finished.exit_code == 0:
+                yield ProcessCompletedEvent(
+                    process_id=process_id, exit_code=finished.exit_code
+                )
+            else:
+                yield ProcessErrorEvent(
+                    process_id=process_id,
+                    error=f"Command exited with code {finished.exit_code}",
+                    error_type="CommandError",
+                    exit_code=finished.exit_code,
+                )
 
         except Exception as e:  # noqa: BLE001
-            yield f"ERROR: {e}"
+            yield ProcessErrorEvent(
+                process_id=process_id, error=str(e), error_type=type(e).__name__
+            )
 
     def _prepare_code_execution(self, code: str) -> tuple[str, str]:
         """Prepare code for execution, returning script path and wrapped code."""

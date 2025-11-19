@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from modal import App, Image, Sandbox
     from upathtools.filesystems.modal_fs import ModalFS
 
+    from anyenv.code_execution.events import ExecutionEvent
     from anyenv.code_execution.models import Language, ServerInfo
 
 
@@ -220,30 +221,6 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
                 error_type=type(e).__name__,
             )
 
-    async def execute_stream(self, code: str) -> AsyncIterator[str]:
-        """Execute code and stream output line by line."""
-        if not self.sandbox:
-            error_msg = "Modal environment not properly initialized"
-            raise RuntimeError(error_msg)
-
-        try:
-            script_content = wrap_code(code, language=self.language)
-            script_path = get_script_path(self.language)
-            with self.sandbox.open(script_path, "w") as f:
-                f.write(script_content)
-
-            command = self._get_execution_command(script_path)
-            process = self.sandbox.exec(*command, timeout=self.timeout)
-            for line in process.stdout:
-                yield line.rstrip("\n\r")
-            process.wait()
-            if process.returncode != 0:
-                for line in process.stderr:
-                    yield f"ERROR: {line.rstrip()}"
-
-        except Exception as e:  # noqa: BLE001
-            yield f"ERROR: {e}"
-
     async def execute_command(self, command: str) -> ExecutionResult:
         """Execute a terminal command in the Modal sandbox."""
         if not self.sandbox:
@@ -285,29 +262,6 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
                 error_type=type(e).__name__,
             )
 
-    async def execute_command_stream(self, command: str) -> AsyncIterator[str]:
-        """Execute a terminal command and stream output line by line."""
-        if not self.sandbox:
-            error_msg = "Modal environment not properly initialized"
-            raise RuntimeError(error_msg)
-
-        try:
-            parts = shlex.split(command)
-            if not parts:
-                yield "ERROR: Empty command provided"
-                return
-
-            process = self.sandbox.exec(*parts, timeout=self.timeout)
-            for line in process.stdout:
-                yield line.rstrip("\n\r")
-            process.wait()
-            if process.returncode != 0:
-                for line in process.stderr:
-                    yield f"ERROR: {line.rstrip()}"
-
-        except Exception as e:  # noqa: BLE001
-            yield f"ERROR: {e}"
-
     def _get_execution_command(self, script_path: str) -> list[str]:
         """Get execution command based on language."""
         match self.language:
@@ -319,6 +273,119 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
                 return ["npx", "ts-node", script_path]
             case _:
                 return ["python", script_path]
+
+    async def stream_code(self, code: str) -> AsyncIterator[ExecutionEvent]:
+        """Execute code and stream events in the Modal sandbox."""
+        from anyenv.code_execution.events import (
+            OutputEvent,
+            ProcessCompletedEvent,
+            ProcessErrorEvent,
+            ProcessStartedEvent,
+        )
+
+        process_id = f"modal_{id(self.sandbox)}"
+        yield ProcessStartedEvent(
+            process_id=process_id, command=f"execute({len(code)} chars)"
+        )
+
+        try:
+            if not self.sandbox:
+                yield ProcessErrorEvent(
+                    process_id=process_id,
+                    error="Modal environment not properly initialized",
+                    error_type="RuntimeError",
+                )
+                return
+
+            script_content = wrap_code(code, language=self.language)
+            script_path = get_script_path(self.language)
+            with self.sandbox.open(script_path, "w") as f:
+                f.write(script_content)
+
+            exec_command = self._get_execution_command(script_path)
+            process = self.sandbox.exec(*exec_command, timeout=self.timeout)
+
+            for line in process.stdout:
+                yield OutputEvent(
+                    process_id=process_id, data=line.rstrip("\n\r"), stream="stdout"
+                )
+
+            for line in process.stderr:
+                yield OutputEvent(
+                    process_id=process_id, data=line.rstrip("\n\r"), stream="stderr"
+                )
+
+            exit_code = process.wait()
+            if exit_code == 0:
+                yield ProcessCompletedEvent(process_id=process_id, exit_code=exit_code)
+            else:
+                yield ProcessErrorEvent(
+                    process_id=process_id,
+                    error=f"Process exited with code {exit_code}",
+                    error_type="ProcessError",
+                    exit_code=exit_code,
+                )
+
+        except Exception as e:  # noqa: BLE001
+            yield ProcessErrorEvent(
+                process_id=process_id, error=str(e), error_type=type(e).__name__
+            )
+
+    async def stream_command(self, command: str) -> AsyncIterator[ExecutionEvent]:
+        """Execute a terminal command and stream events in the Modal sandbox."""
+        from anyenv.code_execution.events import (
+            OutputEvent,
+            ProcessCompletedEvent,
+            ProcessErrorEvent,
+            ProcessStartedEvent,
+        )
+
+        process_id = f"modal_cmd_{id(self.sandbox)}"
+        yield ProcessStartedEvent(process_id=process_id, command=command)
+
+        try:
+            if not self.sandbox:
+                yield ProcessErrorEvent(
+                    process_id=process_id,
+                    error="Modal environment not properly initialized",
+                    error_type="RuntimeError",
+                )
+                return
+
+            parts = shlex.split(command)
+            if not parts:
+                yield ProcessErrorEvent(
+                    process_id=process_id, error="Empty command", error_type="ValueError"
+                )
+                return
+
+            process = self.sandbox.exec(*parts, timeout=self.timeout)
+
+            for line in process.stdout:
+                yield OutputEvent(
+                    process_id=process_id, data=line.rstrip("\n\r"), stream="stdout"
+                )
+
+            for line in process.stderr:
+                yield OutputEvent(
+                    process_id=process_id, data=line.rstrip("\n\r"), stream="stderr"
+                )
+
+            exit_code = process.wait()
+            if exit_code == 0:
+                yield ProcessCompletedEvent(process_id=process_id, exit_code=exit_code)
+            else:
+                yield ProcessErrorEvent(
+                    process_id=process_id,
+                    error=f"Command exited with code {exit_code}",
+                    error_type="CommandError",
+                    exit_code=exit_code,
+                )
+
+        except Exception as e:  # noqa: BLE001
+            yield ProcessErrorEvent(
+                process_id=process_id, error=str(e), error_type=type(e).__name__
+            )
 
 
 if __name__ == "__main__":

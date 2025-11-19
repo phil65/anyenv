@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from daytona._async.sandbox import AsyncSandbox
     from upathtools.filesystems.daytona_fs import DaytonaFS
 
+    from anyenv.code_execution.events import ExecutionEvent
     from anyenv.code_execution.models import Language, ServerInfo
 
 
@@ -186,15 +187,81 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
                 error_type=type(e).__name__,
             )
 
-    async def execute_command_stream(self, command: str) -> AsyncIterator[str]:
-        """Execute a terminal command and stream output in the Daytona sandbox."""
-        # real streaming not available in the API (nov 2025)
-        result = await self.execute_command(command)
-        if result.exit_code != 0:
-            yield f"ERROR: Command exited with code {result.exit_code}"
-        if result.error:
-            yield f"ERROR: {result.error}"
-        yield result.result
+    async def stream_code(self, code: str) -> AsyncIterator[ExecutionEvent]:
+        """Execute code and stream events in the Daytona sandbox."""
+        from anyenv.code_execution.events import (
+            OutputEvent,
+            ProcessCompletedEvent,
+            ProcessErrorEvent,
+            ProcessStartedEvent,
+        )
+
+        process_id = f"daytona_{id(self.sandbox)}"
+        yield ProcessStartedEvent(
+            process_id=process_id, command=f"execute({len(code)} chars)"
+        )
+
+        try:
+            result = await self.execute(code)
+
+            if result.stdout:
+                yield OutputEvent(
+                    process_id=process_id, data=result.stdout, stream="combined"
+                )
+
+            if result.success:
+                yield ProcessCompletedEvent(
+                    process_id=process_id, exit_code=result.exit_code or 0
+                )
+            else:
+                yield ProcessErrorEvent(
+                    process_id=process_id,
+                    error=result.error or "Unknown error",
+                    error_type=result.error_type or "ExecutionError",
+                    exit_code=result.exit_code,
+                )
+
+        except Exception as e:  # noqa: BLE001
+            yield ProcessErrorEvent(
+                process_id=process_id, error=str(e), error_type=type(e).__name__
+            )
+
+    async def stream_command(self, command: str) -> AsyncIterator[ExecutionEvent]:
+        """Execute terminal command and stream events in the Daytona sandbox."""
+        from anyenv.code_execution.events import (
+            OutputEvent,
+            ProcessCompletedEvent,
+            ProcessErrorEvent,
+            ProcessStartedEvent,
+        )
+
+        process_id = f"daytona_cmd_{id(self.sandbox)}"
+        yield ProcessStartedEvent(process_id=process_id, command=command)
+
+        try:
+            result = await self.execute_command(command)
+
+            if result.stdout:
+                yield OutputEvent(
+                    process_id=process_id, data=result.stdout, stream="combined"
+                )
+
+            if result.success:
+                yield ProcessCompletedEvent(
+                    process_id=process_id, exit_code=result.exit_code or 0
+                )
+            else:
+                yield ProcessErrorEvent(
+                    process_id=process_id,
+                    error=result.error or "Unknown error",
+                    error_type=result.error_type or "CommandError",
+                    exit_code=result.exit_code,
+                )
+
+        except Exception as e:  # noqa: BLE001
+            yield ProcessErrorEvent(
+                process_id=process_id, error=str(e), error_type=type(e).__name__
+            )
 
 
 if __name__ == "__main__":

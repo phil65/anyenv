@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 
     from fastmcp import Client
 
+    from anyenv.code_execution.events import ExecutionEvent
     from anyenv.code_execution.models import ServerInfo
 
 
@@ -179,12 +180,21 @@ class McpPythonExecutionEnvironment(ExecutionEnvironment):
         msg = "Terminal command execution is not supported in MCP Python environment"
         raise NotImplementedError(msg)
 
-    async def execute_command_stream(self, command: str) -> AsyncIterator[str]:
-        """Execute a terminal command and stream output.
+    async def stream_code(self, code: str) -> AsyncIterator[ExecutionEvent]:
+        """Execute code and stream events.
 
         (not supported in MCP Python environment).
         """
-        msg = "Terminal command streaming is not supported in MCP Python environment"
+        msg = "Code event streaming is not supported in MCP Python environment"
+        raise NotImplementedError(msg)
+        yield
+
+    async def stream_command(self, command: str) -> AsyncIterator[ExecutionEvent]:
+        """Execute a terminal command and stream events.
+
+        (not supported in MCP Python environment).
+        """
+        msg = "Command event streaming is not supported in MCP Python environment"
         raise NotImplementedError(msg)
         yield
 

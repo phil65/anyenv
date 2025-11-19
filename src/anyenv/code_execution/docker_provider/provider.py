@@ -6,7 +6,7 @@ import contextlib
 import shutil
 import tempfile
 import time
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Literal, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.models import ExecutionResult
@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from fsspec.implementations.dirfs import DirFileSystem
     from testcontainers.core.container import DockerContainer
 
+    from anyenv.code_execution.events import ExecutionEvent
     from anyenv.code_execution.models import Language, ServerInfo
 
 
@@ -165,49 +166,6 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
                 error_type=type(e).__name__,
             )
 
-    async def execute_stream(self, code: str) -> AsyncIterator[str]:
-        """Execute code in Docker container and stream output line by line.
-
-        Args:
-            code: Code to execute
-
-        Yields:
-            Lines of output as they are produced
-        """
-        try:
-            if not self.container:
-                error_msg = "Docker environment not properly initialized"
-                raise RuntimeError(error_msg)  # noqa: TRY301
-
-            if not self.host_workdir:
-                error_msg = "Host working directory not initialized"
-                raise RuntimeError(error_msg)  # noqa: TRY301
-
-            # Write code directly to shared filesystem
-            wrapped_code = wrap_code(code, self.language)
-            # Use simple script names that match get_execution_command expectations
-            script_extensions = {
-                "python": ".py",
-                "javascript": ".js",
-                "typescript": ".ts",
-            }
-            ext = script_extensions.get(self.language, ".py")
-            host_script_path = f"{self.host_workdir}/script{ext}"
-            with open(host_script_path, "w") as f:  # noqa: PTH123
-                f.write(wrapped_code)
-            command = get_execution_command(self.language)
-            docker_container = self.container.get_wrapped_container()
-            result = docker_container.exec_run(command, stream=True)
-            for chunk in result.output:  # Stream output line by line
-                if isinstance(chunk, bytes):
-                    chunk = chunk.decode()
-                for line in chunk.split("\n"):
-                    if line.strip():  # Only yield non-empty lines
-                        yield line
-
-        except Exception as e:  # noqa: BLE001
-            yield f"ERROR: {e}"
-
     async def execute_command(self, command: str) -> ExecutionResult:
         """Execute a terminal command in Docker container and return result."""
         start_time = time.time()
@@ -275,33 +233,127 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
                 error_type=type(e).__name__,
             )
 
-    async def execute_command_stream(self, command: str) -> AsyncIterator[str]:
-        """Execute a shell command and stream output line by line.
+    async def stream_code(self, code: str) -> AsyncIterator[ExecutionEvent]:
+        """Execute code and stream events in the Docker container."""
+        from anyenv.code_execution.events import (
+            OutputEvent,
+            ProcessCompletedEvent,
+            ProcessErrorEvent,
+            ProcessStartedEvent,
+        )
 
-        Args:
-            command: Shell command to execute
+        process_id = f"docker_{id(self.container)}"
+        yield ProcessStartedEvent(
+            process_id=process_id, command=f"execute({len(code)} chars)"
+        )
 
-        Yields:
-            Lines of output as they are produced
-        """
         try:
             if not self.container:
-                error_msg = "Docker environment not properly initialized"
-                raise RuntimeError(error_msg)  # noqa: TRY301
+                yield ProcessErrorEvent(
+                    process_id=process_id,
+                    error="Docker container not initialized",
+                    error_type="RuntimeError",
+                )
+                return
 
-            # Execute command in /workspace directory with streaming
-            full_command = f"sh -c 'cd /workspace && {command}'"
+            if not self.host_workdir:
+                yield ProcessErrorEvent(
+                    process_id=process_id,
+                    error="Host working directory not initialized",
+                    error_type="RuntimeError",
+                )
+                return
+
+            lang: Literal["python", "javascript", "typescript"] = (
+                "javascript" if self.language == "typescript" else self.language
+            )
+            wrapped_code = wrap_code(code, lang)
+            extension = {"python": "py", "javascript": "js", "typescript": "ts"}[
+                self.language
+            ]
+            ext = extension
+            host_script_path = f"{self.host_workdir}/script.{ext}"
+            with open(host_script_path, "w") as f:  # noqa: PTH123
+                f.write(wrapped_code)
+
+            exec_command = get_execution_command(self.language)
             docker_container = self.container.get_wrapped_container()
-            result = docker_container.exec_run(full_command, stream=True)
-            for chunk in result.output:  # Stream output line by line
+            result = docker_container.exec_run(exec_command, stream=True)
+
+            for chunk in result.output:
                 if isinstance(chunk, bytes):
                     chunk = chunk.decode()
                 for line in chunk.split("\n"):
-                    if line.strip():  # Only yield non-empty lines
-                        yield line
+                    if line.strip():
+                        yield OutputEvent(
+                            process_id=process_id, data=line, stream="combined"
+                        )
+
+            exit_code = result.exit_code or 0
+            if exit_code == 0:
+                yield ProcessCompletedEvent(process_id=process_id, exit_code=exit_code)
+            else:
+                yield ProcessErrorEvent(
+                    process_id=process_id,
+                    error=f"Process exited with code {exit_code}",
+                    error_type="ProcessError",
+                    exit_code=exit_code,
+                )
 
         except Exception as e:  # noqa: BLE001
-            yield f"ERROR: {e}"
+            yield ProcessErrorEvent(
+                process_id=process_id, error=str(e), error_type=type(e).__name__
+            )
+
+    async def stream_command(self, command: str) -> AsyncIterator[ExecutionEvent]:
+        """Execute a shell command and stream events in the Docker container."""
+        from anyenv.code_execution.events import (
+            OutputEvent,
+            ProcessCompletedEvent,
+            ProcessErrorEvent,
+            ProcessStartedEvent,
+        )
+
+        process_id = f"docker_cmd_{id(self.container)}"
+        yield ProcessStartedEvent(process_id=process_id, command=command)
+
+        try:
+            if not self.container:
+                yield ProcessErrorEvent(
+                    process_id=process_id,
+                    error="Docker container not initialized",
+                    error_type="RuntimeError",
+                )
+                return
+
+            full_command = f"sh -c 'cd /workspace && {command}'"
+            docker_container = self.container.get_wrapped_container()
+            result = docker_container.exec_run(full_command, stream=True)
+
+            for chunk in result.output:
+                if isinstance(chunk, bytes):
+                    chunk = chunk.decode()
+                for line in chunk.split("\n"):
+                    if line.strip():
+                        yield OutputEvent(
+                            process_id=process_id, data=line, stream="combined"
+                        )
+
+            exit_code = result.exit_code or 0
+            if exit_code == 0:
+                yield ProcessCompletedEvent(process_id=process_id, exit_code=exit_code)
+            else:
+                yield ProcessErrorEvent(
+                    process_id=process_id,
+                    error=f"Command exited with code {exit_code}",
+                    error_type="CommandError",
+                    exit_code=exit_code,
+                )
+
+        except Exception as e:  # noqa: BLE001
+            yield ProcessErrorEvent(
+                process_id=process_id, error=str(e), error_type=type(e).__name__
+            )
 
 
 def get_execution_command(language: Language) -> str:

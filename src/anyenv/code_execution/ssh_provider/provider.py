@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from asyncssh.misc import _ACMWrapper
     from sshfs import SSHFileSystem
 
+    from anyenv.code_execution.events import ExecutionEvent
     from anyenv.code_execution.models import Language, ServerInfo
 
 
@@ -349,45 +350,129 @@ os.environ['TOOL_SERVER_PORT'] = '{self.server_info.port}'
                 error_type=type(e).__name__,
             )
 
-    async def execute_stream(self, code: str) -> AsyncIterator[str]:
-        """Execute code and stream output line by line."""
-        cwd = self._remote_work_dir
-        if not self.connection:
-            msg = "SSH connection not established"
-            raise RuntimeError(msg)
+    async def stream_code(self, code: str) -> AsyncIterator[ExecutionEvent]:
+        """Execute code and stream events over SSH."""
+        from anyenv.code_execution.events import (
+            OutputEvent,
+            ProcessCompletedEvent,
+            ProcessErrorEvent,
+            ProcessStartedEvent,
+        )
 
-        if self.language == "python":
-            script_path = f"{cwd}/script.py"
-            await self.write_file(script_path, code)
-            # Build uv run command with dependencies
-            if self.dependencies:
-                with_args = " ".join(f"--with {dep}" for dep in self.dependencies)
-                cmd = f"cd {cwd} && uv run {with_args} python {script_path}"
+        process_id = f"ssh_{id(self.connection)}"
+        yield ProcessStartedEvent(
+            process_id=process_id, command=f"execute({len(code)} chars)"
+        )
+
+        try:
+            if not self.connection:
+                yield ProcessErrorEvent(
+                    process_id=process_id,
+                    error="SSH connection not established",
+                    error_type="RuntimeError",
+                )
+                return
+
+            if self.language == "python":
+                result = await self._execute_python(code)
+            elif self.language == "javascript":
+                result = await self._execute_javascript(code)
+            elif self.language == "typescript":
+                result = await self._execute_typescript(code)
             else:
-                cmd = f"cd {cwd} && uv run python {script_path}"
-        else:
-            # Similar logic for JS/TS...
-            script_path = (
-                f"{cwd}/script.{'js' if self.language == 'javascript' else 'ts'}"
+                yield ProcessErrorEvent(
+                    process_id=process_id,
+                    error=f"Unsupported language: {self.language}",
+                    error_type="ValueError",
+                )
+                return
+
+            stdout = (
+                result.stdout.decode()
+                if isinstance(result.stdout, bytes)
+                else result.stdout
             )
-            await self.write_file(script_path, code)
-            cmd = f"cd {cwd} && node {script_path}"
+            stderr = (
+                result.stderr.decode()
+                if isinstance(result.stderr, bytes)
+                else result.stderr
+            )
 
-        # Stream execution - wrap command for login shell
-        async with self.connection.create_process(wrap_command(cmd)) as process:
-            async for line in process.stdout:
-                yield line.rstrip("\n\r")
+            if stdout:
+                yield OutputEvent(process_id=process_id, data=stdout, stream="stdout")
+            if stderr:
+                yield OutputEvent(process_id=process_id, data=stderr, stream="stderr")
 
-    async def execute_command_stream(self, command: str) -> AsyncIterator[str]:
-        """Execute command and stream output line by line."""
-        if not self.connection:
-            msg = "SSH connection not established"
-            raise RuntimeError(msg)
+            exit_code = result.returncode or 0
+            if exit_code == 0:
+                yield ProcessCompletedEvent(process_id=process_id, exit_code=exit_code)
+            else:
+                yield ProcessErrorEvent(
+                    process_id=process_id,
+                    error=f"Process exited with code {exit_code}",
+                    error_type="ProcessError",
+                    exit_code=exit_code,
+                )
 
-        cmd = f"cd {self._remote_work_dir} && {command}"
-        async with self.connection.create_process(wrap_command(cmd)) as process:
-            async for line in process.stdout:
-                yield line.rstrip("\n\r")
+        except Exception as e:  # noqa: BLE001
+            yield ProcessErrorEvent(
+                process_id=process_id, error=str(e), error_type=type(e).__name__
+            )
+
+    async def stream_command(self, command: str) -> AsyncIterator[ExecutionEvent]:
+        """Execute command and stream events over SSH."""
+        from anyenv.code_execution.events import (
+            OutputEvent,
+            ProcessCompletedEvent,
+            ProcessErrorEvent,
+            ProcessStartedEvent,
+        )
+
+        process_id = f"ssh_cmd_{id(self.connection)}"
+        yield ProcessStartedEvent(process_id=process_id, command=command)
+
+        try:
+            if not self.connection:
+                yield ProcessErrorEvent(
+                    process_id=process_id,
+                    error="SSH connection not established",
+                    error_type="RuntimeError",
+                )
+                return
+
+            cmd = f"cd {self._remote_work_dir} && {command}"
+            async with self.connection.create_process(wrap_command(cmd)) as process:
+                async for line in process.stdout:
+                    yield OutputEvent(
+                        process_id=process_id,
+                        data=line.rstrip("\n\r"),
+                        stream="stdout",
+                    )
+
+                async for line in process.stderr:
+                    yield OutputEvent(
+                        process_id=process_id,
+                        data=line.rstrip("\n\r"),
+                        stream="stderr",
+                    )
+
+                exit_code = process.returncode or 0
+                if exit_code == 0:
+                    yield ProcessCompletedEvent(
+                        process_id=process_id, exit_code=exit_code
+                    )
+                else:
+                    yield ProcessErrorEvent(
+                        process_id=process_id,
+                        error=f"Command exited with code {exit_code}",
+                        error_type="CommandError",
+                        exit_code=exit_code,
+                    )
+
+        except Exception as e:  # noqa: BLE001
+            yield ProcessErrorEvent(
+                process_id=process_id, error=str(e), error_type=type(e).__name__
+            )
 
 
 if __name__ == "__main__":

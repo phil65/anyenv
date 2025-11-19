@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 
     from fsspec.asyn import AsyncFileSystem
 
+    from anyenv.code_execution.events import ExecutionEvent
     from anyenv.code_execution.models import ExecutionResult, ServerInfo
     from anyenv.process_manager import ProcessManagerProtocol
 
@@ -76,24 +77,46 @@ class ExecutionEnvironment(ABC):
         msg = "VFS is not supported"
         raise NotImplementedError(msg)
 
-    async def execute_stream(self, code: str) -> AsyncIterator[str]:
-        """Execute code and stream output line by line (optional).
+    @abstractmethod
+    def stream_code(self, code: str) -> AsyncIterator[ExecutionEvent]:
+        """Execute code and stream events (required).
 
-        Not all execution environments support streaming.
-        Default implementation raises NotImplementedError.
+        Args:
+            code: Code to execute
+
+        Yields:
+            ExecutionEvent objects as they occur
+        """
+        ...
+
+    @abstractmethod
+    def stream_command(self, command: str) -> AsyncIterator[ExecutionEvent]:
+        """Execute a terminal command and stream events (required).
+
+        Args:
+            command: Terminal command to execute
+
+        Yields:
+            ExecutionEvent objects as they occur
+        """
+        ...
+
+    async def execute_stream(self, code: str) -> AsyncIterator[str]:
+        """Execute code and stream output line by line.
+
+        Default implementation delegates to stream_code() and filters OutputEvents.
 
         Args:
             code: Code to execute
 
         Yields:
             Lines of output as they are produced
-
-        Raises:
-            NotImplementedError: If streaming is not supported
         """
-        msg = f"{self.__class__.__name__} does not support streaming"
-        raise NotImplementedError(msg)
-        yield
+        from anyenv.code_execution.events import OutputEvent
+
+        async for event in self.stream_code(code):
+            if isinstance(event, OutputEvent):
+                yield event.data
 
     @abstractmethod
     async def execute_command(self, command: str) -> ExecutionResult:
@@ -108,23 +131,21 @@ class ExecutionEnvironment(ABC):
         ...
 
     async def execute_command_stream(self, command: str) -> AsyncIterator[str]:
-        """Execute a terminal command and stream output line by line (optional).
+        """Execute a terminal command and stream output line by line.
 
-        Not all execution environments support streaming commands.
-        Default implementation raises NotImplementedError.
+        Default implementation delegates to stream_command() and filters OutputEvents.
 
         Args:
             command: Terminal command to execute
 
         Yields:
             Lines of output as they are produced
-
-        Raises:
-            NotImplementedError: If command streaming is not supported
         """
-        msg = f"{self.__class__.__name__} does not support command streaming"
-        raise NotImplementedError(msg)
-        yield
+        from anyenv.code_execution.events import OutputEvent
+
+        async for event in self.stream_command(command):
+            if isinstance(event, OutputEvent):
+                yield event.data
 
     @classmethod
     async def execute_script(cls, script_content: str, **kwargs: Any) -> ExecutionResult:

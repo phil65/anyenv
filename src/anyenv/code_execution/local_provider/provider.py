@@ -6,11 +6,10 @@ import asyncio
 import inspect
 import shutil
 import time
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, Any, Literal, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.local_provider.utils import (
-    execute_stream_local,
     find_executable,
 )
 from anyenv.code_execution.models import ExecutionResult
@@ -25,6 +24,7 @@ if TYPE_CHECKING:
 
     from morefs.asyn_local import AsyncLocalFileSystem
 
+    from anyenv.code_execution.events import ExecutionEvent
     from anyenv.code_execution.models import Language, ServerInfo
 
 
@@ -240,53 +240,6 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
             case _:
                 return [self.executable]
 
-    async def execute_stream(self, code: str) -> AsyncIterator[str]:
-        """Execute code and stream output line by line."""
-        if self.isolated:
-            async for line in self._execute_stream_subprocess(code):
-                yield line
-        else:
-            async for line in execute_stream_local(code, self.timeout):
-                yield line
-
-    async def _execute_stream_subprocess(self, code: str) -> AsyncIterator[str]:
-        """Execute code in subprocess and stream output line by line."""
-        try:
-            process = await create_process(
-                *self._get_subprocess_args(),
-                stdin="pipe",
-                stdout="pipe",
-                stderr="stdout",
-            )
-            self.process = process
-
-            # Send code to subprocess
-            if process.stdin:
-                wrapped_code = wrap_code(code, self.language)
-                process.stdin.write(wrapped_code.encode())
-                process.stdin.close()
-
-            # Stream output line by line
-            if process.stdout:
-                while True:
-                    try:
-                        line = await asyncio.wait_for(
-                            process.stdout.readline(), timeout=self.timeout
-                        )
-                        if not line:
-                            break
-                        yield line.decode().rstrip("\n\r")
-                    except TimeoutError:
-                        process.kill()
-                        await process.wait()
-                        yield f"ERROR: Execution timed out after {self.timeout} seconds"
-                        break
-
-            await process.wait()
-
-        except Exception as e:  # noqa: BLE001
-            yield f"ERROR: {e}"
-
     async def execute_command(self, command: str) -> ExecutionResult:
         """Execute a shell command and return result with metadata."""
         start_time = time.time()
@@ -323,8 +276,204 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
                 error_type=type(e).__name__,
             )
 
-    async def execute_command_stream(self, command: str) -> AsyncIterator[str]:
-        """Execute a shell command and stream output line by line."""
+    async def stream_code(self, code: str) -> AsyncIterator[ExecutionEvent]:
+        """Execute code and stream events."""
+        from anyenv.code_execution.events import (
+            ProcessErrorEvent,
+            ProcessStartedEvent,
+        )
+
+        process_id = f"local_{id(self)}"
+        yield ProcessStartedEvent(
+            process_id=process_id, command=f"execute({len(code)} chars)"
+        )
+
+        try:
+            if self.isolated:
+                async for event in self._stream_code_subprocess(code, process_id):
+                    yield event
+            else:
+                async for event in self._stream_code_local(code, process_id):
+                    yield event
+        except Exception as e:  # noqa: BLE001
+            yield ProcessErrorEvent(
+                process_id=process_id, error=str(e), error_type=type(e).__name__
+            )
+
+    async def _stream_code_subprocess(
+        self, code: str, process_id: str
+    ) -> AsyncIterator[ExecutionEvent]:
+        """Execute code in subprocess and stream events."""
+        from anyenv.code_execution.events import (
+            OutputEvent,
+            ProcessCompletedEvent,
+            ProcessErrorEvent,
+        )
+
+        try:
+            process = await create_process(
+                *self._get_subprocess_args(),
+                stdin="pipe",
+                stdout="pipe",
+                stderr="stdout",
+            )
+            self.process = process
+
+            if process.stdin:
+                wrapped_code = wrap_code(code, self.language)
+                process.stdin.write(wrapped_code.encode())
+                process.stdin.close()
+
+            if process.stdout:
+                while True:
+                    try:
+                        line = await asyncio.wait_for(
+                            process.stdout.readline(), timeout=self.timeout
+                        )
+                        if not line:
+                            break
+                        yield OutputEvent(
+                            process_id=process_id,
+                            data=line.decode().rstrip("\n\r"),
+                            stream="combined",
+                        )
+                    except TimeoutError:
+                        process.kill()
+                        await process.wait()
+                        yield ProcessErrorEvent(
+                            process_id=process_id,
+                            error=f"Process timed out after {self.timeout} seconds",
+                            error_type="TimeoutError",
+                            exit_code=1,
+                        )
+                        return
+
+            exit_code = await process.wait()
+            if exit_code == 0:
+                yield ProcessCompletedEvent(process_id=process_id, exit_code=exit_code)
+            else:
+                yield ProcessErrorEvent(
+                    process_id=process_id,
+                    error=f"Process exited with code {exit_code}",
+                    error_type="ProcessError",
+                    exit_code=exit_code,
+                )
+
+        except Exception as e:  # noqa: BLE001
+            yield ProcessErrorEvent(
+                process_id=process_id, error=str(e), error_type=type(e).__name__
+            )
+
+    async def _stream_code_local(
+        self, code: str, process_id: str
+    ) -> AsyncIterator[ExecutionEvent]:
+        """Execute code locally and stream events."""
+        import contextlib
+        import inspect
+        import sys
+
+        from anyenv.code_execution.events import (
+            OutputEvent,
+            ProcessCompletedEvent,
+            ProcessErrorEvent,
+        )
+        from anyenv.code_execution.local_provider.utils import StreamCapture
+
+        try:
+            output_queue: asyncio.Queue[str] = asyncio.Queue()
+            stdout_capture = StreamCapture(sys.stdout, output_queue)
+            stderr_capture = StreamCapture(sys.stderr, output_queue)
+            execution_done = False
+
+            async def execute_code() -> None:
+                nonlocal execution_done
+                try:
+                    namespace = {"__builtins__": __builtins__}
+
+                    with (
+                        contextlib.redirect_stdout(stdout_capture),
+                        contextlib.redirect_stderr(stderr_capture),
+                    ):
+                        lang: Literal["python", "javascript", "typescript"] = (
+                            "javascript" if self.language == "typescript" else "python"
+                        )
+                        wrapped_code = wrap_code(code, lang)
+
+                        if self.language == "python":
+                            exec(wrapped_code, namespace)
+
+                            if "main" in namespace and callable(namespace["main"]):
+                                main_func = namespace["main"]
+                                if inspect.iscoroutinefunction(main_func):
+                                    result = await asyncio.wait_for(
+                                        main_func(), timeout=self.timeout
+                                    )
+                                else:
+                                    result = await asyncio.wait_for(
+                                        asyncio.to_thread(main_func),
+                                        timeout=self.timeout,
+                                    )
+
+                                if result is not None:
+                                    print(f"Result: {result}")
+                            else:
+                                result = namespace.get("_result")
+                                if result is not None:
+                                    print(f"Result: {result}")
+
+                except Exception as e:  # noqa: BLE001
+                    print(f"ERROR: {e}", file=sys.stderr)
+                finally:
+                    execution_done = True
+                    with contextlib.suppress(asyncio.QueueFull):
+                        output_queue.put_nowait("__EXECUTION_COMPLETE__")
+
+            execute_task = asyncio.create_task(execute_code())
+
+            try:
+                while True:
+                    try:
+                        line = await asyncio.wait_for(output_queue.get(), timeout=0.1)
+                        if line == "__EXECUTION_COMPLETE__":
+                            break
+                        if line and line.strip():
+                            yield OutputEvent(
+                                process_id=process_id,
+                                data=line.rstrip("\n\r"),
+                                stream="combined",
+                            )
+                    except TimeoutError:
+                        if execution_done and output_queue.empty():
+                            break
+                        continue
+
+                await execute_task
+                yield ProcessCompletedEvent(process_id=process_id, exit_code=0)
+
+            except Exception as e:  # noqa: BLE001
+                if not execute_task.done():
+                    execute_task.cancel()
+                yield ProcessErrorEvent(
+                    process_id=process_id, error=str(e), error_type=type(e).__name__
+                )
+
+        except Exception as e:  # noqa: BLE001
+            yield ProcessErrorEvent(
+                process_id=process_id, error=str(e), error_type=type(e).__name__
+            )
+
+    async def stream_command(self, command: str) -> AsyncIterator[ExecutionEvent]:
+        """Execute a shell command and stream events."""
+        from anyenv.code_execution.events import (
+            OutputEvent,
+            ProcessCompletedEvent,
+            ProcessErrorEvent,
+            ProcessStartedEvent,
+        )
+
+        process_id = f"local_cmd_{id(self)}"
+        yield ProcessStartedEvent(process_id=process_id, command=command)
+
         try:
             process = await create_shell_process(command, stdout="pipe", stderr="stdout")
 
@@ -336,17 +485,37 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
                         )
                         if not line:
                             break
-                        yield line.decode().rstrip("\n\r")
+                        yield OutputEvent(
+                            process_id=process_id,
+                            data=line.decode().rstrip("\n\r"),
+                            stream="combined",
+                        )
                     except TimeoutError:
                         process.kill()
                         await process.wait()
-                        yield f"ERROR: Command timed out after {self.timeout} seconds"
-                        break
+                        yield ProcessErrorEvent(
+                            process_id=process_id,
+                            error=f"Command timed out after {self.timeout} seconds",
+                            error_type="TimeoutError",
+                            exit_code=1,
+                        )
+                        return
 
-            await process.wait()
+            exit_code = await process.wait()
+            if exit_code == 0:
+                yield ProcessCompletedEvent(process_id=process_id, exit_code=exit_code)
+            else:
+                yield ProcessErrorEvent(
+                    process_id=process_id,
+                    error=f"Command exited with code {exit_code}",
+                    error_type="CommandError",
+                    exit_code=exit_code,
+                )
 
         except Exception as e:  # noqa: BLE001
-            yield f"ERROR: {e}"
+            yield ProcessErrorEvent(
+                process_id=process_id, error=str(e), error_type=type(e).__name__
+            )
 
 
 if __name__ == "__main__":

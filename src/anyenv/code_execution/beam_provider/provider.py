@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import shlex
 import time
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Literal, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.beam_provider.helpers import get_image
@@ -21,6 +22,7 @@ if TYPE_CHECKING:
     from beam import SandboxInstance
     from upathtools.filesystems.beam_fs import BeamFS
 
+    from anyenv.code_execution.events import ExecutionEvent
     from anyenv.code_execution.models import Language, ServerInfo
 
 
@@ -105,7 +107,9 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
         self.instance = self.validate_instance()
         start_time = time.time()
         try:
-            lang = "javascript" if self.language == "typescript" else "python"
+            lang: Literal["python", "javascript", "typescript"] = (
+                "javascript" if self.language == "typescript" else "python"
+            )
             wrapped_code = wrap_code(code, lang)
             response = await asyncio.to_thread(
                 self.instance.process.run_code,
@@ -146,20 +150,6 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
                 error_type=type(e).__name__,
             )
 
-    async def execute_stream(self, code: str) -> AsyncIterator[str]:
-        """Execute code and stream output using Beam's real-time streaming."""
-        from beam import SandboxProcess
-
-        self.instance = self.validate_instance()
-        try:
-            process = self.instance.process.run_code(code, blocking=False)
-            assert isinstance(process, SandboxProcess)
-            for line in process.logs:
-                yield line.rstrip("\n\r")
-
-        except Exception as e:  # noqa: BLE001
-            yield f"ERROR: {e}"
-
     async def execute_command(self, command: str) -> ExecutionResult:
         """Execute a terminal command in the Beam sandbox."""
         self.instance = self.validate_instance()
@@ -194,22 +184,96 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
                 error_type=type(e).__name__,
             )
 
-    async def execute_command_stream(self, command: str) -> AsyncIterator[str]:
-        """Execute a terminal command and stream output in the Beam sandbox."""
+    async def stream_code(self, code: str) -> AsyncIterator[ExecutionEvent]:
+        """Execute code and stream events using Beam's real-time streaming."""
+        from beam import SandboxProcess
+
+        from anyenv.code_execution.events import (
+            OutputEvent,
+            ProcessCompletedEvent,
+            ProcessErrorEvent,
+            ProcessStartedEvent,
+        )
+
         self.instance = self.validate_instance()
+        process_id = f"beam_{id(self.instance)}"
+
+        yield ProcessStartedEvent(
+            process_id=process_id, command=f"run_code({len(code)} chars)"
+        )
+
+        try:
+            lang: Literal["python", "javascript", "typescript"] = (
+                "javascript" if self.language == "typescript" else "python"
+            )
+            wrapped_code = wrap_code(code, lang)
+            process = self.instance.process.run_code(wrapped_code, blocking=False)
+            assert isinstance(process, SandboxProcess)
+
+            for line in process.logs:
+                yield OutputEvent(
+                    process_id=process_id, data=line.rstrip("\n\r"), stream="combined"
+                )
+
+            exit_code = process.exit_code or 0
+            if exit_code == 0:
+                yield ProcessCompletedEvent(process_id=process_id, exit_code=exit_code)
+            else:
+                yield ProcessErrorEvent(
+                    process_id=process_id,
+                    error=f"Process exited with code {exit_code}",
+                    error_type="ProcessError",
+                    exit_code=exit_code,
+                )
+
+        except Exception as e:  # noqa: BLE001
+            yield ProcessErrorEvent(
+                process_id=process_id, error=str(e), error_type=type(e).__name__
+            )
+
+    async def stream_command(self, command: str) -> AsyncIterator[ExecutionEvent]:
+        """Execute a terminal command and stream events in the Beam sandbox."""
+        from anyenv.code_execution.events import (
+            OutputEvent,
+            ProcessCompletedEvent,
+            ProcessErrorEvent,
+            ProcessStartedEvent,
+        )
+
+        self.instance = self.validate_instance()
+        process_id = f"beam_cmd_{id(self.instance)}"
+
+        yield ProcessStartedEvent(process_id=process_id, command=command)
+
         try:
             cmd_parts = shlex.split(command)
             if not cmd_parts:
-                msg = "Empty command"
-                raise ValueError(msg)  # noqa: TRY301
+                yield ProcessErrorEvent(
+                    process_id=process_id, error="Empty command", error_type="ValueError"
+                )
+                return
 
             process = self.instance.process.exec(*cmd_parts)
             for line in process.logs:
-                yield line.rstrip("\n\r")
-            if process.exit_code > 0:  # Check final exit code if available
-                yield f"ERROR: Command exited with code {process.exit_code}"
+                yield OutputEvent(
+                    process_id=process_id, data=line.rstrip("\n\r"), stream="combined"
+                )
+
+            exit_code = await asyncio.to_thread(process.wait)
+            if exit_code == 0:
+                yield ProcessCompletedEvent(process_id=process_id, exit_code=exit_code)
+            else:
+                yield ProcessErrorEvent(
+                    process_id=process_id,
+                    error=f"Command exited with code {exit_code}",
+                    error_type="CommandError",
+                    exit_code=exit_code,
+                )
+
         except Exception as e:  # noqa: BLE001
-            yield f"ERROR: {e}"
+            yield ProcessErrorEvent(
+                process_id=process_id, error=str(e), error_type=type(e).__name__
+            )
 
 
 if __name__ == "__main__":
