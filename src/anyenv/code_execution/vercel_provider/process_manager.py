@@ -73,31 +73,20 @@ class VercelTerminalManager(ProcessManagerProtocol):
 
         # Construct full command
         full_command = [command, *args]
-        cmd_str = " ".join(full_command)
+        cmd = " ".join(full_command)
 
         try:
-            # Run detached command through Vercel
-            detached_command = await self.sandbox.run_command_detached(
-                cmd_str,
-                cwd=str(cwd) if cwd else None,
-                env=env,
-            )
-
-            terminal._command = detached_command  # noqa: SLF001
-            terminal.command_id = getattr(detached_command, "id", None)
-
-            # Store terminal
+            cwd = str(cwd) if cwd else None
+            detached_cmd = await self.sandbox.run_command_detached(cmd, cwd=cwd, env=env)
+            terminal._command = detached_cmd  # noqa: SLF001
+            terminal.command_id = getattr(detached_cmd, "id", None)
             self._terminals[terminal_id] = terminal
-
-            # Start output collection task
             task = asyncio.create_task(self._collect_output(terminal))
-            # Store task reference to avoid RUF006 warning
             terminal._task = task  # noqa: SLF001
             msg = "Started Vercel terminal %s: %s"
-            logger.info(msg, terminal_id, cmd_str)
-
+            logger.info(msg, terminal_id, cmd)
         except Exception as e:
-            logger.exception("Failed to start Vercel command: %s", cmd_str)
+            logger.exception("Failed to start Vercel command: %s", cmd)
             terminal.add_output(f"Failed to start command: {e}\n")
             terminal.set_exit_code(1)
             self._terminals[terminal_id] = terminal
@@ -111,7 +100,6 @@ class VercelTerminalManager(ProcessManagerProtocol):
                 # Collect stdout
                 if stdout := await terminal._command.stdout():  # noqa: SLF001
                     terminal.add_output(stdout)
-
                 # Collect stderr
                 if stderr := await terminal._command.stderr():  # noqa: SLF001
                     terminal.add_output(f"STDERR: {stderr}")
@@ -134,7 +122,6 @@ class VercelTerminalManager(ProcessManagerProtocol):
             raise ValueError(msg)
 
         terminal = self._terminals[process_id]
-
         # Try to update status if command exists
         if terminal._command and terminal.is_running():  # noqa: SLF001
             try:
@@ -153,7 +140,6 @@ class VercelTerminalManager(ProcessManagerProtocol):
 
         output = terminal.get_output()
         exit_code = terminal.get_exit_code()
-
         return ProcessOutput(
             stdout=output, stderr="", combined=output, exit_code=exit_code
         )
@@ -182,7 +168,6 @@ class VercelTerminalManager(ProcessManagerProtocol):
                         except Exception:  # noqa: BLE001
                             continue
 
-                # Get final result
                 result = await cmd.wait()
                 terminal.set_exit_code(result.exit_code)
 
@@ -199,18 +184,12 @@ class VercelTerminalManager(ProcessManagerProtocol):
             raise ValueError(msg)
 
         terminal = self._terminals[process_id]
-
-        try:
-            # Vercel doesn't appear to have a direct kill command
-            # We'll mark it as killed with SIGINT exit code
-            if terminal.is_running():
-                terminal.set_exit_code(130)  # SIGINT exit code
-                msg = "Killed Vercel process %s (no direct kill support)"
-                logger.info(msg, process_id)
-
-        except Exception:
-            logger.exception("Error killing process %s", process_id)
-            terminal.set_exit_code(1)
+        # Vercel doesn't appear to have a direct kill command
+        # We'll mark it as killed with SIGINT exit code
+        if terminal.is_running():
+            terminal.set_exit_code(130)  # SIGINT exit code
+            msg = "Killed Vercel process %s (no direct kill support)"
+            logger.info(msg, process_id)
 
     async def release_process(self, process_id: str) -> None:
         """Release process resources."""
@@ -219,12 +198,8 @@ class VercelTerminalManager(ProcessManagerProtocol):
             raise ValueError(msg)
 
         terminal = self._terminals[process_id]
-
-        # Kill if still running
-        if terminal.is_running():
+        if terminal.is_running():  # Kill if still running
             await self.kill_process(process_id)
-
-        # Remove from tracking
         del self._terminals[process_id]
         logger.info("Released process %s", process_id)
 
