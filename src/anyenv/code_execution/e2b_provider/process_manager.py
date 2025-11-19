@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class E2BTerminal(BaseTerminal):
     """Represents a terminal session using E2B's process management."""
 

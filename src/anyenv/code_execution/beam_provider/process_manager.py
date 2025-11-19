@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class BeamTerminal(BaseTerminal):
     """Represents a terminal session using Beam's process management."""
 

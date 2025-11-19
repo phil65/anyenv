@@ -656,6 +656,7 @@ class EnvironmentTerminalManager:
         terminal = self._terminals[terminal_id]
 
         try:
+            assert terminal.task
             await terminal.task
         except asyncio.CancelledError:
             terminal.set_exit_code(130)  # SIGINT exit code

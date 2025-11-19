@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-@dataclass
+@dataclass(kw_only=True)
 class DaytonaTerminal(BaseTerminal):
     """Represents a terminal session using Daytona's session management."""
 
