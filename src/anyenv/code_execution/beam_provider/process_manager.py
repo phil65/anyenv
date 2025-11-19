@@ -10,10 +10,12 @@ from typing import TYPE_CHECKING, Any
 import uuid
 
 from anyenv.log import get_logger
-from anyenv.process_manager import BaseTerminal, TerminalManagerProtocol
+from anyenv.process_manager import BaseTerminal, ProcessManagerProtocol, ProcessOutput
 
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from beam import SandboxInstance
 
 
@@ -63,7 +65,7 @@ class BeamTerminal(BaseTerminal):
         self._task = task
 
 
-class BeamTerminalManager(TerminalManagerProtocol):
+class BeamTerminalManager(ProcessManagerProtocol):
     """Terminal manager that uses Beam's native process management."""
 
     def __init__(self, sandbox_instance: SandboxInstance) -> None:
@@ -71,13 +73,13 @@ class BeamTerminalManager(TerminalManagerProtocol):
         self.sandbox_instance = sandbox_instance
         self._terminals: dict[str, BeamTerminal] = {}
 
-    async def create_terminal(
+    async def start_process(
         self,
         command: str,
         args: list[str] | None = None,
-        cwd: str | None = None,
+        cwd: str | Path | None = None,
         env: dict[str, str] | None = None,
-        output_byte_limit: int = 1048576,
+        output_limit: int | None = None,
     ) -> str:
         """Create a new terminal session using Beam's process management."""
         terminal_id = f"beam_term_{uuid.uuid4().hex[:8]}"
@@ -92,9 +94,9 @@ class BeamTerminalManager(TerminalManagerProtocol):
             terminal_id=terminal_id,
             command=command,
             args=args,
-            cwd=cwd,
+            cwd=str(cwd) if cwd else None,
             env=env,
-            output_limit=output_byte_limit,
+            output_limit=output_limit or 1048576,
         )
 
         self._terminals[terminal_id] = terminal
@@ -147,26 +149,28 @@ class BeamTerminalManager(TerminalManagerProtocol):
             terminal.add_output(f"Terminal error: {e}\n")
             terminal.set_exit_code(1)
 
-    async def get_command_output(self, terminal_id: str) -> tuple[str, bool, int | None]:
-        """Get current output from terminal."""
-        if terminal_id not in self._terminals:
-            msg = f"Terminal {terminal_id} not found"
+    async def get_output(self, process_id: str) -> ProcessOutput:
+        """Get current output from a process."""
+        if process_id not in self._terminals:
+            msg = f"Process {process_id} not found"
             raise ValueError(msg)
 
-        terminal = self._terminals[terminal_id]
+        terminal = self._terminals[process_id]
         output = terminal.get_output()
-        is_running = terminal.is_running()
+        terminal.is_running()
         exit_code = terminal.get_exit_code()
 
-        return output, is_running, exit_code
+        return ProcessOutput(
+            stdout=output, stderr="", combined=output, exit_code=exit_code
+        )
 
-    async def wait_for_terminal_exit(self, terminal_id: str) -> int:
-        """Wait for terminal to complete."""
-        if terminal_id not in self._terminals:
-            msg = f"Terminal {terminal_id} not found"
+    async def wait_for_exit(self, process_id: str) -> int:
+        """Wait for process to complete."""
+        if process_id not in self._terminals:
+            msg = f"Process {process_id} not found"
             raise ValueError(msg)
 
-        terminal = self._terminals[terminal_id]
+        terminal = self._terminals[process_id]
         try:
             # Wait for the background task to complete
             if task := terminal._task:  # noqa: SLF001
@@ -179,18 +183,18 @@ class BeamTerminalManager(TerminalManagerProtocol):
         except asyncio.CancelledError:
             terminal.set_exit_code(130)  # SIGINT exit code
         except Exception:
-            logger.exception("Error waiting for terminal %s", terminal_id)
+            logger.exception("Error waiting for process %s", process_id)
             terminal.set_exit_code(1)
 
         return terminal.get_exit_code() or 0
 
-    async def kill_terminal(self, terminal_id: str) -> None:
-        """Kill a running terminal using Beam's process management."""
-        if terminal_id not in self._terminals:
-            msg = f"Terminal {terminal_id} not found"
+    async def kill_process(self, process_id: str) -> None:
+        """Kill a running process using Beam's process management."""
+        if process_id not in self._terminals:
+            msg = f"Process {process_id} not found"
             raise ValueError(msg)
 
-        terminal = self._terminals[terminal_id]
+        terminal = self._terminals[process_id]
         task = terminal._task  # noqa: SLF001
         process = terminal._process  # noqa: SLF001
         try:
@@ -205,24 +209,24 @@ class BeamTerminalManager(TerminalManagerProtocol):
                 with contextlib.suppress(asyncio.CancelledError):
                     await task
 
-            logger.info("Killed Beam terminal %s", terminal_id)
+            logger.info("Killed Beam process %s", process_id)
 
         except Exception:
-            logger.exception("Error killing terminal %s", terminal_id)
+            logger.exception("Error killing process %s", process_id)
             # Still mark as killed with error exit code
             terminal.set_exit_code(1)
 
-    async def release_terminal(self, terminal_id: str) -> None:
-        """Release terminal resources."""
-        if terminal_id not in self._terminals:
-            msg = f"Terminal {terminal_id} not found"
+    async def release_process(self, process_id: str) -> None:
+        """Release process resources."""
+        if process_id not in self._terminals:
+            msg = f"Process {process_id} not found"
             raise ValueError(msg)
 
-        terminal = self._terminals[terminal_id]
+        terminal = self._terminals[process_id]
         task = terminal._task  # noqa: SLF001
         # Kill if still running
         if terminal.is_running():
-            await self.kill_terminal(terminal_id)
+            await self.kill_process(process_id)
 
         # Clean up background task
         if task and not task.done():
@@ -231,8 +235,8 @@ class BeamTerminalManager(TerminalManagerProtocol):
                 await task
 
         # Remove from tracking
-        del self._terminals[terminal_id]
-        logger.info("Released Beam terminal %s", terminal_id)
+        del self._terminals[process_id]
+        logger.info("Released process %s", process_id)
 
     def list_processes(self) -> dict[str, dict[str, Any]]:
         """List all tracked terminals and their status."""
@@ -276,7 +280,7 @@ class BeamTerminalManager(TerminalManagerProtocol):
     async def cleanup(self) -> None:
         """Clean up all terminals."""
         logger.info("Cleaning up %s Beam terminals", len(self._terminals))
-        if cleanup_tasks := [self.release_terminal(id_) for id_ in self._terminals]:
+        if cleanup_tasks := [self.release_process(id_) for id_ in self._terminals]:
             await asyncio.gather(*cleanup_tasks, return_exceptions=True)
 
         logger.info("Beam terminal cleanup completed")

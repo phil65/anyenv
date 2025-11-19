@@ -8,10 +8,12 @@ from typing import TYPE_CHECKING, Any
 import uuid
 
 from anyenv.log import get_logger
-from anyenv.process_manager import BaseTerminal, TerminalManagerProtocol
+from anyenv.process_manager import BaseTerminal, ProcessManagerProtocol, ProcessOutput
 
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from e2b import AsyncSandbox
     from e2b.sandbox_async.commands.command_handle import AsyncCommandHandle
 
@@ -51,7 +53,7 @@ class E2BTerminal(BaseTerminal):
         self.pid = handle.pid
 
 
-class E2BTerminalManager(TerminalManagerProtocol):
+class E2BTerminalManager(ProcessManagerProtocol):
     """Terminal manager that uses E2B's native process management."""
 
     def __init__(self, sandbox: AsyncSandbox) -> None:
@@ -59,13 +61,13 @@ class E2BTerminalManager(TerminalManagerProtocol):
         self.sandbox = sandbox
         self._terminals: dict[str, E2BTerminal] = {}
 
-    async def create_terminal(
+    async def start_process(
         self,
         command: str,
         args: list[str] | None = None,
-        cwd: str | None = None,
+        cwd: str | Path | None = None,
         env: dict[str, str] | None = None,
-        output_byte_limit: int = 1048576,
+        output_limit: int | None = None,
     ) -> str:
         """Create a new terminal session using E2B's background commands."""
         terminal_id = f"e2b_term_{uuid.uuid4().hex[:8]}"
@@ -80,9 +82,9 @@ class E2BTerminalManager(TerminalManagerProtocol):
             terminal_id=terminal_id,
             command=command,
             args=args,
-            cwd=cwd,
+            cwd=str(cwd) if cwd else None,
             env=env,
-            output_limit=output_byte_limit,
+            output_limit=output_limit or 1048576,
         )
 
         self._terminals[terminal_id] = terminal
@@ -123,26 +125,28 @@ class E2BTerminalManager(TerminalManagerProtocol):
         else:
             return terminal_id
 
-    async def get_command_output(self, terminal_id: str) -> tuple[str, bool, int | None]:
-        """Get current output from terminal."""
-        if terminal_id not in self._terminals:
-            msg = f"Terminal {terminal_id} not found"
+    async def get_output(self, process_id: str) -> ProcessOutput:
+        """Get current output from a process."""
+        if process_id not in self._terminals:
+            msg = f"Process {process_id} not found"
             raise ValueError(msg)
 
-        terminal = self._terminals[terminal_id]
+        terminal = self._terminals[process_id]
         output = terminal.get_output()
-        is_running = terminal.is_running()
+        terminal.is_running()
         exit_code = terminal.get_exit_code()
 
-        return output, is_running, exit_code
+        return ProcessOutput(
+            stdout=output, stderr="", combined=output, exit_code=exit_code
+        )
 
-    async def wait_for_terminal_exit(self, terminal_id: str) -> int:
-        """Wait for terminal to complete."""
-        if terminal_id not in self._terminals:
-            msg = f"Terminal {terminal_id} not found"
+    async def wait_for_exit(self, process_id: str) -> int:
+        """Wait for process to complete."""
+        if process_id not in self._terminals:
+            msg = f"Process {process_id} not found"
             raise ValueError(msg)
 
-        terminal = self._terminals[terminal_id]
+        terminal = self._terminals[process_id]
         handle = terminal._handle  # noqa: SLF001
         try:
             if handle and handle.exit_code is None:
@@ -154,18 +158,18 @@ class E2BTerminalManager(TerminalManagerProtocol):
                 # (streaming output is already collected via callbacks)
 
         except Exception:
-            logger.exception("Error waiting for terminal %s", terminal_id)
+            logger.exception("Error waiting for process %s", process_id)
             terminal.set_exit_code(1)
 
         return terminal.get_exit_code() or 0
 
-    async def kill_terminal(self, terminal_id: str) -> None:
-        """Kill a running terminal using E2B's process management."""
-        if terminal_id not in self._terminals:
-            msg = f"Terminal {terminal_id} not found"
+    async def kill_process(self, process_id: str) -> None:
+        """Kill a running process using E2B's process management."""
+        if process_id not in self._terminals:
+            msg = f"Process {process_id} not found"
             raise ValueError(msg)
 
-        terminal = self._terminals[terminal_id]
+        terminal = self._terminals[process_id]
 
         try:
             # Kill the E2B process using the PID
@@ -174,35 +178,35 @@ class E2BTerminalManager(TerminalManagerProtocol):
                 if killed:
                     terminal.set_exit_code(130)  # SIGINT exit code
                     logger.info(
-                        "Killed E2B terminal %s (PID %s)", terminal_id, terminal.pid
+                        "Killed E2B process %s (PID %s)", process_id, terminal.pid
                     )
                 else:
                     logger.warning(
                         "Failed to kill E2B terminal %s (PID %s) - process not found",
-                        terminal_id,
+                        process_id,
                         terminal.pid,
                     )
                     terminal.set_exit_code(1)
 
         except Exception:
-            logger.exception("Error killing terminal %s", terminal_id)
+            logger.exception("Error killing process %s", process_id)
             terminal.set_exit_code(1)
 
-    async def release_terminal(self, terminal_id: str) -> None:
-        """Release terminal resources."""
-        if terminal_id not in self._terminals:
-            msg = f"Terminal {terminal_id} not found"
+    async def release_process(self, process_id: str) -> None:
+        """Release process resources."""
+        if process_id not in self._terminals:
+            msg = f"Process {process_id} not found"
             raise ValueError(msg)
 
-        terminal = self._terminals[terminal_id]
+        terminal = self._terminals[process_id]
 
         # Kill if still running
         if terminal.is_running():
-            await self.kill_terminal(terminal_id)
+            await self.kill_process(process_id)
 
         # Remove from tracking
-        del self._terminals[terminal_id]
-        logger.info("Released E2B terminal %s", terminal_id)
+        del self._terminals[process_id]
+        logger.info("Released process %s", process_id)
 
     def list_processes(self) -> dict[str, dict[str, Any]]:
         """List all tracked terminals and their status."""
@@ -322,6 +326,6 @@ class E2BTerminalManager(TerminalManagerProtocol):
     async def cleanup(self) -> None:
         """Clean up all terminals."""
         logger.info("Cleaning up %s E2B terminals", len(self._terminals))
-        if cleanup_tasks := [self.release_terminal(id_) for id_ in self._terminals]:
+        if cleanup_tasks := [self.release_process(id_) for id_ in self._terminals]:
             await asyncio.gather(*cleanup_tasks, return_exceptions=True)
         logger.info("E2B terminal cleanup completed")

@@ -8,40 +8,39 @@ from typing import TYPE_CHECKING, Any
 import uuid
 
 from anyenv.log import get_logger
-from anyenv.process_manager import BaseTerminal
+from anyenv.process_manager import BaseTerminal, ProcessManagerProtocol, ProcessOutput
 
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from vercel.sandbox import AsyncCommand, AsyncSandbox
 
 
 logger = get_logger(__name__)
 
 
-@dataclass(kw_only=True)
+@dataclass
 class VercelTerminal(BaseTerminal):
-    """Represents a terminal session using Vercel's command management."""
+    """Terminal implementation for Vercel provider."""
 
     command_id: str | None = None
     _command: AsyncCommand | None = None
-    _completed: bool = False
+    _task: asyncio.Task[None] | None = None
 
     def is_running(self) -> bool:
-        """Check if terminal is still running."""
-        return not self._completed and self._exit_code is None
-
-    def set_exit_code(self, exit_code: int) -> None:
-        """Set the exit code."""
-        self._exit_code = exit_code
-        self._completed = True
-
-    def set_command(self, command: AsyncCommand) -> None:
-        """Set the Vercel command object."""
-        self._command = command
-        self.command_id = command.cmd.id
+        """Check if the terminal is still running."""
+        if self._command is None:
+            return False
+        try:
+            # Vercel commands don't seem to have a direct status check
+            # We'll consider it running if we haven't gotten an exit code
+            return self.get_exit_code() is None
+        except Exception:  # noqa: BLE001
+            return False
 
 
-class VercelTerminalManager:
+class VercelTerminalManager(ProcessManagerProtocol):
     """Terminal manager that uses Vercel's detached command execution."""
 
     def __init__(self, sandbox: AsyncSandbox) -> None:
@@ -49,93 +48,95 @@ class VercelTerminalManager:
         self.sandbox = sandbox
         self._terminals: dict[str, VercelTerminal] = {}
 
-    async def create_terminal(
+    async def start_process(
         self,
         command: str,
         args: list[str] | None = None,
-        cwd: str | None = None,
+        cwd: str | Path | None = None,
         env: dict[str, str] | None = None,
-        output_byte_limit: int = 1048576,
+        output_limit: int | None = None,
     ) -> str:
         """Create a new terminal session using Vercel's detached commands."""
         terminal_id = f"vercel_term_{uuid.uuid4().hex[:8]}"
         args = args or []
-        env = env or {}
 
-        # Create terminal
+        # Create terminal object
         terminal = VercelTerminal(
             terminal_id=terminal_id,
             command=command,
             args=args,
-            cwd=cwd,
-            env=env,
-            output_limit=output_byte_limit,
+            cwd=str(cwd) if cwd else None,
+            env=env or {},
+            output_limit=output_limit or 1048576,
         )
 
-        self._terminals[terminal_id] = terminal
+        # Construct full command
+        full_command = [command, *args]
+        cmd_str = " ".join(full_command)
 
         try:
-            # Start command in detached mode using Vercel's API
-            cmd = await self.sandbox.run_command_detached(
-                cmd=command,
-                args=args,
-                cwd=cwd,
+            # Run detached command through Vercel
+            detached_command = await self.sandbox.run_command_detached(
+                cmd_str,
+                cwd=str(cwd) if cwd else None,
                 env=env,
             )
 
-            terminal.set_command(cmd)
+            terminal._command = detached_command  # noqa: SLF001
+            terminal.command_id = getattr(detached_command, "id", None)
 
-            # Start background task to monitor command
-            asyncio.create_task(self._monitor_command(terminal))  # noqa: RUF006
+            # Store terminal
+            self._terminals[terminal_id] = terminal
+
+            # Start output collection task
+            task = asyncio.create_task(self._collect_output(terminal))
+            # Store task reference to avoid RUF006 warning
+            terminal._task = task  # noqa: SLF001
 
             logger.info(
-                "Created Vercel terminal %s (command %s): %s %s",
+                "Started Vercel terminal %s: %s",
                 terminal_id,
-                cmd.cmd.id,
-                command,
-                " ".join(args),
+                cmd_str,
             )
 
         except Exception as e:
-            # Clean up on failure
-            self._terminals.pop(terminal_id, None)
-            msg = f"Failed to create Vercel terminal: {e}"
-            logger.exception(msg)
-            raise RuntimeError(msg) from e
-        else:
-            return terminal_id
+            logger.exception("Failed to start Vercel command: %s", cmd_str)
+            terminal.add_output(f"Failed to start command: {e}\n")
+            terminal.set_exit_code(1)
+            self._terminals[terminal_id] = terminal
 
-    async def _monitor_command(self, terminal: VercelTerminal) -> None:
-        """Monitor Vercel command and collect output."""
+        return terminal_id
+
+    async def _collect_output(self, terminal: VercelTerminal) -> None:
+        """Collect output from Vercel command."""
         try:
-            cmd = terminal._command  # noqa: SLF001
-            if not cmd:
-                return
+            if terminal._command:  # noqa: SLF001
+                # Collect stdout
+                if stdout := await terminal._command.stdout():  # noqa: SLF001
+                    terminal.add_output(stdout)
 
-            # Wait for command to complete and collect output
-            result = await cmd.wait()
+                # Collect stderr
+                if stderr := await terminal._command.stderr():  # noqa: SLF001
+                    terminal.add_output(f"STDERR: {stderr}")
 
-            # Add output to terminal buffer
-            if stdout := await result.stdout():
-                terminal.add_output(stdout)
-            if stderr := await result.stderr():
-                terminal.add_output(f"STDERR: {stderr}")
-
-            # Set exit code
-            terminal.set_exit_code(result.exit_code)
+                # Get exit code if available
+                if hasattr(terminal._command.cmd, "exitCode"):  # noqa: SLF001
+                    exit_code = terminal._command.cmd.exitCode  # noqa: SLF001
+                    if exit_code is not None:
+                        terminal.set_exit_code(exit_code)
 
         except Exception as e:
-            logger.exception("Error monitoring Vercel terminal %s", terminal.terminal_id)
+            logger.exception("Error collecting output for %s", terminal.terminal_id)
             terminal.add_output(f"Terminal error: {e}\n")
             terminal.set_exit_code(1)
 
-    async def get_command_output(self, terminal_id: str) -> tuple[str, bool, int | None]:
-        """Get current output from terminal."""
-        if terminal_id not in self._terminals:
-            msg = f"Terminal {terminal_id} not found"
+    async def get_output(self, process_id: str) -> ProcessOutput:
+        """Get current output from a process."""
+        if process_id not in self._terminals:
+            msg = f"Process {process_id} not found"
             raise ValueError(msg)
 
-        terminal = self._terminals[terminal_id]
+        terminal = self._terminals[process_id]
 
         # Try to update status if command exists
         if terminal._command and terminal.is_running():  # noqa: SLF001
@@ -154,130 +155,96 @@ class VercelTerminalManager:
                 pass  # Best effort
 
         output = terminal.get_output()
-        is_running = terminal.is_running()
+        terminal.is_running()
         exit_code = terminal.get_exit_code()
 
-        return output, is_running, exit_code
+        return ProcessOutput(
+            stdout=output, stderr="", combined=output, exit_code=exit_code
+        )
 
-    async def wait_for_terminal_exit(self, terminal_id: str) -> int:
-        """Wait for terminal to complete."""
-        if terminal_id not in self._terminals:
-            msg = f"Terminal {terminal_id} not found"
+    async def wait_for_exit(self, process_id: str) -> int:
+        """Wait for process to complete."""
+        if process_id not in self._terminals:
+            msg = f"Process {process_id} not found"
             raise ValueError(msg)
 
-        terminal = self._terminals[terminal_id]
+        terminal = self._terminals[process_id]
         cmd = terminal._command  # noqa: SLF001
         try:
             if cmd and terminal.is_running():
-                # Wait for the Vercel command to complete
+                # Poll for completion
+                while terminal.is_running():
+                    await asyncio.sleep(0.5)
+                    if terminal.command_id:
+                        try:
+                            updated_command = await self.sandbox.get_command(
+                                terminal.command_id
+                            )
+                            if updated_command.cmd.exitCode is not None:
+                                terminal.set_exit_code(updated_command.cmd.exitCode)
+                                break
+                        except Exception:  # noqa: BLE001
+                            continue
+
+                # Get final result
                 result = await cmd.wait()
-
-                # Add final output
-                if stdout := await result.stdout():
-                    terminal.add_output(stdout)
-                if stderr := await result.stderr():
-                    terminal.add_output(f"STDERR: {stderr}")
-
                 terminal.set_exit_code(result.exit_code)
 
         except Exception:
-            logger.exception("Error waiting for terminal %s", terminal_id)
+            logger.exception("Error waiting for process %s", process_id)
             terminal.set_exit_code(1)
 
         return terminal.get_exit_code() or 0
 
-    async def kill_terminal(self, terminal_id: str) -> None:
-        """Kill a running terminal."""
-        if terminal_id not in self._terminals:
-            msg = f"Terminal {terminal_id} not found"
+    async def kill_process(self, process_id: str) -> None:
+        """Kill a running process."""
+        if process_id not in self._terminals:
+            msg = f"Process {process_id} not found"
             raise ValueError(msg)
 
-        terminal = self._terminals[terminal_id]
+        terminal = self._terminals[process_id]
 
         try:
             # Vercel doesn't appear to have a direct kill command
-            # So we'll mark as killed and let monitoring detect it
+            # We'll mark it as killed with SIGINT exit code
             if terminal.is_running():
                 terminal.set_exit_code(130)  # SIGINT exit code
                 logger.info(
-                    "Marked Vercel terminal %s as killed (command %s)",
-                    terminal_id,
-                    terminal.command_id,
+                    "Killed Vercel process %s (no direct kill support)",
+                    process_id,
                 )
 
         except Exception:
-            logger.exception("Error killing terminal %s", terminal_id)
+            logger.exception("Error killing process %s", process_id)
             terminal.set_exit_code(1)
 
-    async def release_terminal(self, terminal_id: str) -> None:
-        """Release terminal resources."""
-        if terminal_id not in self._terminals:
-            msg = f"Terminal {terminal_id} not found"
+    async def release_process(self, process_id: str) -> None:
+        """Release process resources."""
+        if process_id not in self._terminals:
+            msg = f"Process {process_id} not found"
             raise ValueError(msg)
 
-        terminal = self._terminals[terminal_id]
+        terminal = self._terminals[process_id]
 
         # Kill if still running
         if terminal.is_running():
-            await self.kill_terminal(terminal_id)
+            await self.kill_process(process_id)
 
         # Remove from tracking
-        del self._terminals[terminal_id]
-        logger.info("Released Vercel terminal %s", terminal_id)
+        del self._terminals[process_id]
+        logger.info("Released process %s", process_id)
 
     def list_processes(self) -> dict[str, dict[str, Any]]:
         """List all tracked terminals and their status."""
         result = {}
         for terminal_id, terminal in self._terminals.items():
             result[terminal_id] = {
-                "terminal_id": terminal_id,
                 "command": terminal.command,
                 "args": terminal.args,
-                "cwd": terminal.cwd,
-                "command_id": terminal.command_id,
+                "cwd": str(terminal.cwd) if terminal.cwd else None,
                 "created_at": terminal.created_at.isoformat(),
                 "is_running": terminal.is_running(),
                 "exit_code": terminal.get_exit_code(),
-                "output_limit": terminal.output_limit,
+                "command_id": terminal.command_id,
             }
         return result
-
-    async def get_command_info(self, terminal_id: str) -> dict[str, Any]:
-        """Get detailed command information from Vercel."""
-        if terminal_id not in self._terminals:
-            msg = f"Terminal {terminal_id} not found"
-            raise ValueError(msg)
-
-        terminal = self._terminals[terminal_id]
-
-        if not terminal.command_id:
-            return {"error": "No command ID available"}
-
-        try:
-            # Get command details from Vercel
-            command = await self.sandbox.get_command(terminal.command_id)
-            return {
-                "command_id": command.cmd.id,
-                "command": getattr(command.cmd, "command", "unknown"),
-                "status": getattr(command.cmd, "status", "unknown"),
-                "exit_code": getattr(command.cmd, "exit_code", None),
-                "stdout": getattr(command.cmd, "stdout", ""),
-                "stderr": getattr(command.cmd, "stderr", ""),
-            }
-        except Exception as e:
-            logger.exception("Error getting command info for terminal %s", terminal_id)
-            return {"error": str(e)}
-
-    async def cleanup(self) -> None:
-        """Clean up all terminals."""
-        logger.info("Cleaning up %s Vercel terminals", len(self._terminals))
-
-        # Kill all running terminals
-        cleanup_tasks = []
-        for terminal_id in list(self._terminals.keys()):
-            cleanup_tasks.append(self.release_terminal(terminal_id))  # noqa: PERF401
-
-        if cleanup_tasks:
-            await asyncio.gather(*cleanup_tasks, return_exceptions=True)
-
-        logger.info("Vercel terminal cleanup completed")

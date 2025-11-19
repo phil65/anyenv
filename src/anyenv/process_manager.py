@@ -22,46 +22,46 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
-class TerminalManagerProtocol(Protocol):
-    """Protocol for managing terminal sessions."""
+class ProcessManagerProtocol(Protocol):
+    """Protocol for managing background processes."""
 
-    async def create_terminal(
+    async def start_process(
         self,
         command: str,
         args: list[str] | None = None,
-        cwd: str | None = None,
+        cwd: str | Path | None = None,
         env: dict[str, str] | None = None,
-        output_byte_limit: int = 1048576,
+        output_limit: int | None = None,
     ) -> str:
-        """Create a new terminal session.
+        """Start a background process.
 
         Returns:
-            Terminal ID for tracking
+            Process ID for tracking
         """
         ...
 
-    async def get_command_output(self, terminal_id: str) -> tuple[str, bool, int | None]:
-        """Get current output from terminal.
+    async def get_output(self, process_id: str) -> ProcessOutput:
+        """Get current output from a process.
 
         Returns:
-            Tuple of (output, is_running, exit_code)
+            Current process output
         """
         ...
 
-    async def wait_for_terminal_exit(self, terminal_id: str) -> int:
-        """Wait for terminal to complete.
+    async def wait_for_exit(self, process_id: str) -> int:
+        """Wait for process to complete.
 
         Returns:
             Exit code
         """
         ...
 
-    async def kill_terminal(self, terminal_id: str) -> None:
-        """Kill a running terminal."""
+    async def kill_process(self, process_id: str) -> None:
+        """Kill a running process."""
         ...
 
-    async def release_terminal(self, terminal_id: str) -> None:
-        """Release terminal resources."""
+    async def release_process(self, process_id: str) -> None:
+        """Release process resources."""
         ...
 
 
@@ -181,7 +181,7 @@ class RunningProcess:
                 pass
 
 
-class ProcessManager(TerminalManagerProtocol):
+class ProcessManager(ProcessManagerProtocol):
     """Manages background processes for an agent pool."""
 
     def __init__(self) -> None:
@@ -566,7 +566,7 @@ class TerminalTask(BaseTerminal):
         return self.task is not None and not self.task.done()
 
 
-class EnvironmentTerminalManager:
+class EnvironmentTerminalManager(ProcessManagerProtocol):
     """Terminal manager that uses ExecutionEnvironment for command execution."""
 
     def __init__(self, env: ExecutionEnvironment) -> None:
@@ -574,16 +574,16 @@ class EnvironmentTerminalManager:
         self.env = env
         self._terminals: dict[str, TerminalTask] = {}
 
-    async def create_terminal(
+    async def start_process(
         self,
         command: str,
         args: list[str] | None = None,
-        cwd: str | None = None,
+        cwd: str | Path | None = None,
         env: dict[str, str] | None = None,
-        output_byte_limit: int = 1048576,
+        output_limit: int | None = None,
     ) -> str:
-        """Create a new terminal session."""
-        terminal_id = f"term_{uuid.uuid4().hex[:8]}"
+        """Start a background process."""
+        terminal_id = f"proc_{uuid.uuid4().hex[:8]}"
         args = args or []
         env = env or {}
 
@@ -601,10 +601,10 @@ class EnvironmentTerminalManager:
             terminal_id=terminal_id,
             command=command,
             args=args,
-            cwd=cwd,
+            cwd=str(cwd) if cwd else None,
             env=env,
             task=asyncio.create_task(self._run_terminal(terminal_id, full_command)),
-            output_limit=output_byte_limit,
+            output_limit=output_limit or 1048576,
         )
 
         self._terminals[terminal_id] = terminal
@@ -634,26 +634,28 @@ class EnvironmentTerminalManager:
             terminal.set_exit_code(1)
             logger.exception("Error in terminal %s", terminal_id)
 
-    async def get_command_output(self, terminal_id: str) -> tuple[str, bool, int | None]:
-        """Get current output from terminal."""
-        if terminal_id not in self._terminals:
-            msg = f"Terminal {terminal_id} not found"
+    async def get_output(self, process_id: str) -> ProcessOutput:
+        """Get current output from a process."""
+        if process_id not in self._terminals:
+            msg = f"Process {process_id} not found"
             raise ValueError(msg)
 
-        terminal = self._terminals[terminal_id]
+        terminal = self._terminals[process_id]
         output = terminal.get_output()
-        is_running = terminal.is_running()
+        terminal.is_running()
         exit_code = terminal.get_exit_code()
 
-        return output, is_running, exit_code
+        return ProcessOutput(
+            stdout=output, stderr="", combined=output, exit_code=exit_code
+        )
 
-    async def wait_for_terminal_exit(self, terminal_id: str) -> int:
-        """Wait for terminal to complete."""
-        if terminal_id not in self._terminals:
-            msg = f"Terminal {terminal_id} not found"
+    async def wait_for_exit(self, process_id: str) -> int:
+        """Wait for process to complete."""
+        if process_id not in self._terminals:
+            msg = f"Process {process_id} not found"
             raise ValueError(msg)
 
-        terminal = self._terminals[terminal_id]
+        terminal = self._terminals[process_id]
 
         try:
             assert terminal.task
@@ -665,13 +667,13 @@ class EnvironmentTerminalManager:
 
         return terminal.get_exit_code() or 0
 
-    async def kill_terminal(self, terminal_id: str) -> None:
-        """Kill a running terminal."""
-        if terminal_id not in self._terminals:
-            msg = f"Terminal {terminal_id} not found"
+    async def kill_process(self, process_id: str) -> None:
+        """Kill a running process."""
+        if process_id not in self._terminals:
+            msg = f"Process {process_id} not found"
             raise ValueError(msg)
 
-        terminal = self._terminals[terminal_id]
+        terminal = self._terminals[process_id]
 
         if terminal.is_running():
             if terminal.task:
@@ -680,19 +682,19 @@ class EnvironmentTerminalManager:
                     await terminal.task
             terminal.set_exit_code(130)  # SIGINT exit code
 
-        logger.info("Killed terminal %s", terminal_id)
+        logger.info("Killed process %s", process_id)
 
-    async def release_terminal(self, terminal_id: str) -> None:
-        """Release terminal resources."""
-        if terminal_id not in self._terminals:
-            msg = f"Terminal {terminal_id} not found"
+    async def release_process(self, process_id: str) -> None:
+        """Release process resources."""
+        if process_id not in self._terminals:
+            msg = f"Process {process_id} not found"
             raise ValueError(msg)
 
-        terminal = self._terminals[terminal_id]
+        terminal = self._terminals[process_id]
 
         # Kill if still running
         if terminal.is_running():
-            await self.kill_terminal(terminal_id)
+            await self.kill_process(process_id)
 
         # Cancel task if it exists
         if terminal.task and not terminal.task.done():
@@ -701,5 +703,5 @@ class EnvironmentTerminalManager:
                 await terminal.task
 
         # Remove from tracking
-        del self._terminals[terminal_id]
-        logger.info("Released terminal %s", terminal_id)
+        del self._terminals[process_id]
+        logger.info("Released process %s", process_id)

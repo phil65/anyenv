@@ -5,14 +5,17 @@ from __future__ import annotations
 import asyncio
 import contextlib
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 import uuid
 
 from anyenv.log import get_logger
-from anyenv.process_manager import BaseTerminal, TerminalManagerProtocol
+from anyenv.process_manager import BaseTerminal, ProcessManagerProtocol, ProcessOutput
 
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from daytona._async.sandbox import AsyncSandbox
 
 
@@ -41,7 +44,7 @@ class DaytonaTerminal(BaseTerminal):
         self.command_id = command_id
 
 
-class DaytonaTerminalManager(TerminalManagerProtocol):
+class DaytonaTerminalManager(ProcessManagerProtocol):
     """Terminal manager that uses Daytona's session-based process management."""
 
     def __init__(self, sandbox: AsyncSandbox) -> None:
@@ -49,13 +52,13 @@ class DaytonaTerminalManager(TerminalManagerProtocol):
         self.sandbox = sandbox
         self._terminals: dict[str, DaytonaTerminal] = {}
 
-    async def create_terminal(
+    async def start_process(
         self,
         command: str,
         args: list[str] | None = None,
-        cwd: str | None = None,
+        cwd: str | Path | None = None,
         env: dict[str, str] | None = None,
-        output_byte_limit: int = 1048576,
+        output_limit: int | None = None,
     ) -> str:
         """Create a new terminal session using Daytona's session management."""
         terminal_id = f"daytona_term_{uuid.uuid4().hex[:8]}"
@@ -73,10 +76,10 @@ class DaytonaTerminalManager(TerminalManagerProtocol):
             terminal_id=terminal_id,
             command=command,
             args=args,
-            cwd=cwd,
+            cwd=str(cwd) if cwd else None,
             env=env,
             session_id=session_id,
-            output_limit=output_byte_limit,
+            output_limit=output_limit or 1048576,
         )
 
         self._terminals[terminal_id] = terminal
@@ -146,13 +149,13 @@ class DaytonaTerminalManager(TerminalManagerProtocol):
             terminal.add_output(f"Terminal error: {e}\n")
             terminal.set_exit_code(1)
 
-    async def get_command_output(self, terminal_id: str) -> tuple[str, bool, int | None]:
-        """Get current output from terminal."""
-        if terminal_id not in self._terminals:
-            msg = f"Terminal {terminal_id} not found"
+    async def get_output(self, process_id: str) -> ProcessOutput:
+        """Get current output from a process."""
+        if process_id not in self._terminals:
+            msg = f"Process {process_id} not found"
             raise ValueError(msg)
 
-        terminal = self._terminals[terminal_id]
+        terminal = self._terminals[process_id]
 
         # Try to update exit code if command is done
         if terminal.command_id and terminal.is_running():
@@ -166,18 +169,20 @@ class DaytonaTerminalManager(TerminalManagerProtocol):
                 pass  # Best effort
 
         output = terminal.get_output()
-        is_running = terminal.is_running()
+        terminal.is_running()
         exit_code = terminal.get_exit_code()
 
-        return output, is_running, exit_code
+        return ProcessOutput(
+            stdout=output, stderr="", combined=output, exit_code=exit_code
+        )
 
-    async def wait_for_terminal_exit(self, terminal_id: str) -> int:
-        """Wait for terminal to complete."""
-        if terminal_id not in self._terminals:
-            msg = f"Terminal {terminal_id} not found"
+    async def wait_for_exit(self, process_id: str) -> int:
+        """Wait for process to complete."""
+        if process_id not in self._terminals:
+            msg = f"Process {process_id} not found"
             raise ValueError(msg)
 
-        terminal = self._terminals[terminal_id]
+        terminal = self._terminals[process_id]
 
         try:
             # Poll for command completion
@@ -195,18 +200,18 @@ class DaytonaTerminalManager(TerminalManagerProtocol):
                         continue
 
         except Exception:
-            logger.exception("Error waiting for terminal %s", terminal_id)
+            logger.exception("Error waiting for process %s", process_id)
             terminal.set_exit_code(1)
 
         return terminal.get_exit_code() or 0
 
-    async def kill_terminal(self, terminal_id: str) -> None:
-        """Kill a running terminal by deleting its session."""
-        if terminal_id not in self._terminals:
-            msg = f"Terminal {terminal_id} not found"
+    async def kill_process(self, process_id: str) -> None:
+        """Kill a running process by deleting its session."""
+        if process_id not in self._terminals:
+            msg = f"Process {process_id} not found"
             raise ValueError(msg)
 
-        terminal = self._terminals[terminal_id]
+        terminal = self._terminals[process_id]
 
         try:
             # Delete the Daytona session to kill all its commands
@@ -214,34 +219,34 @@ class DaytonaTerminalManager(TerminalManagerProtocol):
                 await self.sandbox.process.delete_session(terminal.session_id)
                 terminal.set_exit_code(130)  # SIGINT exit code
                 logger.info(
-                    "Killed Daytona terminal %s (session %s)",
-                    terminal_id,
+                    "Killed Daytona process %s (session %s)",
+                    process_id,
                     terminal.session_id,
                 )
 
         except Exception:
-            logger.exception("Error killing terminal %s", terminal_id)
+            logger.exception("Error killing process %s", process_id)
             terminal.set_exit_code(1)
 
-    async def release_terminal(self, terminal_id: str) -> None:
-        """Release terminal resources."""
-        if terminal_id not in self._terminals:
-            msg = f"Terminal {terminal_id} not found"
+    async def release_process(self, process_id: str) -> None:
+        """Release process resources."""
+        if process_id not in self._terminals:
+            msg = f"Process {process_id} not found"
             raise ValueError(msg)
 
-        terminal = self._terminals[terminal_id]
+        terminal = self._terminals[process_id]
 
         # Kill if still running
         if terminal.is_running():
-            await self.kill_terminal(terminal_id)
+            await self.kill_process(process_id)
 
         # Clean up session
         with contextlib.suppress(Exception):
             await self.sandbox.process.delete_session(terminal.session_id)
 
         # Remove from tracking
-        del self._terminals[terminal_id]
-        logger.info("Released Daytona terminal %s", terminal_id)
+        del self._terminals[process_id]
+        logger.info("Released process %s", process_id)
 
     def list_processes(self) -> dict[str, dict[str, Any]]:
         """List all tracked terminals and their status."""
@@ -322,10 +327,8 @@ class DaytonaTerminalManager(TerminalManagerProtocol):
             # Start collecting output if command is still running
             if terminal.is_running():
                 asyncio.create_task(self._collect_output(terminal))  # noqa: RUF006
-
-            logger.info(
-                "Connected to Daytona session %s as terminal %s", session_id, terminal_id
-            )
+            msg = "Connected to Daytona session %s as terminal %s"
+            logger.info(msg, session_id, terminal_id)
 
         except Exception as e:
             msg = f"Failed to connect to session {session_id}: {e}"
@@ -360,13 +363,8 @@ class DaytonaTerminalManager(TerminalManagerProtocol):
             # Start collecting output for the new command
             if run_async:
                 asyncio.create_task(self._collect_output(terminal))  # noqa: RUF006
-
-            logger.info(
-                "Executed command in terminal %s (session %s): %s",
-                terminal_id,
-                terminal.session_id,
-                command,
-            )
+            msg = "Executed command in terminal %s (session %s): %s"
+            logger.info(msg, terminal_id, terminal.session_id, command)
             return str(response.cmd_id)
 
         except Exception:
@@ -376,7 +374,7 @@ class DaytonaTerminalManager(TerminalManagerProtocol):
     async def cleanup(self) -> None:
         """Clean up all terminals and their sessions."""
         logger.info("Cleaning up %s Daytona terminals", len(self._terminals))
-        if cleanup_tasks := [self.release_terminal(id_) for id_ in self._terminals]:
+        if cleanup_tasks := [self.release_process(id_) for id_ in self._terminals]:
             await asyncio.gather(*cleanup_tasks, return_exceptions=True)
 
         logger.info("Daytona terminal cleanup completed")
