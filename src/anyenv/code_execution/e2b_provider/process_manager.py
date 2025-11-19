@@ -8,7 +8,8 @@ from typing import TYPE_CHECKING, Any
 import uuid
 
 from anyenv.log import get_logger
-from anyenv.process_manager import BaseTerminal, ProcessManagerProtocol, ProcessOutput
+from anyenv.process_manager import ProcessManagerProtocol, ProcessOutput
+from anyenv.process_manager.process_manager import BaseTerminal
 
 
 if TYPE_CHECKING:
@@ -109,12 +110,8 @@ class E2BTerminalManager(ProcessManagerProtocol):
             )
 
             terminal.set_handle(handle)
-            logger.info(
-                "Created E2B terminal %s (PID %s): %s",
-                terminal_id,
-                handle.pid,
-                full_command,
-            )
+            msg = "Created E2B terminal %s (PID %s): %s"
+            logger.info(msg, terminal_id, handle.pid, full_command)
 
         except Exception as e:
             # Clean up on failure
@@ -176,15 +173,11 @@ class E2BTerminalManager(ProcessManagerProtocol):
                 killed = await self.sandbox.commands.kill(terminal.pid)
                 if killed:
                     terminal.set_exit_code(130)  # SIGINT exit code
-                    logger.info(
-                        "Killed E2B process %s (PID %s)", process_id, terminal.pid
-                    )
+                    msg = "Killed E2B process %s (PID %s)"
+                    logger.info(msg, process_id, terminal.pid)
                 else:
-                    logger.warning(
-                        "Failed to kill E2B terminal %s (PID %s) - process not found",
-                        process_id,
-                        terminal.pid,
-                    )
+                    msg = "Failed to kill E2B terminal %s (PID %s) - process not found"
+                    logger.warning(msg, process_id, terminal.pid)
                     terminal.set_exit_code(1)
 
         except Exception:
@@ -312,12 +305,8 @@ class E2BTerminalManager(ProcessManagerProtocol):
 
         try:
             await self.sandbox.commands.send_stdin(terminal.pid, data)
-            logger.debug(
-                "Sent stdin to terminal %s (PID %s): %r",
-                terminal_id,
-                terminal.pid,
-                data[:50],
-            )
+            msg = "Sent stdin to terminal %s (PID %s): %r"
+            logger.debug(msg, terminal_id, terminal.pid, data[:50])
         except Exception:
             logger.exception("Error sending stdin to terminal %s", terminal_id)
             raise

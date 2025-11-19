@@ -10,7 +10,8 @@ from typing import TYPE_CHECKING, Any
 import uuid
 
 from anyenv.log import get_logger
-from anyenv.process_manager import BaseTerminal, ProcessManagerProtocol, ProcessOutput
+from anyenv.process_manager import ProcessManagerProtocol, ProcessOutput
+from anyenv.process_manager.process_manager import BaseTerminal
 
 
 if TYPE_CHECKING:

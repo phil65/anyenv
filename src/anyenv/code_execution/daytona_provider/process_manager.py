@@ -10,7 +10,8 @@ from typing import TYPE_CHECKING, Any
 import uuid
 
 from anyenv.log import get_logger
-from anyenv.process_manager import BaseTerminal, ProcessManagerProtocol, ProcessOutput
+from anyenv.process_manager import ProcessManagerProtocol, ProcessOutput
+from anyenv.process_manager.process_manager import BaseTerminal
 
 
 if TYPE_CHECKING:
@@ -101,14 +102,8 @@ class DaytonaTerminalManager(ProcessManagerProtocol):
 
             # Start background task to collect output
             asyncio.create_task(self._collect_output(terminal))  # noqa: RUF006
-
-            logger.info(
-                "Created Daytona terminal %s (session %s, command %s): %s",
-                terminal_id,
-                session_id,
-                response.cmd_id,
-                full_command,
-            )
+            msg = "Created Daytona terminal %s (session %s, command %s): %s"
+            logger.info(msg, terminal_id, session_id, response.cmd_id, full_command)
 
         except Exception as e:
             # Clean up on failure
@@ -143,9 +138,8 @@ class DaytonaTerminalManager(ProcessManagerProtocol):
                 terminal.set_exit_code(int(command_info.exit_code))
 
         except Exception as e:
-            logger.exception(
-                "Error collecting output for Daytona terminal %s", terminal.terminal_id
-            )
+            msg = "Error collecting output for Daytona terminal %s"
+            logger.exception(msg, terminal.terminal_id)
             terminal.add_output(f"Terminal error: {e}\n")
             terminal.set_exit_code(1)
 
@@ -218,11 +212,8 @@ class DaytonaTerminalManager(ProcessManagerProtocol):
             if terminal.is_running():
                 await self.sandbox.process.delete_session(terminal.session_id)
                 terminal.set_exit_code(130)  # SIGINT exit code
-                logger.info(
-                    "Killed Daytona process %s (session %s)",
-                    process_id,
-                    terminal.session_id,
-                )
+                msg = "Killed Daytona process %s (session %s)"
+                logger.info(msg, process_id, terminal.session_id)
 
         except Exception:
             logger.exception("Error killing process %s", process_id)

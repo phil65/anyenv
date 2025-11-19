@@ -8,7 +8,8 @@ from typing import TYPE_CHECKING, Any
 import uuid
 
 from anyenv.log import get_logger
-from anyenv.process_manager import BaseTerminal, ProcessManagerProtocol, ProcessOutput
+from anyenv.process_manager import ProcessManagerProtocol, ProcessOutput
+from anyenv.process_manager.process_manager import BaseTerminal
 
 
 if TYPE_CHECKING:
@@ -92,12 +93,8 @@ class VercelTerminalManager(ProcessManagerProtocol):
             task = asyncio.create_task(self._collect_output(terminal))
             # Store task reference to avoid RUF006 warning
             terminal._task = task  # noqa: SLF001
-
-            logger.info(
-                "Started Vercel terminal %s: %s",
-                terminal_id,
-                cmd_str,
-            )
+            msg = "Started Vercel terminal %s: %s"
+            logger.info(msg, terminal_id, cmd_str)
 
         except Exception as e:
             logger.exception("Failed to start Vercel command: %s", cmd_str)
@@ -208,10 +205,8 @@ class VercelTerminalManager(ProcessManagerProtocol):
             # We'll mark it as killed with SIGINT exit code
             if terminal.is_running():
                 terminal.set_exit_code(130)  # SIGINT exit code
-                logger.info(
-                    "Killed Vercel process %s (no direct kill support)",
-                    process_id,
-                )
+                msg = "Killed Vercel process %s (no direct kill support)"
+                logger.info(msg, process_id)
 
         except Exception:
             logger.exception("Error killing process %s", process_id)

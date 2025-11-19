@@ -61,7 +61,7 @@ class ExecutionEnvironment(ABC):
     def process_manager(self) -> ProcessManagerProtocol:
         """Get the process manager for this execution environment."""
         if self._process_manager is None:
-            from anyenv.process_manager import EnvironmentTerminalManager
+            from anyenv.code_execution.process_manager import EnvironmentTerminalManager
 
             self._process_manager = EnvironmentTerminalManager(self)
         return self._process_manager
