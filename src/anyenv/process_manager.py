@@ -8,14 +8,61 @@ from dataclasses import dataclass, field
 from datetime import datetime
 import os
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, Protocol
 import uuid
 
 from anyenv.log import get_logger
 from anyenv.processes import create_process
 
 
+if TYPE_CHECKING:
+    from anyenv.code_execution.base import ExecutionEnvironment
+
+
 logger = get_logger(__name__)
+
+
+class TerminalManagerProtocol(Protocol):
+    """Protocol for managing terminal sessions."""
+
+    async def create_terminal(
+        self,
+        command: str,
+        args: list[str] | None = None,
+        cwd: str | None = None,
+        env: dict[str, str] | None = None,
+        output_byte_limit: int = 1048576,
+    ) -> str:
+        """Create a new terminal session.
+
+        Returns:
+            Terminal ID for tracking
+        """
+        ...
+
+    async def get_command_output(self, terminal_id: str) -> tuple[str, bool, int | None]:
+        """Get current output from terminal.
+
+        Returns:
+            Tuple of (output, is_running, exit_code)
+        """
+        ...
+
+    async def wait_for_terminal_exit(self, terminal_id: str) -> int:
+        """Wait for terminal to complete.
+
+        Returns:
+            Exit code
+        """
+        ...
+
+    async def kill_terminal(self, terminal_id: str) -> None:
+        """Kill a running terminal."""
+        ...
+
+    async def release_terminal(self, terminal_id: str) -> None:
+        """Release terminal resources."""
+        ...
 
 
 @dataclass
@@ -448,3 +495,193 @@ class ProcessManager:
         self._output_tasks.clear()
 
         logger.info("Process cleanup completed")
+
+
+@dataclass
+class TerminalTask:
+    """Represents a running terminal task."""
+
+    terminal_id: str
+    command: str
+    args: list[str]
+    cwd: str | None
+    env: dict[str, str]
+    task: asyncio.Task[Any]
+    created_at: datetime = field(default_factory=datetime.now)
+    output_limit: int = 1048576
+    _output_buffer: list[str] = field(default_factory=list)
+    _output_size: int = 0
+    _truncated: bool = False
+    _exit_code: int | None = None
+
+    def add_output(self, output: str) -> None:
+        """Add output to buffer, applying size limits."""
+        if not output:
+            return
+
+        self._output_buffer.append(output)
+        self._output_size += len(output.encode())
+
+        # Apply truncation if limit exceeded
+        if self._output_size > self.output_limit:
+            self._truncate_output()
+
+    def _truncate_output(self) -> None:
+        """Truncate output from beginning to stay within limit."""
+        target_size = int(self.output_limit * 0.9)  # Keep 90% of limit
+
+        # Remove chunks from beginning until under limit
+        while self._output_buffer and self._output_size > target_size:
+            removed = self._output_buffer.pop(0)
+            self._output_size -= len(removed.encode())
+            self._truncated = True
+
+    def get_output(self) -> str:
+        """Get current buffered output."""
+        output = "".join(self._output_buffer)
+        if self._truncated:
+            output = "(output truncated)\n" + output
+        return output
+
+    def is_running(self) -> bool:
+        """Check if task is still running."""
+        return not self.task.done()
+
+    def set_exit_code(self, exit_code: int) -> None:
+        """Set the exit code."""
+        self._exit_code = exit_code
+
+    def get_exit_code(self) -> int | None:
+        """Get the exit code if available."""
+        return self._exit_code
+
+
+class EnvironmentTerminalManager:
+    """Terminal manager that uses ExecutionEnvironment for command execution."""
+
+    def __init__(self, env: ExecutionEnvironment) -> None:
+        """Initialize with an execution environment."""
+        self.env = env
+        self._terminals: dict[str, TerminalTask] = {}
+
+    async def create_terminal(
+        self,
+        command: str,
+        args: list[str] | None = None,
+        cwd: str | None = None,
+        env: dict[str, str] | None = None,
+        output_byte_limit: int = 1048576,
+    ) -> str:
+        """Create a new terminal session."""
+        terminal_id = f"term_{uuid.uuid4().hex[:8]}"
+        args = args or []
+        env = env or {}
+
+        # Build full command with proper shell escaping
+        if args:
+            # Use shell-safe command construction
+            import shlex
+
+            full_command = shlex.join([command, *args])
+        else:
+            full_command = command
+
+        # Create terminal task
+        terminal = TerminalTask(
+            terminal_id=terminal_id,
+            command=command,
+            args=args,
+            cwd=cwd,
+            env=env,
+            task=asyncio.create_task(self._run_terminal(terminal_id, full_command)),
+            output_limit=output_byte_limit,
+        )
+
+        self._terminals[terminal_id] = terminal
+        logger.info("Created terminal %s: %s", terminal_id, full_command)
+        return terminal_id
+
+    async def _run_terminal(self, terminal_id: str, command: str) -> None:
+        """Run terminal command in background."""
+        terminal = self._terminals[terminal_id]
+
+        try:
+            result = await self.env.execute_command(command)
+
+            if result.stdout:
+                terminal.add_output(result.stdout)
+            if result.stderr:
+                terminal.add_output(result.stderr)
+
+            # Use actual exit code if available, otherwise infer from success
+            if result.exit_code is not None:
+                terminal.set_exit_code(result.exit_code)
+            else:
+                terminal.set_exit_code(0 if result.success else 1)
+
+        except Exception as e:
+            terminal.add_output(f"Terminal error: {e}\n")
+            terminal.set_exit_code(1)
+            logger.exception("Error in terminal %s", terminal_id)
+
+    async def get_command_output(self, terminal_id: str) -> tuple[str, bool, int | None]:
+        """Get current output from terminal."""
+        if terminal_id not in self._terminals:
+            msg = f"Terminal {terminal_id} not found"
+            raise ValueError(msg)
+
+        terminal = self._terminals[terminal_id]
+        output = terminal.get_output()
+        is_running = terminal.is_running()
+        exit_code = terminal.get_exit_code()
+
+        return output, is_running, exit_code
+
+    async def wait_for_terminal_exit(self, terminal_id: str) -> int:
+        """Wait for terminal to complete."""
+        if terminal_id not in self._terminals:
+            msg = f"Terminal {terminal_id} not found"
+            raise ValueError(msg)
+
+        terminal = self._terminals[terminal_id]
+
+        try:
+            await terminal.task
+        except asyncio.CancelledError:
+            terminal.set_exit_code(130)  # SIGINT exit code
+        except Exception:  # noqa: BLE001
+            terminal.set_exit_code(1)
+
+        return terminal.get_exit_code() or 0
+
+    async def kill_terminal(self, terminal_id: str) -> None:
+        """Kill a running terminal."""
+        if terminal_id not in self._terminals:
+            msg = f"Terminal {terminal_id} not found"
+            raise ValueError(msg)
+
+        terminal = self._terminals[terminal_id]
+
+        if terminal.is_running():
+            terminal.task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await terminal.task
+            terminal.set_exit_code(130)  # SIGINT exit code
+
+        logger.info("Killed terminal %s", terminal_id)
+
+    async def release_terminal(self, terminal_id: str) -> None:
+        """Release terminal resources."""
+        if terminal_id not in self._terminals:
+            msg = f"Terminal {terminal_id} not found"
+            raise ValueError(msg)
+
+        terminal = self._terminals[terminal_id]
+
+        # Kill if still running
+        if terminal.is_running():
+            await self.kill_terminal(terminal_id)
+
+        # Remove from tracking
+        del self._terminals[terminal_id]
+        logger.info("Released terminal %s", terminal_id)

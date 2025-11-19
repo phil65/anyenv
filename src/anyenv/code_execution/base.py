@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from fsspec.asyn import AsyncFileSystem
 
     from anyenv.code_execution.models import ExecutionResult, ServerInfo
+    from anyenv.process_manager import TerminalManagerProtocol
 
 
 class ExecutionEnvironment(ABC):
@@ -36,6 +37,7 @@ class ExecutionEnvironment(ABC):
         self.lifespan_handler = lifespan_handler
         self.server_info: ServerInfo | None = None
         self.dependencies = dependencies or []
+        self._process_manager: TerminalManagerProtocol | None = None
 
     async def __aenter__(self) -> Self:
         """Setup environment (start server, spawn process, etc.)."""
@@ -54,6 +56,15 @@ class ExecutionEnvironment(ABC):
         # Cleanup server if provided
         if self.lifespan_handler:
             await self.lifespan_handler.__aexit__(exc_type, exc_val, exc_tb)
+
+    @property
+    def process_manager(self) -> TerminalManagerProtocol:
+        """Get the process manager for this execution environment."""
+        if self._process_manager is None:
+            from anyenv.process_manager import EnvironmentTerminalManager
+
+            self._process_manager = EnvironmentTerminalManager(self)
+        return self._process_manager
 
     @abstractmethod
     async def execute(self, code: str) -> ExecutionResult:
