@@ -273,7 +273,7 @@ class ProcessManager(ProcessManagerProtocol):
         del self._processes[process_id]
         logger.info("Released process %s", process_id)
 
-    def list_processes(self) -> list[str]:
+    async def list_processes(self) -> list[str]:
         """List all tracked process IDs."""
         return list(self._processes.keys())
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 import uuid
 
 from anyenv.log import get_logger
@@ -203,21 +203,26 @@ class VercelTerminalManager(ProcessManagerProtocol):
         del self._terminals[process_id]
         logger.info("Released process %s", process_id)
 
-    def list_processes(self) -> list[str]:
+    async def list_processes(self) -> list[str]:
         """List all tracked terminals."""
         return list(self._terminals.keys())
 
-    # def list_processes(self) -> dict[str, dict[str, Any]]:
+    async def get_process_info(self, process_id: str) -> dict[str, Any]:
+        """Get information about a specific process."""
+        terminal = self._terminals[process_id]
+        return {
+            "command": terminal.command,
+            "args": terminal.args,
+            "cwd": str(terminal.cwd) if terminal.cwd else None,
+            "created_at": terminal.created_at.isoformat(),
+            "is_running": terminal.is_running(),
+            "exit_code": terminal.get_exit_code(),
+            "command_id": terminal.command_id,
+        }
+
+    # async def list_processes(self) -> dict[str, dict[str, Any]]:
     #     """List all tracked terminals and their status."""
-    #     result = {}
-    #     for terminal_id, terminal in self._terminals.items():
-    #         result[terminal_id] = {
-    #             "command": terminal.command,
-    #             "args": terminal.args,
-    #             "cwd": str(terminal.cwd) if terminal.cwd else None,
-    #             "created_at": terminal.created_at.isoformat(),
-    #             "is_running": terminal.is_running(),
-    #             "exit_code": terminal.get_exit_code(),
-    #             "command_id": terminal.command_id,
-    #         }
-    #     return result
+    #     return {
+    #         terminal_id: await self.get_process_info(terminal_id)
+    #         for terminal_id in self._terminals
+    #     }

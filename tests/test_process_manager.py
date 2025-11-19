@@ -154,13 +154,13 @@ async def test_release_process(process_manager: ProcessManager, mock_process):
 
 async def test_list_processes(process_manager: ProcessManager, mock_process):
     """Test listing active processes."""
-    assert process_manager.list_processes() == []
+    assert await process_manager.list_processes() == []
 
     with patch("asyncio.create_subprocess_exec", return_value=mock_process):
         process_id1 = await process_manager.start_process("cmd1")
         process_id2 = await process_manager.start_process("cmd2")
 
-        processes = process_manager.list_processes()
+        processes = await process_manager.list_processes()
         assert len(processes) == 2  # noqa: PLR2004
         assert process_id1 in processes
         assert process_id2 in processes

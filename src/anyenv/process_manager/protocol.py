@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from anyenv.log import get_logger
 
@@ -58,6 +58,14 @@ class ProcessManagerProtocol(Protocol):
         """Release process resources."""
         ...
 
-    def list_processes(self) -> list[str]:
+    async def list_processes(self) -> list[str]:
         """List all running processes."""
+        ...
+
+    async def get_process_info(self, process_id: str) -> dict[str, Any]:
+        """Get information about a process.
+
+        Returns:
+            Process information
+        """
         ...
