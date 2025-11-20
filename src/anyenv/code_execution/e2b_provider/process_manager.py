@@ -119,11 +119,7 @@ class E2BTerminalManager(ProcessManagerProtocol):
 
     async def get_output(self, process_id: str) -> ProcessOutput:
         """Get current output from a process."""
-        if process_id not in self._terminals:
-            msg = f"Process {process_id} not found"
-            raise ValueError(msg)
-
-        terminal = self._terminals[process_id]
+        terminal = self.get_terminal(process_id)
         output = terminal.get_output()
         exit_code = terminal.get_exit_code()
 
@@ -133,11 +129,7 @@ class E2BTerminalManager(ProcessManagerProtocol):
 
     async def wait_for_exit(self, process_id: str) -> int:
         """Wait for process to complete."""
-        if process_id not in self._terminals:
-            msg = f"Process {process_id} not found"
-            raise ValueError(msg)
-
-        terminal = self._terminals[process_id]
+        terminal = self.get_terminal(process_id)
         handle = terminal._handle  # noqa: SLF001
         try:
             if handle and handle.exit_code is None:
@@ -156,12 +148,7 @@ class E2BTerminalManager(ProcessManagerProtocol):
 
     async def kill_process(self, process_id: str) -> None:
         """Kill a running process using E2B's process management."""
-        if process_id not in self._terminals:
-            msg = f"Process {process_id} not found"
-            raise ValueError(msg)
-
-        terminal = self._terminals[process_id]
-
+        terminal = self.get_terminal(process_id)
         try:
             # Kill the E2B process using the PID
             if terminal.pid and terminal.is_running():
@@ -181,11 +168,7 @@ class E2BTerminalManager(ProcessManagerProtocol):
 
     async def release_process(self, process_id: str) -> None:
         """Release process resources."""
-        if process_id not in self._terminals:
-            msg = f"Process {process_id} not found"
-            raise ValueError(msg)
-
-        terminal = self._terminals[process_id]
+        terminal = self.get_terminal(process_id)
         if terminal.is_running():
             await self.kill_process(process_id)
         del self._terminals[process_id]
@@ -198,9 +181,17 @@ class E2BTerminalManager(ProcessManagerProtocol):
     #         for terminal_id in self._terminals
     #     }
 
+    def get_terminal(self, terminal_id: str):
+        """Get terminal by ID."""
+        if terminal_id not in self._terminals:
+            msg = f"Process {terminal_id} not found"
+            raise ValueError(msg)
+
+        return self._terminals[terminal_id]
+
     async def get_process_info(self, process_id: str) -> dict[str, Any]:
         """Get information about a specific process."""
-        terminal = self._terminals[process_id]
+        terminal = self.get_terminal(process_id)
         return {
             "terminal_id": process_id,
             "command": terminal.command,
@@ -293,12 +284,7 @@ class E2BTerminalManager(ProcessManagerProtocol):
 
     async def send_stdin(self, terminal_id: str, data: str) -> None:
         """Send data to terminal stdin (if supported)."""
-        if terminal_id not in self._terminals:
-            msg = f"Terminal {terminal_id} not found"
-            raise ValueError(msg)
-
-        terminal = self._terminals[terminal_id]
-
+        terminal = self.get_terminal(terminal_id)
         if not terminal.pid:
             msg = f"Terminal {terminal_id} has no process ID"
             raise ValueError(msg)
