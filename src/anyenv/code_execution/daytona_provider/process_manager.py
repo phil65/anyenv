@@ -115,8 +115,6 @@ class DaytonaTerminalManager(ProcessManagerProtocol):
             await self.sandbox.process.get_session_command_logs_async(
                 terminal.session_id, terminal.command_id, on_logs
             )
-
-            # Get final command info for exit code
             command_info = await self.sandbox.process.get_session_command(
                 terminal.session_id, terminal.command_id
             )
@@ -131,13 +129,7 @@ class DaytonaTerminalManager(ProcessManagerProtocol):
 
     async def get_output(self, process_id: str) -> ProcessOutput:
         """Get current output from a process."""
-        if process_id not in self._terminals:
-            msg = f"Process {process_id} not found"
-            raise ValueError(msg)
-
-        terminal = self._terminals[process_id]
-
-        # Try to update exit code if command is done
+        terminal = self.get_terminal(process_id)
         if terminal.command_id and terminal.is_running():
             try:
                 command_info = await self.sandbox.process.get_session_command(
@@ -156,14 +148,17 @@ class DaytonaTerminalManager(ProcessManagerProtocol):
             stdout=output, stderr="", combined=output, exit_code=exit_code
         )
 
-    async def wait_for_exit(self, process_id: str) -> int:
-        """Wait for process to complete."""
-        if process_id not in self._terminals:
-            msg = f"Process {process_id} not found"
+    def get_terminal(self, terminal_id):
+        """Get terminal by ID."""
+        if terminal_id not in self._terminals:
+            msg = f"Process {terminal_id} not found"
             raise ValueError(msg)
 
-        terminal = self._terminals[process_id]
+        return self._terminals[terminal_id]
 
+    async def wait_for_exit(self, process_id: str) -> int:
+        """Wait for process to complete."""
+        terminal = self.get_terminal(process_id)
         try:
             # Poll for command completion
             while terminal.is_running():
@@ -187,12 +182,7 @@ class DaytonaTerminalManager(ProcessManagerProtocol):
 
     async def kill_process(self, process_id: str) -> None:
         """Kill a running process by deleting its session."""
-        if process_id not in self._terminals:
-            msg = f"Process {process_id} not found"
-            raise ValueError(msg)
-
-        terminal = self._terminals[process_id]
-
+        terminal = self.get_terminal(process_id)
         try:
             # Delete the Daytona session to kill all its commands
             if terminal.is_running():
@@ -207,16 +197,9 @@ class DaytonaTerminalManager(ProcessManagerProtocol):
 
     async def release_process(self, process_id: str) -> None:
         """Release process resources."""
-        if process_id not in self._terminals:
-            msg = f"Process {process_id} not found"
-            raise ValueError(msg)
-
-        terminal = self._terminals[process_id]
-
-        # Kill if still running
+        terminal = self.get_terminal(process_id)
         if terminal.is_running():
             await self.kill_process(process_id)
-
         # Clean up session
         with contextlib.suppress(Exception):
             await self.sandbox.process.delete_session(terminal.session_id)
@@ -231,7 +214,7 @@ class DaytonaTerminalManager(ProcessManagerProtocol):
 
     async def get_process_info(self, process_id: str) -> dict[str, Any]:
         """Get information about a specific process."""
-        terminal = self._terminals[process_id]
+        terminal = self.get_terminal(process_id)
         return {
             "terminal_id": process_id,
             "command": terminal.command,
@@ -247,21 +230,10 @@ class DaytonaTerminalManager(ProcessManagerProtocol):
 
     # async def list_processes(self) -> dict[str, dict[str, Any]]:
     #     """List all tracked terminals and their status."""
-    #     result = {}
-    #     for terminal_id, terminal in self._terminals.items():
-    #         result[terminal_id] = {
-    #             "terminal_id": terminal_id,
-    #             "command": terminal.command,
-    #             "args": terminal.args,
-    #             "cwd": terminal.cwd,
-    #             "session_id": terminal.session_id,
-    #             "command_id": terminal.command_id,
-    #             "created_at": terminal.created_at.isoformat(),
-    #             "is_running": terminal.is_running(),
-    #             "exit_code": terminal.get_exit_code(),
-    #             "output_limit": terminal.output_limit,
-    #         }
-    #     return result
+    #     return {
+    #         terminal_id: await self.get_process_info(terminal_id)
+    #         for terminal_id in self._terminals
+    #     }
 
     async def get_sandbox_sessions(self) -> dict[str, dict[str, Any]]:
         """Get all sessions in the Daytona sandbox."""
@@ -338,12 +310,7 @@ class DaytonaTerminalManager(ProcessManagerProtocol):
         self, terminal_id: str, command: str, run_async: bool = True
     ) -> str:
         """Execute a new command in an existing terminal session."""
-        if terminal_id not in self._terminals:
-            msg = f"Terminal {terminal_id} not found"
-            raise ValueError(msg)
-
-        terminal = self._terminals[terminal_id]
-
+        terminal = self.get_terminal(terminal_id)
         try:
             from daytona.common.process import SessionExecuteRequest
 

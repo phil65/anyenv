@@ -74,11 +74,7 @@ class E2BTerminalManager(ProcessManagerProtocol):
         terminal_id = f"e2b_term_{uuid.uuid4().hex[:8]}"
         args = args or []
         env = env or {}
-
-        # Build full command
         full_command = f"{command} {' '.join(args)}" if args else command
-
-        # Create terminal
         terminal = E2BTerminal(
             terminal_id=terminal_id,
             command=command,
@@ -87,7 +83,6 @@ class E2BTerminalManager(ProcessManagerProtocol):
             env=env,
             output_limit=output_limit or 1048576,
         )
-
         self._terminals[terminal_id] = terminal
 
         # Start the process using E2B's background execution
@@ -191,31 +186,17 @@ class E2BTerminalManager(ProcessManagerProtocol):
             raise ValueError(msg)
 
         terminal = self._terminals[process_id]
-
-        # Kill if still running
         if terminal.is_running():
             await self.kill_process(process_id)
-
-        # Remove from tracking
         del self._terminals[process_id]
         logger.info("Released process %s", process_id)
 
     # async def list_processes(self) -> dict[str, dict[str, Any]]:
     #     """List all tracked terminals and their status."""
-    #     result = {}
-    #     for terminal_id, terminal in self._terminals.items():
-    #         result[terminal_id] = {
-    #             "terminal_id": terminal_id,
-    #             "command": terminal.command,
-    #             "args": terminal.args,
-    #             "cwd": terminal.cwd,
-    #             "pid": terminal.pid,
-    #             "created_at": terminal.created_at.isoformat(),
-    #             "is_running": terminal.is_running(),
-    #             "exit_code": terminal.get_exit_code(),
-    #             "output_limit": terminal.output_limit,
-    #         }
-    #     return result
+    #     return {
+    #         terminal_id: await self.get_process_info(terminal_id)
+    #         for terminal_id in self._terminals
+    #     }
 
     async def get_process_info(self, process_id: str) -> dict[str, Any]:
         """Get information about a specific process."""
