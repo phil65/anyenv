@@ -27,10 +27,19 @@ class BaseExecutionEnvironmentConfig(BaseModel):
     type: str = Field(init=False)
     """Execution environment type."""
 
-    dependencies: list[str] | None = None
+    dependencies: list[str] | None = Field(
+        default=None,
+        title="Dependencies",
+        examples=["numpy", "pandas"],
+    )
     """List of packages to install (pip for Python, npm for JS/TS)."""
 
-    timeout: float = Field(default=60.0, gt=0.0)
+    timeout: float = Field(
+        default=60.0,
+        gt=0.0,
+        title="Execution Timeout",
+        examples=[120.0, 300.0],
+    )
     """Execution timeout in seconds."""
 
     model_config = ConfigDict(use_attribute_docstrings=True, extra="forbid")
@@ -44,13 +53,21 @@ class LocalExecutionEnvironmentConfig(BaseExecutionEnvironmentConfig):
 
     type: Literal["local"] = Field("local", init=False)
 
-    executable: str | None = None
+    executable: str | None = Field(
+        default=None,
+        title="Python Executable",
+        examples=["/usr/bin/python3", "python3.13", "/opt/conda/bin/python"],
+    )
     """Python executable to use (if None, auto-detect based on language)."""
 
-    language: Language = "python"
+    language: Language = Field(
+        default="python",
+        title="Programming Language",
+        examples=["python", "javascript", "typescript"],
+    )
     """Programming language to use."""
 
-    isolated: bool = False
+    isolated: bool = Field(default=False, title="Isolated Execution")
     """Whether to run code in a subprocess."""
 
     def get_provider(
@@ -77,10 +94,18 @@ class DockerExecutionEnvironmentConfig(BaseExecutionEnvironmentConfig):
 
     type: Literal["docker"] = Field("docker", init=False)
 
-    image: str = "python:3.13-slim"
+    image: str = Field(
+        default="python:3.13-slim",
+        title="Docker Image",
+        examples=["python:3.13-slim", "node:20-alpine", "ubuntu:22.04"],
+    )
     """Docker image to use."""
 
-    language: Language = "python"
+    language: Language = Field(
+        default="python",
+        title="Programming Language",
+        examples=["python", "javascript", "typescript"],
+    )
     """Programming language to use."""
 
     def get_provider(
@@ -106,13 +131,21 @@ class E2bExecutionEnvironmentConfig(BaseExecutionEnvironmentConfig):
 
     type: Literal["e2b"] = Field("e2b", init=False)
 
-    template: str | None = None
+    template: str | None = Field(
+        default=None,
+        title="E2B Template",
+        examples=["python", "nodejs", "custom-template-id"],
+    )
     """E2B template to use."""
 
-    keep_alive: bool = False
+    keep_alive: bool = Field(default=False, title="Keep Alive")
     """Keep sandbox running after execution."""
 
-    language: Language = "python"
+    language: Language = Field(
+        default="python",
+        title="Programming Language",
+        examples=["python", "javascript", "typescript"],
+    )
     """Programming language to use."""
 
     def get_provider(
@@ -139,16 +172,34 @@ class BeamExecutionEnvironmentConfig(BaseExecutionEnvironmentConfig):
 
     type: Literal["beam"] = Field("beam", init=False)
 
-    cpu: float | str = 1.0
+    cpu: float | str = Field(
+        default=1.0,
+        ge=0.1,
+        le=64.0,
+        title="CPU Cores",
+        examples=[0.5, 1.0, 2.0, "1500m"],
+    )
     """CPU cores allocated to the container."""
 
-    memory: int | str = 128
+    memory: int | str = Field(
+        default=128,
+        title="Memory (MiB)",
+        examples=[128, "1Gi"],
+    )
     """Memory allocated to the container in MiB."""
 
-    keep_warm_seconds: int = 600
+    keep_warm_seconds: int = Field(
+        default=600,
+        title="Keep Warm Duration",
+        examples=[300, 600, -1],
+    )
     """Seconds to keep sandbox alive, -1 for no timeout."""
 
-    language: Language = "python"
+    language: Language = Field(
+        default="python",
+        title="Programming Language",
+        examples=["python", "javascript", "typescript"],
+    )
     """Programming language to use."""
 
     def get_provider(
@@ -176,19 +227,31 @@ class DaytonaExecutionEnvironmentConfig(BaseExecutionEnvironmentConfig):
 
     type: Literal["daytona"] = Field("daytona", init=False)
 
-    api_url: str | None = None
+    api_url: str | None = Field(
+        default=None,
+        title="API URL",
+        examples=["https://api.daytona.io", "http://localhost:3986"],
+    )
     """Daytona API URL (optional, uses env vars if not provided)."""
 
-    api_key: SecretStr | None = None
+    api_key: SecretStr | None = Field(default=None, title="API Key")
     """API key for authentication."""
 
-    target: str | None = None
+    target: str | None = Field(
+        default=None,
+        title="Target Configuration",
+        examples=["local", "docker", "kubernetes"],
+    )
     """Target configuration."""
 
-    image: str = "python:3.13-slim"
+    image: str = Field(
+        default="python:3.13-slim",
+        title="Container Image",
+        examples=["python:3.13-slim", "node:20-alpine", "ubuntu:22.04"],
+    )
     """Container image."""
 
-    keep_alive: bool = False
+    keep_alive: bool = Field(default=False, title="Keep Alive")
     """Keep sandbox running after execution."""
 
     def get_provider(
@@ -218,7 +281,7 @@ class McpPythonExecutionEnvironmentConfig(BaseExecutionEnvironmentConfig):
 
     type: Literal["mcp_python"] = Field("mcp_python", init=False)
 
-    allow_networking: bool = True
+    allow_networking: bool = Field(default=True, title="Allow Networking")
     """Allow network access."""
 
     def get_provider(
