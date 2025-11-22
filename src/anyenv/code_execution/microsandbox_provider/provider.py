@@ -67,10 +67,8 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
         """Setup Microsandbox environment."""
         # Start tool server via base class
         await super().__aenter__()
-
         from microsandbox import NodeSandbox, PythonSandbox
 
-        # Select appropriate sandbox type based on language
         match self.language:
             case "python":
                 sandbox_class = PythonSandbox
@@ -88,11 +86,8 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
         # Configure sandbox resources if needed
         # Note: Microsandbox handles resource config during start()
         # which is already called by the context manager
-
-        # Install Python dependencies if specified
         if self.dependencies and self.language == "python":
             deps_str = " ".join(self.dependencies)
-            assert self.sandbox
             install_result = await self.sandbox.command.run(f"pip install {deps_str}")
             if install_result.exit_code != 0:
                 # Log warning but don't fail - code might still work
@@ -129,14 +124,13 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
         start_time = time.time()
         try:
             execution = await self.sandbox.run(code)
-            duration = time.time() - start_time
             stdout = await execution.output()
             stderr = await execution.error()
             success = not execution.has_error()
             if success:
                 return ExecutionResult(
                     result=stdout if stdout else None,
-                    duration=duration,
+                    duration=time.time() - start_time,
                     success=True,
                     stdout=stdout,
                     stderr=stderr,
@@ -144,7 +138,7 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
 
             return ExecutionResult(
                 result=None,
-                duration=duration,
+                duration=time.time() - start_time,
                 success=False,
                 error=stderr or "Code execution failed",
                 error_type="ExecutionError",
@@ -153,10 +147,9 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
             )
 
         except Exception as e:  # noqa: BLE001
-            duration = time.time() - start_time
             return ExecutionResult(
                 result=None,
-                duration=duration,
+                duration=time.time() - start_time,
                 success=False,
                 error=str(e),
                 error_type=type(e).__name__,

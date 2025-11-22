@@ -170,14 +170,13 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
             ])
             cmd, args = self._get_execution_command(script_path)
             result = await self.sandbox.run_command(cmd, args)
-            duration = time.time() - start_time
             stdout = await result.stdout()
             stderr = await result.stderr()
             execution_result, error_info = parse_output(stdout)
             if result.exit_code == 0 and error_info is None:
                 return ExecutionResult(
                     result=execution_result,
-                    duration=duration,
+                    duration=time.time() - start_time,
                     success=True,
                     stdout=stdout,
                     exit_code=result.exit_code,
@@ -186,7 +185,7 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
 
             return ExecutionResult(
                 result=None,
-                duration=duration,
+                duration=time.time() - start_time,
                 success=False,
                 error=(error_info or {}).get("error", "Command execution failed"),
                 exit_code=result.exit_code,
@@ -196,10 +195,9 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
             )
 
         except Exception as e:  # noqa: BLE001
-            duration = time.time() - start_time
             return ExecutionResult(
                 result=None,
-                duration=duration,
+                duration=time.time() - start_time,
                 success=False,
                 error=str(e),
                 error_type=type(e).__name__,
@@ -212,7 +210,6 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
             raise RuntimeError(error_msg)
 
         start_time = time.time()
-
         try:
             parts = shlex.split(command)
             if not parts:
@@ -221,15 +218,13 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
 
             cmd = parts[0]
             args = parts[1:] if len(parts) > 1 else None
-
             result = await self.sandbox.run_command(cmd, args)
-            duration = time.time() - start_time
             stdout = await result.stdout()
             stderr = await result.stderr()
             success = result.exit_code == 0
             return ExecutionResult(
                 result=stdout if success else None,
-                duration=duration,
+                duration=time.time() - start_time,
                 success=success,
                 error=stderr if not success else None,
                 error_type="CommandError" if not success else None,
@@ -238,10 +233,9 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
             )
 
         except Exception as e:  # noqa: BLE001
-            duration = time.time() - start_time
             return ExecutionResult(
                 result=None,
-                duration=duration,
+                duration=time.time() - start_time,
                 success=False,
                 error=str(e),
                 error_type=type(e).__name__,

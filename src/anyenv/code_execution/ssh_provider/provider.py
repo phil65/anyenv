@@ -205,16 +205,14 @@ class SshExecutionEnvironment(ExecutionEnvironment):
                 msg = f"Unsupported language: {self.language}"
                 raise ValueError(msg)  # noqa: TRY301
 
-            duration = time.time() - start_time
             success = result.returncode == 0
-
             # Add tool server URL to code if available
             if self.server_info and self.language == "python":
                 code = self._inject_tool_server(code)
 
             return ExecutionResult(
                 result=result.stdout if success else None,
-                duration=duration,
+                duration=time.time() - start_time,
                 success=success,
                 error=result.stderr.decode()
                 if isinstance(result.stderr, bytes)
@@ -232,10 +230,9 @@ class SshExecutionEnvironment(ExecutionEnvironment):
             )
 
         except Exception as e:  # noqa: BLE001
-            duration = time.time() - start_time
             return ExecutionResult(
                 result=None,
-                duration=duration,
+                duration=time.time() - start_time,
                 success=False,
                 error=str(e),
                 error_type=type(e).__name__,
@@ -318,13 +315,10 @@ os.environ['TOOL_SERVER_PORT'] = '{self.server_info.port}'
 
         try:
             result = await self.run_in_working_dir(command, timeout=True)
-
-            duration = time.time() - start_time
             success = result.returncode == 0
-
             return ExecutionResult(
                 result=result.stdout if success else None,
-                duration=duration,
+                duration=time.time() - start_time,
                 success=success,
                 error=result.stderr.decode()
                 if isinstance(result.stderr, bytes)
@@ -341,10 +335,9 @@ os.environ['TOOL_SERVER_PORT'] = '{self.server_info.port}'
             )
 
         except Exception as e:  # noqa: BLE001
-            duration = time.time() - start_time
             return ExecutionResult(
                 result=None,
-                duration=duration,
+                duration=time.time() - start_time,
                 success=False,
                 error=str(e),
                 error_type=type(e).__name__,
