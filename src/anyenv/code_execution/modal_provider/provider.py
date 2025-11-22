@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from types import TracebackType
 
     from modal import App, Image, Sandbox
-    from upathtools.filesystems.modal_fs import ModalFS
+    from upathtools.filesystems import ModalFS
 
     from anyenv.code_execution.events import ExecutionEvent
     from anyenv.code_execution.models import Language, ServerInfo
@@ -160,7 +160,7 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
 
     def get_fs(self) -> ModalFS:
         """Return a ModalFS instance for the sandbox."""
-        from upathtools.filesystems.modal_fs import ModalFS
+        from upathtools.filesystems import ModalFS
 
         assert self.sandbox
         return ModalFS(sandbox_id=self.sandbox.object_id)

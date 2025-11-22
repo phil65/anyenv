@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from types import TracebackType
 
     from e2b import AsyncSandbox
-    from upathtools.filesystems.e2b_fs import E2BFS
+    from upathtools.filesystems import E2BFS
 
     from anyenv.code_execution.events import ExecutionEvent
     from anyenv.code_execution.models import Language, ServerInfo
@@ -105,7 +105,7 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
 
     def get_fs(self) -> E2BFS:
         """Return a E2BFs instance for the sandbox."""
-        from upathtools.filesystems.e2b_fs import E2BFS
+        from upathtools.filesystems import E2BFS
 
         assert self.sandbox
         return E2BFS(sandbox_id=self.sandbox.sandbox_id)

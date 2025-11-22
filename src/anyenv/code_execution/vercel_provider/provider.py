@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     from contextlib import AbstractAsyncContextManager
     from types import TracebackType
 
-    from upathtools.filesystems.vercel_fs import VercelFS
+    from upathtools.filesystems import VercelFS
     from vercel.sandbox import AsyncSandbox
 
     from anyenv.code_execution.events import ExecutionEvent
@@ -139,7 +139,7 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
 
     def get_fs(self) -> VercelFS:
         """Return a VercelFS instance for the sandbox."""
-        from upathtools.filesystems.vercel_fs import VercelFS
+        from upathtools.filesystems import VercelFS
 
         assert self.sandbox
         return VercelFS(sandbox=self.sandbox)

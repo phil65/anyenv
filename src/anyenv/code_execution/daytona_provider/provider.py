@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from types import TracebackType
 
     from daytona._async.sandbox import AsyncSandbox
-    from upathtools.filesystems.daytona_fs import DaytonaFS
+    from upathtools.filesystems import DaytonaFS
 
     from anyenv.code_execution.events import ExecutionEvent
     from anyenv.code_execution.models import Language, ServerInfo
@@ -106,7 +106,7 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
 
     def get_fs(self) -> DaytonaFS:
         """Return a DaytonaFS instance for the sandbox."""
-        from upathtools.filesystems.daytona_fs import DaytonaFS
+        from upathtools.filesystems import DaytonaFS
 
         return DaytonaFS(sandbox_id=self.sandbox.id)
 

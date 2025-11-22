@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from contextlib import AbstractAsyncContextManager
     from types import TracebackType
 
-    from upathtools.filesystems.microsandbox_fs import MicrosandboxFS
+    from upathtools.filesystems import MicrosandboxFS
 
     from anyenv.code_execution.events import ExecutionEvent
     from anyenv.code_execution.models import Language, ServerInfo
@@ -115,7 +115,7 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
 
     def get_fs(self) -> MicrosandboxFS:
         """Return a MicrosandboxFS instance for the sandbox."""
-        from upathtools.filesystems.microsandbox_fs import MicrosandboxFS
+        from upathtools.filesystems import MicrosandboxFS
 
         assert self.sandbox
         return MicrosandboxFS(sandbox=self.sandbox)

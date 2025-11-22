@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from types import TracebackType
 
     from beam import SandboxInstance
-    from upathtools.filesystems.beam_fs import BeamFS
+    from upathtools.filesystems import BeamFS
 
     from anyenv.code_execution.events import ExecutionEvent
     from anyenv.code_execution.models import Language, ServerInfo
@@ -60,7 +60,7 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
 
     def get_fs(self) -> BeamFS:
         """Return a BeamFS instance for the sandbox."""
-        from upathtools.filesystems.beam_fs import BeamFS
+        from upathtools.filesystems import BeamFS
 
         assert self.instance
         return BeamFS(sandbox_id=self.instance.container_id)
