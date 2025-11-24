@@ -225,3 +225,18 @@ def test_remove_path_command(provider: OSCommandProvider, temp_dir: Path):
     result = provider.get_command("remove_path").parse_command(output, exit_code)
     assert result is True
     assert not test_dir.exists()
+
+
+def test_dot_directories_filtering(provider: OSCommandProvider, temp_dir: Path):
+    """Test if dot directories are filtered from listings."""
+    (temp_dir / "file.txt").write_text("content")
+
+    cmd = provider.get_command("list_directory").create_command(str(temp_dir))
+    output, _exit_code = run_command(cmd)
+    entries = provider.get_command("list_directory").parse_command(output, str(temp_dir))
+    names = [e.name for e in entries]
+
+    print(f"Found entries: {names}")
+    print(f"Dot entries: {[n for n in names if n in ('.', '..')]}")
+    assert "." not in names
+    assert ".." not in names
