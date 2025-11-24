@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from contextlib import AbstractAsyncContextManager
     from types import TracebackType
 
+    from microsandbox import NodeSandbox, PythonSandbox
     from upathtools.filesystems import MicrosandboxFS
 
     from anyenv.code_execution.events import ExecutionEvent
@@ -61,7 +62,7 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
         self.timeout = timeout
         self.language = language
         self.image = image
-        self.sandbox = None
+        self.sandbox: PythonSandbox | NodeSandbox | None = None
 
     async def __aenter__(self) -> Self:
         """Setup Microsandbox environment."""
