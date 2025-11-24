@@ -107,9 +107,7 @@ class UnixListDirectoryCommand(ListDirectoryCommand):
             type=file_type,
             size=size,
             timestamp=timestamp,
-            permissions=permissions
-            if permissions and not permissions.isspace()
-            else None,
+            permissions=permissions if permissions and not permissions.isspace() else None,
         )
 
 

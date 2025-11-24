@@ -62,9 +62,7 @@ class ThreadGroup[R = Any]:
                 max_workers=self.max_workers
             )
         else:
-            self.executor = concurrent.futures.ThreadPoolExecutor(
-                max_workers=self.max_workers
-            )
+            self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers)
 
         self.futures: list[concurrent.futures.Future[R]] = []
         self._results: list[R] = []

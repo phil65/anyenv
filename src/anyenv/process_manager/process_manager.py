@@ -101,9 +101,7 @@ class ProcessManager(ProcessManagerProtocol):
             self._processes[process_id] = running_proc
 
             # Start output collection task
-            self._output_tasks[process_id] = asyncio.create_task(
-                self._collect_output(running_proc)
-            )
+            self._output_tasks[process_id] = asyncio.create_task(self._collect_output(running_proc))
 
             logger.info("Started process %s: %s %s", process_id, command, " ".join(args))
         except Exception as e:

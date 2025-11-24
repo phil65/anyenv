@@ -56,9 +56,7 @@ async def test_start_process_success(process_manager: ProcessManager, mock_proce
 
 async def test_start_process_with_options(process_manager: ProcessManager, mock_process):
     """Test starting a process with environment and working directory."""
-    with patch(
-        "asyncio.create_subprocess_exec", return_value=mock_process
-    ) as mock_create:
+    with patch("asyncio.create_subprocess_exec", return_value=mock_process) as mock_create:
         await process_manager.start_process(
             "test_cmd",
             args=["arg1", "arg2"],

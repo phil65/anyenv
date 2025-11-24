@@ -140,9 +140,7 @@ class VercelTerminalManager(ProcessManagerProtocol):
 
         output = terminal.get_output()
         exit_code = terminal.get_exit_code()
-        return ProcessOutput(
-            stdout=output, stderr="", combined=output, exit_code=exit_code
-        )
+        return ProcessOutput(stdout=output, stderr="", combined=output, exit_code=exit_code)
 
     async def wait_for_exit(self, process_id: str) -> int:
         """Wait for process to complete."""
@@ -159,9 +157,7 @@ class VercelTerminalManager(ProcessManagerProtocol):
                     await asyncio.sleep(0.5)
                     if terminal.command_id:
                         try:
-                            updated_command = await self.sandbox.get_command(
-                                terminal.command_id
-                            )
+                            updated_command = await self.sandbox.get_command(terminal.command_id)
                             if updated_command.cmd.exitCode is not None:
                                 terminal.set_exit_code(updated_command.cmd.exitCode)
                                 break

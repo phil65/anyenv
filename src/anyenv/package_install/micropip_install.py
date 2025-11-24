@@ -22,10 +22,7 @@ class MicropipInstaller(PackageInstaller):
 
             self._micropip = micropip
         except ImportError:
-            msg = (
-                "micropip is not available. "
-                "This installer only works in Pyodide environments."
-            )
+            msg = "micropip is not available. This installer only works in Pyodide environments."
             raise ImportError(msg)  # noqa: B904
 
     async def install(

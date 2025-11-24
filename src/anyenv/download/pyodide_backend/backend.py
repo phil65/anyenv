@@ -68,9 +68,7 @@ class PyodideSession(Session):
     Each request is independent, but we maintain consistent headers and base URL.
     """
 
-    def __init__(
-        self, base_url: str | None = None, headers: HeaderType | None = None
-    ) -> None:
+    def __init__(self, base_url: str | None = None, headers: HeaderType | None = None) -> None:
         self._base_url = base_url
         self._headers = headers or {}
 
@@ -131,9 +129,7 @@ class PyodideSession(Session):
                     case tuple([filename, str() as content, content_type]):
                         form_data.append(field_name, content, filename)
                     case tuple([filename, bytes() as content, content_type]):
-                        blob = Blob.new(
-                            [Array.from_buffer(content)], {"type": content_type}
-                        )
+                        blob = Blob.new([Array.from_buffer(content)], {"type": content_type})
                         form_data.append(field_name, blob, filename)
 
             options["body"] = form_data

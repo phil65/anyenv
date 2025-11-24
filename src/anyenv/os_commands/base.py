@@ -17,9 +17,7 @@ class CommandProtocol(Protocol):
         """Generate the OS-specific command string."""
         ...
 
-    def parse_command(
-        self, output: str, exit_code: int = 0, *args: Any, **kwargs: Any
-    ) -> Any:
+    def parse_command(self, output: str, exit_code: int = 0, *args: Any, **kwargs: Any) -> Any:
         """Parse the command output."""
         ...
 

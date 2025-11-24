@@ -148,9 +148,7 @@ async def test_lambda_filter_vs_type_filter():
     data_processor[ErrorEvent].connect(type_handler)
 
     # Lambda-based filtering (should be equivalent)
-    data_processor.connect(
-        lambda_handler, event_filter=lambda e: isinstance(e, ErrorEvent)
-    )
+    data_processor.connect(lambda_handler, event_filter=lambda e: isinstance(e, ErrorEvent))
 
     # Execute
     async for _ in data_processor():

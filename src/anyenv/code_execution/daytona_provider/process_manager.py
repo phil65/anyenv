@@ -83,9 +83,7 @@ class DaytonaTerminalManager(ProcessManagerProtocol):
             from daytona.common.process import SessionExecuteRequest
 
             request = SessionExecuteRequest(command=full_command, runAsync=True)
-            response = await self.sandbox.process.execute_session_command(
-                session_id, request
-            )
+            response = await self.sandbox.process.execute_session_command(session_id, request)
 
             terminal.set_command_id(str(response.cmd_id))
             asyncio.create_task(self._collect_output(terminal))  # noqa: RUF006
@@ -144,9 +142,7 @@ class DaytonaTerminalManager(ProcessManagerProtocol):
         terminal.is_running()
         exit_code = terminal.get_exit_code()
 
-        return ProcessOutput(
-            stdout=output, stderr="", combined=output, exit_code=exit_code
-        )
+        return ProcessOutput(stdout=output, stderr="", combined=output, exit_code=exit_code)
 
     def get_terminal(self, terminal_id: str):
         """Get terminal by ID."""

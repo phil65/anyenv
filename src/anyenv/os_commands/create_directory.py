@@ -83,9 +83,7 @@ class WindowsCreateDirectoryCommand(CreateDirectoryCommand):
             The directory creation command string
         """
         if parents:
-            return (
-                f'powershell -c "New-Item -ItemType Directory -Path \\"{path}\\" -Force"'
-            )
+            return f'powershell -c "New-Item -ItemType Directory -Path \\"{path}\\" -Force"'
         return f'mkdir "{path}"'
 
     def parse_command(

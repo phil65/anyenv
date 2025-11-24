@@ -150,9 +150,7 @@ class AsyncExecutor[**P, T]:
     def observer_mode(self, mode: ExecutionMode) -> None:
         self._observer_mode = mode
 
-    def __getitem__[E](
-        self, event_types: type[E] | types.UnionType
-    ) -> EventFilteredConnection[E]:
+    def __getitem__[E](self, event_types: type[E] | types.UnionType) -> EventFilteredConnection[E]:
         """Get filtered connection for specific event type(s).
 
         Args:
@@ -259,9 +257,7 @@ class AsyncIteratorExecutor[**P, T]:
         # Copy function metadata
         wraps(func)(self)
 
-    def __get__(
-        self, instance: Any, owner: type | None = None
-    ) -> AsyncIteratorExecutor[P, T]:
+    def __get__(self, instance: Any, owner: type | None = None) -> AsyncIteratorExecutor[P, T]:
         """Descriptor protocol for method binding."""
         if instance is None:
             return self
@@ -368,9 +364,7 @@ class AsyncIteratorExecutor[**P, T]:
         task.add_done_callback(lambda t: t.exception() if not t.cancelled() else None)
         return task
 
-    async def timeout(
-        self, timeout_sec: float, *args: P.args, **kwargs: P.kwargs
-    ) -> list[T]:
+    async def timeout(self, timeout_sec: float, *args: P.args, **kwargs: P.kwargs) -> list[T]:
         """Collect all values with timeout."""
 
         async def _collect() -> list[T]:
@@ -444,9 +438,7 @@ class AsyncIteratorExecutor[**P, T]:
     def observer_mode(self, mode: ExecutionMode) -> None:
         self._observer_mode = mode
 
-    def __getitem__[E](
-        self, event_types: type[E] | types.UnionType
-    ) -> EventFilteredConnection[E]:
+    def __getitem__[E](self, event_types: type[E] | types.UnionType) -> EventFilteredConnection[E]:
         """Get filtered connection for specific event type(s).
 
         Args:

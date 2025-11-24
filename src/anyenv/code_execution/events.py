@@ -49,6 +49,4 @@ class ProcessErrorEvent(BaseExecutionEvent):
 
 
 # Discriminated union of all execution events
-ExecutionEvent = (
-    ProcessStartedEvent | OutputEvent | ProcessCompletedEvent | ProcessErrorEvent
-)
+ExecutionEvent = ProcessStartedEvent | OutputEvent | ProcessCompletedEvent | ProcessErrorEvent

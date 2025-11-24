@@ -78,9 +78,7 @@ class LanguageFormatter(ABC):
             # Direct ExecutionEnvironment instance
             self._execution_env = execution_env
 
-    async def _execute_command(
-        self, cmd: list[str]
-    ) -> tuple[bool, str, str, float, str | None]:
+    async def _execute_command(self, cmd: list[str]) -> tuple[bool, str, str, float, str | None]:
         """Execute command and return rich result information."""
         async with self._execution_env as env:
             result = await env.execute_command(" ".join(cmd))
@@ -129,9 +127,7 @@ class LanguageFormatter(ABC):
         """Check if this formatter can handle the given language name."""
         return language.lower() in [lexer.lower() for lexer in self.pygments_lexers]
 
-    async def format_string(
-        self, content: str, language: str | None = None
-    ) -> FormatResult:
+    async def format_string(self, content: str, language: str | None = None) -> FormatResult:
         """Format a string by creating a temporary file.
 
         Args:
@@ -144,9 +140,7 @@ class LanguageFormatter(ABC):
         # Use primary extension for temp file
         extension = self.extensions[0] if self.extensions else ".txt"
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=extension, delete=False
-        ) as temp_file:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=extension, delete=False) as temp_file:
             temp_file.write(content)
             temp_path = Path(temp_file.name)
 
@@ -176,9 +170,7 @@ class LanguageFormatter(ABC):
         # Use primary extension for temp file
         extension = self.extensions[0] if self.extensions else ".txt"
 
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=extension, delete=False
-        ) as temp_file:
+        with tempfile.NamedTemporaryFile(mode="w", suffix=extension, delete=False) as temp_file:
             temp_file.write(content)
             temp_path = Path(temp_file.name)
 
@@ -420,9 +412,7 @@ class FormatterRegistry:
             execution_env: Default execution environment for all formatters
         """
         self.formatters: list[LanguageFormatter] = []
-        self.default_execution_env: ExecutionEnvironment | ExecutionEnvironmentStr = (
-            execution_env
-        )
+        self.default_execution_env: ExecutionEnvironment | ExecutionEnvironmentStr = execution_env
 
     def register(self, formatter: LanguageFormatter) -> None:
         """Register a formatter."""

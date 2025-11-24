@@ -48,9 +48,7 @@ def test_subdir(temp_dir):
 def run_command(cmd: str) -> tuple[str, int]:
     """Run a command and return output and exit code."""
     try:
-        result = subprocess.run(
-            cmd, shell=True, capture_output=True, text=True, timeout=10
-        )
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=10)
     except subprocess.TimeoutExpired:
         return "", 1
     else:
@@ -155,9 +153,7 @@ def test_create_directory_command(provider: OSCommandProvider, temp_dir: Path):
     assert not new_dir.exists()
 
     # Create command
-    cmd = provider.get_command("create_directory").create_command(
-        str(new_dir), parents=True
-    )
+    cmd = provider.get_command("create_directory").create_command(str(new_dir), parents=True)
     assert isinstance(cmd, str)
     assert str(new_dir) in cmd
 
@@ -172,9 +168,7 @@ def test_create_directory_command(provider: OSCommandProvider, temp_dir: Path):
 
     # Test nested directory creation
     nested_dir = temp_dir / "level1" / "level2" / "level3"
-    cmd = provider.get_command("create_directory").create_command(
-        str(nested_dir), parents=True
-    )
+    cmd = provider.get_command("create_directory").create_command(str(nested_dir), parents=True)
     output, exit_code = run_command(cmd)
     result = provider.get_command("create_directory").parse_command(output, exit_code)
 
@@ -209,9 +203,7 @@ def test_remove_path_command(provider: OSCommandProvider, temp_dir: Path):
     test_file.write_text("content")
     assert test_file.exists()
 
-    cmd = provider.get_command("remove_path").create_command(
-        str(test_file), recursive=False
-    )
+    cmd = provider.get_command("remove_path").create_command(str(test_file), recursive=False)
     assert isinstance(cmd, str)
     assert str(test_file) in cmd
 
@@ -226,9 +218,7 @@ def test_remove_path_command(provider: OSCommandProvider, temp_dir: Path):
     (test_dir / "file.txt").write_text("content")
     assert test_dir.exists()
 
-    cmd = provider.get_command("remove_path").create_command(
-        str(test_dir), recursive=True
-    )
+    cmd = provider.get_command("remove_path").create_command(str(test_dir), recursive=True)
     assert str(test_dir) in cmd
 
     output, exit_code = run_command(cmd)

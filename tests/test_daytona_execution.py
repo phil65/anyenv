@@ -14,9 +14,7 @@ daytona = pytest.importorskip("daytona")
 
 # Constants for mock results to avoid long lines
 SUCCESS_RESULT = '__RESULT__ {"result": "Hello from Daytona!", "success": true}'
-ERROR_RESULT = (
-    '__RESULT__ {"success": false, "error": "Daytona test error", "type": "ValueError"}'
-)
+ERROR_RESULT = '__RESULT__ {"success": false, "error": "Daytona test error", "type": "ValueError"}'
 PI_RESULT = f'__RESULT__ {{"result": {math.pi * 2}, "success": true}}'
 
 
@@ -65,9 +63,7 @@ async def main():
         )
 
         # Test execution
-        env = DaytonaExecutionEnvironment(
-            api_url="https://api.daytona.com", api_key="test-key"
-        )
+        env = DaytonaExecutionEnvironment(api_url="https://api.daytona.com", api_key="test-key")
 
         async with env:
             result = await env.execute(code)
@@ -174,9 +170,7 @@ async def test_daytona_execution_keep_alive(mock_daytona):
         mock_sandbox.delete = AsyncMock()
 
         # Test with keep_alive=True
-        env = DaytonaExecutionEnvironment(
-            api_url="https://api.daytona.com", keep_alive=True
-        )
+        env = DaytonaExecutionEnvironment(api_url="https://api.daytona.com", keep_alive=True)
 
         async with env:
             pass  # Just test context manager

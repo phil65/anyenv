@@ -73,13 +73,9 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
             deps_str = " ".join(self.dependencies)
             match self.language:
                 case "python":
-                    install_result = await self.sandbox.commands.run(
-                        f"pip install {deps_str}"
-                    )
+                    install_result = await self.sandbox.commands.run(f"pip install {deps_str}")
                 case "javascript" | "typescript":
-                    install_result = await self.sandbox.commands.run(
-                        f"npm install {deps_str}"
-                    )
+                    install_result = await self.sandbox.commands.run(f"npm install {deps_str}")
                 case _:
                     install_result = None
 
@@ -238,9 +234,7 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
         )
 
         process_id = f"e2b_{id(self.sandbox)}"
-        yield ProcessStartedEvent(
-            process_id=process_id, command=f"execute({len(code)} chars)"
-        )
+        yield ProcessStartedEvent(process_id=process_id, command=f"execute({len(code)} chars)")
 
         try:
             if not self.sandbox:
@@ -346,9 +340,7 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
                 yield event
 
             if result.exit_code == 0:
-                yield ProcessCompletedEvent(
-                    process_id=process_id, exit_code=result.exit_code
-                )
+                yield ProcessCompletedEvent(process_id=process_id, exit_code=result.exit_code)
             else:
                 yield ProcessErrorEvent(
                     process_id=process_id,

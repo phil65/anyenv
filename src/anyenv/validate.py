@@ -88,9 +88,7 @@ def validate_json_data[T](data: Any, return_type: type[T] | None = None) -> T:  
 
             # If homogeneous collection with one type arg, validate elements
             if len(args) == 1 and args[0] is not Ellipsis:
-                validated_items: list[Any] = [
-                    validate_json_data(item, args[0]) for item in data
-                ]
+                validated_items: list[Any] = [validate_json_data(item, args[0]) for item in data]
                 # Convert to the right container type
                 if origin is list or origin.__name__ == "List":
                     return cast(T, validated_items)

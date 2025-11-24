@@ -80,9 +80,7 @@ class WindowsIsDirectoryCommand(IsDirectoryCommand):
             The PowerShell command string
         """
         return (
-            f'powershell -c "'
-            f'(Get-Item \\"{path}\\" -ErrorAction SilentlyContinue).PSIsContainer'
-            f'"'
+            f'powershell -c "(Get-Item \\"{path}\\" -ErrorAction SilentlyContinue).PSIsContainer"'
         )
 
     def parse_command(

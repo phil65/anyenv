@@ -157,9 +157,7 @@ async def test_vercel_execute_command_streaming():
     async with VercelExecutionEnvironment() as env:
         lines = [
             line
-            async for line in env.execute_command_stream(
-                "sh -c \"echo 'Line 1' && echo 'Line 2'\""
-            )
+            async for line in env.execute_command_stream("sh -c \"echo 'Line 1' && echo 'Line 2'\"")
         ]
 
     # Should get both echo outputs (may be combined in single line)

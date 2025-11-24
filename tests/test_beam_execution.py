@@ -160,8 +160,7 @@ async def test_beam_execute_command_streaming():
     """Test streaming command execution."""
     async with BeamExecutionEnvironment() as env:
         lines = [
-            line
-            async for line in env.execute_command_stream("echo 'Line 1' && echo 'Line 2'")
+            line async for line in env.execute_command_stream("echo 'Line 1' && echo 'Line 2'")
         ]
 
     # Should get both echo outputs (may be combined in single line)

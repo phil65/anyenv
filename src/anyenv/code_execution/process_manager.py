@@ -100,9 +100,7 @@ class EnvironmentTerminalManager(ProcessManagerProtocol):
         terminal.is_running()
         exit_code = terminal.get_exit_code()
 
-        return ProcessOutput(
-            stdout=output, stderr="", combined=output, exit_code=exit_code
-        )
+        return ProcessOutput(stdout=output, stderr="", combined=output, exit_code=exit_code)
 
     async def wait_for_exit(self, process_id: str) -> int:
         """Wait for process to complete."""

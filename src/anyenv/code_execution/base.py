@@ -170,9 +170,7 @@ class ExecutionEnvironment(ABC):
             return await env.execute(script_content)
 
     @classmethod
-    async def execute_script_stream(
-        cls, script_content: str, **kwargs: Any
-    ) -> AsyncIterator[str]:
+    async def execute_script_stream(cls, script_content: str, **kwargs: Any) -> AsyncIterator[str]:
         """Execute a PEP 723 script and stream output with dependency management.
 
         Creates a new execution environment configured for the script's dependencies.

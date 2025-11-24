@@ -270,14 +270,10 @@ async def call_and_gather[T](
 
     # Validate consistent mode
     if args_is_broadcast and not kwargs_is_broadcast:
-        msg = (
-            "Mixed modes: args is broadcast (tuple) but kwargs is per-callable (sequence)"
-        )
+        msg = "Mixed modes: args is broadcast (tuple) but kwargs is per-callable (sequence)"
         raise ValueError(msg)
     if not args_is_broadcast and kwargs_is_broadcast:
-        msg = (
-            "Mixed modes: args is per-callable (sequence) but kwargs is broadcast (dict)"
-        )
+        msg = "Mixed modes: args is per-callable (sequence) but kwargs is broadcast (dict)"
         raise ValueError(msg)
 
     if args_is_broadcast and kwargs_is_broadcast:
@@ -311,9 +307,7 @@ async def call_and_gather[T](
 
     if limit is not None:
         # Use aioitertools.asyncio.gather with limit support
-        return await aioitertools_gather(
-            *coros, return_exceptions=return_exceptions, limit=limit
-        )
+        return await aioitertools_gather(*coros, return_exceptions=return_exceptions, limit=limit)
     # Fall back to our local gather implementation
     if return_exceptions:
         return await gather(*coros, return_exceptions=True)

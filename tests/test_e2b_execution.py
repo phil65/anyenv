@@ -117,8 +117,7 @@ async def test_e2b_execute_command_streaming():
     """Test streaming command execution."""
     async with E2bExecutionEnvironment() as env:
         lines = [
-            line
-            async for line in env.execute_command_stream("echo 'Line 1' && echo 'Line 2'")
+            line async for line in env.execute_command_stream("echo 'Line 1' && echo 'Line 2'")
         ]
 
     # Should get both echo outputs

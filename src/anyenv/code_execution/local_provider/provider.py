@@ -284,9 +284,7 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
         )
 
         process_id = f"local_{id(self)}"
-        yield ProcessStartedEvent(
-            process_id=process_id, command=f"execute({len(code)} chars)"
-        )
+        yield ProcessStartedEvent(process_id=process_id, command=f"execute({len(code)} chars)")
 
         try:
             if self.isolated:
@@ -364,9 +362,7 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
                 process_id=process_id, error=str(e), error_type=type(e).__name__
             )
 
-    async def _stream_code_local(
-        self, code: str, process_id: str
-    ) -> AsyncIterator[ExecutionEvent]:
+    async def _stream_code_local(self, code: str, process_id: str) -> AsyncIterator[ExecutionEvent]:
         """Execute code locally and stream events."""
         import contextlib
         import inspect

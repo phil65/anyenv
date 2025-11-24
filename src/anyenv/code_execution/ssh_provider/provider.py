@@ -110,18 +110,12 @@ class SshExecutionEnvironment(ExecutionEnvironment):
             result = await self.run("mktemp -d")
             if result.returncode != 0:
                 stderr = (
-                    result.stderr.decode()
-                    if isinstance(result.stderr, bytes)
-                    else result.stderr
+                    result.stderr.decode() if isinstance(result.stderr, bytes) else result.stderr
                 )
                 msg = f"Failed to create remote temp directory: {stderr}"
                 raise RuntimeError(msg)
             assert result.stdout
-            stdout = (
-                result.stdout.decode()
-                if isinstance(result.stdout, bytes)
-                else result.stdout
-            )
+            stdout = result.stdout.decode() if isinstance(result.stdout, bytes) else result.stdout
             self._remote_work_dir = stdout.strip()
 
         await self.run(f"mkdir -p {self._remote_work_dir}")
@@ -180,9 +174,7 @@ class SshExecutionEnvironment(ExecutionEnvironment):
             result = await self.run_in_working_dir(cmd)
             if result.returncode != 0:
                 stderr = (
-                    result.stderr.decode()
-                    if isinstance(result.stderr, bytes)
-                    else result.stderr
+                    result.stderr.decode() if isinstance(result.stderr, bytes) else result.stderr
                 )
                 msg = f"Failed to install Node.js dependencies: {stderr}"
                 raise RuntimeError(msg)
@@ -353,9 +345,7 @@ os.environ['TOOL_SERVER_PORT'] = '{self.server_info.port}'
         )
 
         process_id = f"ssh_{id(self.connection)}"
-        yield ProcessStartedEvent(
-            process_id=process_id, command=f"execute({len(code)} chars)"
-        )
+        yield ProcessStartedEvent(process_id=process_id, command=f"execute({len(code)} chars)")
 
         try:
             if not self.connection:
@@ -380,16 +370,8 @@ os.environ['TOOL_SERVER_PORT'] = '{self.server_info.port}'
                 )
                 return
 
-            stdout = (
-                result.stdout.decode()
-                if isinstance(result.stdout, bytes)
-                else result.stdout
-            )
-            stderr = (
-                result.stderr.decode()
-                if isinstance(result.stderr, bytes)
-                else result.stderr
-            )
+            stdout = result.stdout.decode() if isinstance(result.stdout, bytes) else result.stdout
+            stderr = result.stderr.decode() if isinstance(result.stderr, bytes) else result.stderr
 
             if stdout:
                 yield OutputEvent(process_id=process_id, data=stdout, stream="stdout")
@@ -451,9 +433,7 @@ os.environ['TOOL_SERVER_PORT'] = '{self.server_info.port}'
 
                 exit_code = process.returncode or 0
                 if exit_code == 0:
-                    yield ProcessCompletedEvent(
-                        process_id=process_id, exit_code=exit_code
-                    )
+                    yield ProcessCompletedEvent(process_id=process_id, exit_code=exit_code)
                 else:
                     yield ProcessErrorEvent(
                         process_id=process_id,

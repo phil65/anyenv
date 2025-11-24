@@ -256,16 +256,10 @@ class MultiEventHandler[HandlerT, Mode: ExecutionMode = DefaultMode]:
     def __repr__(self) -> str:
         """Return string representation showing handlers, mode, and debounce."""
         handler_names = [
-            h.__qualname__ if hasattr(h, "__qualname__") else repr(h)
-            for h in self._handlers
+            h.__qualname__ if hasattr(h, "__qualname__") else repr(h) for h in self._handlers
         ]
-        debounce_info = (
-            f", debounce={self._debounce_delay}s" if self._debounce_delay else ""
-        )
-        return (
-            f"MultiEventHandler(handlers={handler_names}, "
-            f"mode={self._mode!r}{debounce_info})"
-        )
+        debounce_info = f", debounce={self._debounce_delay}s" if self._debounce_delay else ""
+        return f"MultiEventHandler(handlers={handler_names}, mode={self._mode!r}{debounce_info})"
 
 
 if __name__ == "__main__":
@@ -290,9 +284,7 @@ if __name__ == "__main__":
             print(f"Class Handler: {a}, {b}")
 
     # Test type-safe usage
-    task_handler = MultiEventHandler[HandlerType, Literal["task"]](
-        [handler, async_handler], "task"
-    )
+    task_handler = MultiEventHandler[HandlerType, Literal["task"]]([handler, async_handler], "task")
     parallel_handler = MultiEventHandler[HandlerType, Literal["parallel"]](
         [handler, SomeClass()], "parallel", debounce_delay=0.1
     )

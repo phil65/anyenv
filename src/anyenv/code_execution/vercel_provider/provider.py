@@ -251,9 +251,7 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
         )
 
         process_id = f"vercel_{id(self.sandbox)}"
-        yield ProcessStartedEvent(
-            process_id=process_id, command=f"execute({len(code)} chars)"
-        )
+        yield ProcessStartedEvent(process_id=process_id, command=f"execute({len(code)} chars)")
 
         try:
             if not self.sandbox:
@@ -278,15 +276,11 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
                 if log_line.data:
                     for line in log_line.data.splitlines():
                         if line.strip():
-                            yield OutputEvent(
-                                process_id=process_id, data=line, stream="combined"
-                            )
+                            yield OutputEvent(process_id=process_id, data=line, stream="combined")
 
             finished = await cmd.wait()
             if finished.exit_code == 0:
-                yield ProcessCompletedEvent(
-                    process_id=process_id, exit_code=finished.exit_code
-                )
+                yield ProcessCompletedEvent(process_id=process_id, exit_code=finished.exit_code)
             else:
                 yield ProcessErrorEvent(
                     process_id=process_id,
@@ -339,15 +333,11 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
                 if log_line.data:
                     for line in log_line.data.splitlines():
                         if line.strip():
-                            yield OutputEvent(
-                                process_id=process_id, data=line, stream="combined"
-                            )
+                            yield OutputEvent(process_id=process_id, data=line, stream="combined")
 
             finished = await cmd.wait()
             if finished.exit_code == 0:
-                yield ProcessCompletedEvent(
-                    process_id=process_id, exit_code=finished.exit_code
-                )
+                yield ProcessCompletedEvent(process_id=process_id, exit_code=finished.exit_code)
             else:
                 yield ProcessErrorEvent(
                     process_id=process_id,

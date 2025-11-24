@@ -134,9 +134,7 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
                 duration=time.time() - start_time,
                 success=False,
                 error=error_info.get("error", output) if error_info else output,
-                error_type=error_info.get("type", "CommandError")
-                if error_info
-                else "CommandError",
+                error_type=error_info.get("type", "CommandError") if error_info else "CommandError",
                 stdout=output,
                 stderr="",
             )
@@ -198,9 +196,7 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
         self.instance = self.validate_instance()
         process_id = f"beam_{id(self.instance)}"
 
-        yield ProcessStartedEvent(
-            process_id=process_id, command=f"run_code({len(code)} chars)"
-        )
+        yield ProcessStartedEvent(process_id=process_id, command=f"run_code({len(code)} chars)")
 
         try:
             lang: Literal["python", "javascript", "typescript"] = (

@@ -196,9 +196,7 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
                             error_type="DependencyError",
                             exit_code=install_result.exit_code,
                             stdout="",
-                            stderr=install_result.output.decode()
-                            if install_result.output
-                            else "",
+                            stderr=install_result.output.decode() if install_result.output else "",
                         )
 
             # Execute the command cleanly (no dependency installation output)
@@ -214,9 +212,7 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
                 result=stdout if success else None,
                 duration=duration,
                 success=success,
-                error=stdout
-                if not success
-                else None,  # Docker exec puts errors in stdout
+                error=stdout if not success else None,  # Docker exec puts errors in stdout
                 error_type="CommandError" if not success else None,
                 exit_code=result.exit_code,
                 stdout=stdout,
@@ -243,9 +239,7 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
         )
 
         process_id = f"docker_{id(self.container)}"
-        yield ProcessStartedEvent(
-            process_id=process_id, command=f"execute({len(code)} chars)"
-        )
+        yield ProcessStartedEvent(process_id=process_id, command=f"execute({len(code)} chars)")
 
         try:
             if not self.container:
@@ -268,9 +262,7 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
                 "javascript" if self.language == "typescript" else self.language
             )
             wrapped_code = wrap_code(code, lang)
-            extension = {"python": "py", "javascript": "js", "typescript": "ts"}[
-                self.language
-            ]
+            extension = {"python": "py", "javascript": "js", "typescript": "ts"}[self.language]
             ext = extension
             host_script_path = f"{self.host_workdir}/script.{ext}"
             with open(host_script_path, "w") as f:  # noqa: PTH123
@@ -285,9 +277,7 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
                     chunk = chunk.decode()
                 for line in chunk.split("\n"):
                     if line.strip():
-                        yield OutputEvent(
-                            process_id=process_id, data=line, stream="combined"
-                        )
+                        yield OutputEvent(process_id=process_id, data=line, stream="combined")
 
             exit_code = result.exit_code or 0
             if exit_code == 0:
@@ -335,9 +325,7 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
                     chunk = chunk.decode()
                 for line in chunk.split("\n"):
                     if line.strip():
-                        yield OutputEvent(
-                            process_id=process_id, data=line, stream="combined"
-                        )
+                        yield OutputEvent(process_id=process_id, data=line, stream="combined")
 
             exit_code = result.exit_code or 0
             if exit_code == 0:

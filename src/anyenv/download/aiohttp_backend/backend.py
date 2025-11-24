@@ -236,9 +236,7 @@ class AiohttpBackend(HttpBackend):
                                     content_type=content_type,
                                 )
                             case _:
-                                msg = (
-                                    f"Invalid file specification for field {field_name!r}"
-                                )
+                                msg = f"Invalid file specification for field {field_name!r}"
                                 raise ValueError(msg)
                     data = form
 
@@ -291,9 +289,7 @@ class AiohttpBackend(HttpBackend):
                             f.write(chunk)
                             current += len(chunk)
                             if progress_callback:
-                                await self._handle_callback(
-                                    progress_callback, current, total
-                                )
+                                await self._handle_callback(progress_callback, current, total)
             except aiohttp.ClientError as exc:
                 error_msg = f"Download failed: {exc!s}"
                 raise RequestError(error_msg) from exc

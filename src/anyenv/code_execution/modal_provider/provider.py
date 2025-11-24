@@ -282,9 +282,7 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
         )
 
         process_id = f"modal_{id(self.sandbox)}"
-        yield ProcessStartedEvent(
-            process_id=process_id, command=f"execute({len(code)} chars)"
-        )
+        yield ProcessStartedEvent(process_id=process_id, command=f"execute({len(code)} chars)")
 
         try:
             if not self.sandbox:
@@ -304,14 +302,10 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
             process = self.sandbox.exec(*exec_command, timeout=self.timeout)
 
             for line in process.stdout:
-                yield OutputEvent(
-                    process_id=process_id, data=line.rstrip("\n\r"), stream="stdout"
-                )
+                yield OutputEvent(process_id=process_id, data=line.rstrip("\n\r"), stream="stdout")
 
             for line in process.stderr:
-                yield OutputEvent(
-                    process_id=process_id, data=line.rstrip("\n\r"), stream="stderr"
-                )
+                yield OutputEvent(process_id=process_id, data=line.rstrip("\n\r"), stream="stderr")
 
             exit_code = process.wait()
             if exit_code == 0:
@@ -360,14 +354,10 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
             process = self.sandbox.exec(*parts, timeout=self.timeout)
 
             for line in process.stdout:
-                yield OutputEvent(
-                    process_id=process_id, data=line.rstrip("\n\r"), stream="stdout"
-                )
+                yield OutputEvent(process_id=process_id, data=line.rstrip("\n\r"), stream="stdout")
 
             for line in process.stderr:
-                yield OutputEvent(
-                    process_id=process_id, data=line.rstrip("\n\r"), stream="stderr"
-                )
+                yield OutputEvent(process_id=process_id, data=line.rstrip("\n\r"), stream="stderr")
 
             exit_code = process.wait()
             if exit_code == 0:

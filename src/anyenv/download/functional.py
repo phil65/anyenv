@@ -81,15 +81,11 @@ def get_backend(
         raise ImportError(msg)
 
     if backend_type == "aiohttp":
-        if importlib.util.find_spec("aiohttp") and importlib.util.find_spec(
-            "aiohttp_client_cache"
-        ):
+        if importlib.util.find_spec("aiohttp") and importlib.util.find_spec("aiohttp_client_cache"):
             from anyenv.download.aiohttp_backend import AiohttpBackend
 
             return AiohttpBackend(cache_dir=cache_dir, cache_ttl=cache_ttl)
-        msg = (
-            "aiohttp backend requested but aiohttp or aiohttp_client_cache not installed"
-        )
+        msg = "aiohttp backend requested but aiohttp or aiohttp_client_cache not installed"
         raise ImportError(msg)
 
     if backend_type == "pyodide":
@@ -165,9 +161,7 @@ async def request(
     processed_headers = headers or {}
 
     if api_key is not None:
-        key_value = (
-            api_key.get_secret_value() if isinstance(api_key, SecretStr) else api_key
-        )
+        key_value = api_key.get_secret_value() if isinstance(api_key, SecretStr) else api_key
 
         match auth_type:
             case "bearer":
@@ -550,9 +544,7 @@ def request_sync(
     processed_headers = headers or {}
 
     if api_key is not None:
-        key_value = (
-            api_key.get_secret_value() if isinstance(api_key, SecretStr) else api_key
-        )
+        key_value = api_key.get_secret_value() if isinstance(api_key, SecretStr) else api_key
 
         match auth_type:
             case "bearer":
@@ -717,9 +709,7 @@ def post_json_sync[T](
     """Synchronous version of post_json."""
     from anyenv.async_run import run_sync
 
-    return run_sync(
-        post_json(url, json_data, files=files, return_type=return_type, **kwargs)
-    )
+    return run_sync(post_json(url, json_data, files=files, return_type=return_type, **kwargs))
 
 
 if __name__ == "__main__":

@@ -146,9 +146,7 @@ class BeamTerminalManager(ProcessManagerProtocol):
             terminal.set_exit_code(final_exit_code)
 
         except Exception as e:
-            logger.exception(
-                "Error collecting output for Beam terminal %s", terminal.terminal_id
-            )
+            logger.exception("Error collecting output for Beam terminal %s", terminal.terminal_id)
             terminal.add_output(f"Terminal error: {e}\n")
             terminal.set_exit_code(1)
 
@@ -162,9 +160,7 @@ class BeamTerminalManager(ProcessManagerProtocol):
         output = terminal.get_output()
         exit_code = terminal.get_exit_code()
 
-        return ProcessOutput(
-            stdout=output, stderr="", combined=output, exit_code=exit_code
-        )
+        return ProcessOutput(stdout=output, stderr="", combined=output, exit_code=exit_code)
 
     async def wait_for_exit(self, process_id: str) -> int:
         """Wait for process to complete."""
@@ -278,9 +274,7 @@ class BeamTerminalManager(ProcessManagerProtocol):
         """Get all processes running in the Beam sandbox."""
         try:
             # Use Beam's list_processes to get all running processes
-            processes = await asyncio.to_thread(
-                self.sandbox_instance.process.list_processes
-            )
+            processes = await asyncio.to_thread(self.sandbox_instance.process.list_processes)
             result = {}
             for pid, process in processes.items():
                 result[pid] = {

@@ -215,9 +215,7 @@ class HttpxBackend(HttpBackend):
         import httpx
 
         try:
-            async with self._create_client(
-                cache=cache, cache_backend=cache_backend
-            ) as client:
+            async with self._create_client(cache=cache, cache_backend=cache_backend) as client:
                 response = await client.request(
                     method,
                     url,
@@ -267,9 +265,7 @@ class HttpxBackend(HttpBackend):
                             f.write(chunk)
                             current += len(chunk)
                             if progress_callback:
-                                await self._handle_callback(
-                                    progress_callback, current, total
-                                )
+                                await self._handle_callback(progress_callback, current, total)
         except httpx.TransportError as exc:
             error_msg = f"Download failed: {exc!s}"
             raise RequestError(error_msg) from exc

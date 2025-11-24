@@ -213,9 +213,7 @@ def _parse_xml_result(xml_content: str, duration: float) -> ExecutionResult:
 
     # Extract return value
     return_value: Any = None
-    return_match = re.search(
-        r"<return_value>(.*?)</return_value>", xml_content, re.DOTALL
-    )
+    return_match = re.search(r"<return_value>(.*?)</return_value>", xml_content, re.DOTALL)
     if return_match:
         return_text = return_match.group(1).strip()
         try:
