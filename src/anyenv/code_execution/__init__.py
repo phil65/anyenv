@@ -237,7 +237,7 @@ def get_environment(  # noqa: PLR0911
         # Modal with GPU and volumes
         env = get_environment("modal", gpu="T4", memory=2048, app_name="my-app")
         ```
-    """  # noqa: E501
+    """
     match provider:
         case "local":
             return LocalExecutionEnvironment(**kwargs)

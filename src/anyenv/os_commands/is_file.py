@@ -101,3 +101,13 @@ class WindowsIsFileCommand(IsFileCommand):
             True if path is a file, False otherwise
         """
         return output.strip().lower() == "true"
+
+
+if __name__ == "__main__":
+    import subprocess
+
+    cmd = UnixIsFileCommand()
+    cmd_str = cmd.create_command("/etc/passwd")
+    result = subprocess.run(cmd_str, shell=True, capture_output=True, text=True)
+    is_file = cmd.parse_command(result.stdout, result.returncode)
+    print(f"/etc/passwd is file: {is_file}")

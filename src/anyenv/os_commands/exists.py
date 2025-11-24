@@ -96,3 +96,13 @@ class WindowsExistsCommand(ExistsCommand):
             True if path exists, False otherwise
         """
         return output.strip().lower() == "true"
+
+
+if __name__ == "__main__":
+    import subprocess
+
+    cmd = UnixExistsCommand()
+    cmd_str = cmd.create_command(".")
+    result = subprocess.run(cmd_str, shell=True, capture_output=True, text=True)
+    exists = cmd.parse_command(result.stdout, result.returncode)
+    print(f"Current directory exists: {exists}")

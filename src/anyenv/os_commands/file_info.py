@@ -165,3 +165,13 @@ class WindowsFileInfoCommand(FileInfoCommand):
             size=int(parts[1]) if parts[1].isdigit() else 0,
             mtime=int(parts[3]) if parts[3].isdigit() else 0,
         )
+
+
+if __name__ == "__main__":
+    import subprocess
+
+    cmd = UnixFileInfoCommand()
+    cmd_str = cmd.create_command(".")
+    result = subprocess.run(cmd_str, shell=True, capture_output=True, text=True)
+    info = cmd.parse_command(result.stdout, ".")
+    print(f"{info.name}: {info.type}, {info.size} bytes")

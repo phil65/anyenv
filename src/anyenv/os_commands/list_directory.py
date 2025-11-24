@@ -57,7 +57,7 @@ class UnixListDirectoryCommand(ListDirectoryCommand):
                 continue
 
             parsed = self._parse_detailed_line(line, path)
-            if parsed:
+            if parsed and parsed.name not in (".", ".."):
                 files.append(parsed)
 
         return files
@@ -192,7 +192,7 @@ class WindowsListDirectoryCommand(ListDirectoryCommand):
         # Parse PowerShell Format-Table output
         for line in data_lines:
             parsed = self._parse_powershell_line(line, path)
-            if parsed:
+            if parsed and parsed.name not in (".", ".."):
                 files.append(parsed)
 
         return files
@@ -239,3 +239,14 @@ class WindowsListDirectoryCommand(ListDirectoryCommand):
             )
         except (ValueError, IndexError):
             return None
+
+
+if __name__ == "__main__":
+    import subprocess
+
+    cmd = UnixListDirectoryCommand()
+    cmd_str = cmd.create_command(".")
+    result = subprocess.run(cmd_str, shell=True, capture_output=True, text=True)
+    entries = cmd.parse_command(result.stdout, ".")
+    for entry in entries[:3]:  # Show first 3 entries
+        print(f"{entry.name} ({entry.type})")

@@ -101,3 +101,15 @@ class WindowsCreateDirectoryCommand(CreateDirectoryCommand):
             True if directory was created successfully, False otherwise
         """
         return exit_code == 0
+
+
+if __name__ == "__main__":
+    import subprocess
+    import tempfile
+
+    cmd = UnixCreateDirectoryCommand()
+    test_dir = f"{tempfile.gettempdir()}/test_mkdir"
+    cmd_str = cmd.create_command(test_dir)
+    result = subprocess.run(cmd_str, shell=True, capture_output=True, text=True)
+    success = cmd.parse_command(result.stdout, result.returncode)
+    print(f"Created directory: {success}")

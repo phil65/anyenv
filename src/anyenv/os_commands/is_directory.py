@@ -98,3 +98,13 @@ class WindowsIsDirectoryCommand(IsDirectoryCommand):
             True if path is a directory, False otherwise
         """
         return output.strip().lower() == "true"
+
+
+if __name__ == "__main__":
+    import subprocess
+
+    cmd = UnixIsDirectoryCommand()
+    cmd_str = cmd.create_command(".")
+    result = subprocess.run(cmd_str, shell=True, capture_output=True, text=True)
+    is_dir = cmd.parse_command(result.stdout, result.returncode)
+    print(f"Current directory is directory: {is_dir}")
