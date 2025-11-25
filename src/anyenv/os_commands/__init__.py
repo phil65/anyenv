@@ -8,6 +8,7 @@ by OS and individual command types for better organization and maintainability.
 from __future__ import annotations
 
 from .base import (
+    Base64EncodeCommand,
     CreateDirectoryCommand,
     ExistsCommand,
     FileInfoCommand,
@@ -23,6 +24,11 @@ from .models import (
     ExistsResult,
     FileInfo,
     RemovePathResult,
+)
+from .base64_encode import (
+    MacOSBase64EncodeCommand,
+    UnixBase64EncodeCommand,
+    WindowsBase64EncodeCommand,
 )
 from .create_directory import (
     MacOSCreateDirectoryCommand,
@@ -56,9 +62,10 @@ from .remove_path import (
 )
 
 __all__ = [
+    # Base classes
+    "Base64EncodeCommand",
     # Models
     "CommandResult",
-    # Base classes
     "CreateDirectoryCommand",
     "CreateDirectoryResult",
     "DirectoryEntry",
@@ -69,6 +76,7 @@ __all__ = [
     "IsDirectoryCommand",
     "IsFileCommand",
     "ListDirectoryCommand",
+    "MacOSBase64EncodeCommand",
     "MacOSCommandProvider",
     "MacOSCreateDirectoryCommand",
     "MacOSExistsCommand",
@@ -81,6 +89,8 @@ __all__ = [
     "OSCommandProvider",
     "RemovePathCommand",
     "RemovePathResult",
+    # Base64 encode commands
+    "UnixBase64EncodeCommand",
     "UnixCommandProvider",
     # Create directory commands
     "UnixCreateDirectoryCommand",
@@ -96,6 +106,7 @@ __all__ = [
     "UnixListDirectoryCommand",
     # Remove path commands
     "UnixRemovePathCommand",
+    "WindowsBase64EncodeCommand",
     "WindowsCommandProvider",
     "WindowsCreateDirectoryCommand",
     "WindowsExistsCommand",

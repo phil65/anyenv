@@ -5,6 +5,11 @@ from __future__ import annotations
 import platform
 from typing import TYPE_CHECKING, Literal, overload
 
+from .base64_encode import (
+    MacOSBase64EncodeCommand,
+    UnixBase64EncodeCommand,
+    WindowsBase64EncodeCommand,
+)
 from .create_directory import (
     MacOSCreateDirectoryCommand,
     UnixCreateDirectoryCommand,
@@ -32,6 +37,7 @@ from .remove_path import (
 
 if TYPE_CHECKING:
     from .base import (
+        Base64EncodeCommand,
         CreateDirectoryCommand,
         ExistsCommand,
         FileInfoCommand,
@@ -49,6 +55,7 @@ CommandType = Literal[
     "is_directory",
     "create_directory",
     "remove_path",
+    "base64_encode",
 ]
 
 
@@ -65,7 +72,8 @@ class OSCommandProvider:
             | IsFileCommand
             | IsDirectoryCommand
             | CreateDirectoryCommand
-            | RemovePathCommand,
+            | RemovePathCommand
+            | Base64EncodeCommand,
         ] = {}
 
     @overload
@@ -89,6 +97,9 @@ class OSCommandProvider:
     @overload
     def get_command(self, command_type: Literal["remove_path"]) -> RemovePathCommand: ...
 
+    @overload
+    def get_command(self, command_type: Literal["base64_encode"]) -> Base64EncodeCommand: ...
+
     def get_command(
         self, command_type: CommandType
     ) -> (
@@ -99,6 +110,7 @@ class OSCommandProvider:
         | IsDirectoryCommand
         | CreateDirectoryCommand
         | RemovePathCommand
+        | Base64EncodeCommand
     ):
         """Get command instance by type."""
         return self.commands[command_type]
@@ -118,6 +130,7 @@ class UnixCommandProvider(OSCommandProvider):
             "is_directory": UnixIsDirectoryCommand(),
             "create_directory": UnixCreateDirectoryCommand(),
             "remove_path": UnixRemovePathCommand(),
+            "base64_encode": UnixBase64EncodeCommand(),
         }
 
 
@@ -135,6 +148,7 @@ class MacOSCommandProvider(OSCommandProvider):
             "is_directory": MacOSIsDirectoryCommand(),
             "create_directory": MacOSCreateDirectoryCommand(),
             "remove_path": MacOSRemovePathCommand(),
+            "base64_encode": MacOSBase64EncodeCommand(),
         }
 
 
@@ -152,6 +166,7 @@ class WindowsCommandProvider(OSCommandProvider):
             "is_directory": WindowsIsDirectoryCommand(),
             "create_directory": WindowsCreateDirectoryCommand(),
             "remove_path": WindowsRemovePathCommand(),
+            "base64_encode": WindowsBase64EncodeCommand(),
         }
 
 

@@ -104,3 +104,15 @@ class RemovePathCommand(ABC):
     @abstractmethod
     def parse_command(self, output: str, exit_code: int = 0) -> bool:
         """Parse removal result."""
+
+
+class Base64EncodeCommand(ABC):
+    """Base class for base64 encode commands."""
+
+    @abstractmethod
+    def create_command(self, path: str) -> str:
+        """Generate base64 encode command."""
+
+    @abstractmethod
+    def parse_command(self, output: str) -> bytes:
+        """Parse base64 output and return decoded bytes."""
