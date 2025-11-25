@@ -601,7 +601,7 @@ if __name__ == "__main__":
     event_stream[EndEvent].connect(end_handler)
 
     # Union type filtering works too
-    event_stream[DataEvent | EndEvent].connect(data_or_end_handler)
+    event_stream[DataEvent | EndEvent].connect(data_or_end_handler)  # pyright: ignore[reportArgumentType]
 
     # Run synchronously
     for _ in event_stream.sync():

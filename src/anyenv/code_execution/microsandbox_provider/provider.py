@@ -213,12 +213,9 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
         yield ProcessStartedEvent(process_id=process_id, command=f"execute({len(code)} chars)")
 
         try:
-            result = await self.execute(code)
-
-            # Emit output as single combined event
+            result = await self.execute(code)  # Emit output as single combined event
             if result.stdout:
                 yield OutputEvent(process_id=process_id, data=result.stdout, stream="combined")
-
             if result.success:
                 yield ProcessCompletedEvent(process_id=process_id, exit_code=result.exit_code or 0)
             else:
