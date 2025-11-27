@@ -116,3 +116,39 @@ class Base64EncodeCommand(ABC):
     @abstractmethod
     def parse_command(self, output: str) -> bytes:
         """Parse base64 output and return decoded bytes."""
+
+
+class WhichCommand(ABC):
+    """Base class for which/where commands to locate executables."""
+
+    @abstractmethod
+    def create_command(self, executable: str) -> str:
+        """Generate command to find executable path."""
+
+    @abstractmethod
+    def parse_command(self, output: str, exit_code: int = 0) -> str | None:
+        """Parse output and return executable path or None if not found."""
+
+
+class PwdCommand(ABC):
+    """Base class for pwd (print working directory) commands."""
+
+    @abstractmethod
+    def create_command(self) -> str:
+        """Generate command to get current working directory."""
+
+    @abstractmethod
+    def parse_command(self, output: str, exit_code: int = 0) -> str | None:
+        """Parse output and return current directory or None on failure."""
+
+
+class EnvVarCommand(ABC):
+    """Base class for environment variable commands."""
+
+    @abstractmethod
+    def create_command(self, name: str) -> str:
+        """Generate command to get environment variable value."""
+
+    @abstractmethod
+    def parse_command(self, output: str, exit_code: int = 0) -> str | None:
+        """Parse output and return variable value or None if not set."""

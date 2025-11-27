@@ -15,6 +15,7 @@ from .create_directory import (
     UnixCreateDirectoryCommand,
     WindowsCreateDirectoryCommand,
 )
+from .env_var import MacOSEnvVarCommand, UnixEnvVarCommand, WindowsEnvVarCommand
 from .exists import MacOSExistsCommand, UnixExistsCommand, WindowsExistsCommand
 from .file_info import MacOSFileInfoCommand, UnixFileInfoCommand, WindowsFileInfoCommand
 from .is_directory import (
@@ -28,23 +29,28 @@ from .list_directory import (
     UnixListDirectoryCommand,
     WindowsListDirectoryCommand,
 )
+from .pwd import MacOSPwdCommand, UnixPwdCommand, WindowsPwdCommand
 from .remove_path import (
     MacOSRemovePathCommand,
     UnixRemovePathCommand,
     WindowsRemovePathCommand,
 )
+from .which import MacOSWhichCommand, UnixWhichCommand, WindowsWhichCommand
 
 
 if TYPE_CHECKING:
     from .base import (
         Base64EncodeCommand,
         CreateDirectoryCommand,
+        EnvVarCommand,
         ExistsCommand,
         FileInfoCommand,
         IsDirectoryCommand,
         IsFileCommand,
         ListDirectoryCommand,
+        PwdCommand,
         RemovePathCommand,
+        WhichCommand,
     )
 
 CommandType = Literal[
@@ -56,6 +62,9 @@ CommandType = Literal[
     "create_directory",
     "remove_path",
     "base64_encode",
+    "which",
+    "pwd",
+    "env_var",
 ]
 
 
@@ -73,7 +82,10 @@ class OSCommandProvider:
             | IsDirectoryCommand
             | CreateDirectoryCommand
             | RemovePathCommand
-            | Base64EncodeCommand,
+            | Base64EncodeCommand
+            | WhichCommand
+            | PwdCommand
+            | EnvVarCommand,
         ] = {}
 
     @overload
@@ -100,6 +112,15 @@ class OSCommandProvider:
     @overload
     def get_command(self, command_type: Literal["base64_encode"]) -> Base64EncodeCommand: ...
 
+    @overload
+    def get_command(self, command_type: Literal["which"]) -> WhichCommand: ...
+
+    @overload
+    def get_command(self, command_type: Literal["pwd"]) -> PwdCommand: ...
+
+    @overload
+    def get_command(self, command_type: Literal["env_var"]) -> EnvVarCommand: ...
+
     def get_command(
         self, command_type: CommandType
     ) -> (
@@ -111,6 +132,9 @@ class OSCommandProvider:
         | CreateDirectoryCommand
         | RemovePathCommand
         | Base64EncodeCommand
+        | WhichCommand
+        | PwdCommand
+        | EnvVarCommand
     ):
         """Get command instance by type."""
         return self.commands[command_type]
@@ -131,6 +155,9 @@ class UnixCommandProvider(OSCommandProvider):
             "create_directory": UnixCreateDirectoryCommand(),
             "remove_path": UnixRemovePathCommand(),
             "base64_encode": UnixBase64EncodeCommand(),
+            "which": UnixWhichCommand(),
+            "pwd": UnixPwdCommand(),
+            "env_var": UnixEnvVarCommand(),
         }
 
 
@@ -149,6 +176,9 @@ class MacOSCommandProvider(OSCommandProvider):
             "create_directory": MacOSCreateDirectoryCommand(),
             "remove_path": MacOSRemovePathCommand(),
             "base64_encode": MacOSBase64EncodeCommand(),
+            "which": MacOSWhichCommand(),
+            "pwd": MacOSPwdCommand(),
+            "env_var": MacOSEnvVarCommand(),
         }
 
 
@@ -167,6 +197,9 @@ class WindowsCommandProvider(OSCommandProvider):
             "create_directory": WindowsCreateDirectoryCommand(),
             "remove_path": WindowsRemovePathCommand(),
             "base64_encode": WindowsBase64EncodeCommand(),
+            "which": WindowsWhichCommand(),
+            "pwd": WindowsPwdCommand(),
+            "env_var": WindowsEnvVarCommand(),
         }
 
 

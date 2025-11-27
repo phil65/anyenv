@@ -15,7 +15,10 @@ from .base import (
     IsDirectoryCommand,
     IsFileCommand,
     ListDirectoryCommand,
+    PwdCommand,
     RemovePathCommand,
+    WhichCommand,
+    EnvVarCommand,
 )
 from .models import (
     CommandResult,
@@ -59,6 +62,21 @@ from .remove_path import (
     MacOSRemovePathCommand,
     UnixRemovePathCommand,
     WindowsRemovePathCommand,
+)
+from .pwd import (
+    MacOSPwdCommand,
+    UnixPwdCommand,
+    WindowsPwdCommand,
+)
+from .env_var import (
+    MacOSEnvVarCommand,
+    UnixEnvVarCommand,
+    WindowsEnvVarCommand,
+)
+from .which import (
+    MacOSWhichCommand,
+    UnixWhichCommand,
+    WindowsWhichCommand,
 )
 
 __all__ = [
@@ -115,5 +133,20 @@ __all__ = [
     "WindowsIsFileCommand",
     "WindowsListDirectoryCommand",
     "WindowsRemovePathCommand",
+    "WindowsWhichCommand",
+    # Which commands
+    "WhichCommand",
+    "UnixWhichCommand",
+    "MacOSWhichCommand",
+    # Pwd commands
+    "PwdCommand",
+    "UnixPwdCommand",
+    "MacOSPwdCommand",
+    "WindowsPwdCommand",
+    # EnvVar commands
+    "EnvVarCommand",
+    "UnixEnvVarCommand",
+    "MacOSEnvVarCommand",
+    "WindowsEnvVarCommand",
     "get_os_command_provider",
 ]
