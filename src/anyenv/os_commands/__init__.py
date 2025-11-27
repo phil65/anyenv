@@ -87,6 +87,8 @@ __all__ = [
     "CreateDirectoryCommand",
     "CreateDirectoryResult",
     "DirectoryEntry",
+    # EnvVar commands
+    "EnvVarCommand",
     "ExistsCommand",
     "ExistsResult",
     "FileInfo",
@@ -97,14 +99,19 @@ __all__ = [
     "MacOSBase64EncodeCommand",
     "MacOSCommandProvider",
     "MacOSCreateDirectoryCommand",
+    "MacOSEnvVarCommand",
     "MacOSExistsCommand",
     "MacOSFileInfoCommand",
     "MacOSIsDirectoryCommand",
     "MacOSIsFileCommand",
     "MacOSListDirectoryCommand",
+    "MacOSPwdCommand",
     "MacOSRemovePathCommand",
+    "MacOSWhichCommand",
     # Providers
     "OSCommandProvider",
+    # Pwd commands
+    "PwdCommand",
     "RemovePathCommand",
     "RemovePathResult",
     # Base64 encode commands
@@ -112,6 +119,7 @@ __all__ = [
     "UnixCommandProvider",
     # Create directory commands
     "UnixCreateDirectoryCommand",
+    "UnixEnvVarCommand",
     # Exists commands
     "UnixExistsCommand",
     # File info commands
@@ -122,31 +130,23 @@ __all__ = [
     "UnixIsFileCommand",
     # List directory commands
     "UnixListDirectoryCommand",
+    "UnixPwdCommand",
     # Remove path commands
     "UnixRemovePathCommand",
+    "UnixWhichCommand",
+    # Which commands
+    "WhichCommand",
     "WindowsBase64EncodeCommand",
     "WindowsCommandProvider",
     "WindowsCreateDirectoryCommand",
+    "WindowsEnvVarCommand",
     "WindowsExistsCommand",
     "WindowsFileInfoCommand",
     "WindowsIsDirectoryCommand",
     "WindowsIsFileCommand",
     "WindowsListDirectoryCommand",
+    "WindowsPwdCommand",
     "WindowsRemovePathCommand",
     "WindowsWhichCommand",
-    # Which commands
-    "WhichCommand",
-    "UnixWhichCommand",
-    "MacOSWhichCommand",
-    # Pwd commands
-    "PwdCommand",
-    "UnixPwdCommand",
-    "MacOSPwdCommand",
-    "WindowsPwdCommand",
-    # EnvVar commands
-    "EnvVarCommand",
-    "UnixEnvVarCommand",
-    "MacOSEnvVarCommand",
-    "WindowsEnvVarCommand",
     "get_os_command_provider",
 ]
