@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Sequence
 import contextvars
+from functools import partial
 import inspect
 import threading
 from typing import TYPE_CHECKING, Any, Literal, TypeVarTuple, cast, overload
@@ -44,8 +45,6 @@ def run_sync[T](coro: Coroutine[Any, Any, T]) -> T:
     Returns:
         The result of the coroutine
     """
-    import anyio
-
     ctx = contextvars.copy_context()
 
     async def wrapper() -> T:
@@ -84,8 +83,6 @@ def run_sync_in_thread[T](coro: Coroutine[Any, Any, T]) -> T:
     Returns:
         The result of the coroutine
     """
-    import anyio
-
     result: T | None = None
     error: BaseException | None = None
     done = threading.Event()
@@ -191,8 +188,6 @@ async def run_in_thread[T_Retval, *PosArgsT](
     Returns:
         The return value of the function
     """
-    from functools import partial
-
     fn = partial(func, **kwargs) if kwargs else func  # type: ignore[call-arg]
     return await to_thread.run_sync(
         fn,  # type: ignore[arg-type]

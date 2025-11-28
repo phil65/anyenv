@@ -29,27 +29,12 @@ def get_storage(
 
     match cache_backend:
         case "sqlite":
-            return hishel.AsyncSqliteStorage(
-                database_path="anyenv_cache.db",
-                default_ttl=cache_ttl,
-                refresh_ttl_on_access=True,
-            )
+            return hishel.AsyncSqliteStorage(database_path="anyenv_cache.db", default_ttl=cache_ttl)
         case "memory":
-            # Use sqlite storage with in-memory database as fallback
-            # since hishel 1.0 doesn't have AsyncInMemoryStorage
-            return hishel.AsyncSqliteStorage(
-                database_path=":memory:",
-                default_ttl=cache_ttl,
-                refresh_ttl_on_access=True,
-            )
+            return hishel.AsyncSqliteStorage(database_path=":memory:", default_ttl=cache_ttl)
         case "file":
-            # Use sqlite storage with file path
             cache_path = Path(cache_dir) / "anyenv_cache.db"
-            return hishel.AsyncSqliteStorage(
-                database_path=str(cache_path),
-                default_ttl=cache_ttl,
-                refresh_ttl_on_access=True,
-            )
+            return hishel.AsyncSqliteStorage(database_path=str(cache_path), default_ttl=cache_ttl)
         case _:
             msg = f"Invalid cache backend: {cache_backend}"
             raise ValueError(msg)
