@@ -55,7 +55,7 @@ def run_sync[T](coro: Coroutine[Any, Any, T]) -> T:
         # Try to run directly with anyio
         return ctx.run(anyio.run, wrapper)
     except RuntimeError as e:
-        if "already running" in str(e):
+        if "already running" in str(e).lower():
             return run_sync_in_thread(coro)
         error_msg = str(e)
         msg = f"Failed to run coroutine: {error_msg}"
