@@ -1,9 +1,15 @@
 """Tests for E2bExecutionEnvironment."""
 
+import sys
+
 import pytest
 
 from anyenv.code_execution import E2bExecutionEnvironment
 
+
+# Skip entire file on Python 3.14+ due to protobuf incompatibility
+if sys.version_info >= (3, 14):
+    pytest.skip("e2b not compatible with Python 3.14+", allow_module_level=True)
 
 # Skip entire file if e2b package is not available
 e2b = pytest.importorskip("e2b")
