@@ -161,12 +161,9 @@ class Session(abc.ABC):
 
     def __enter__(self) -> Self:
         """Enter sync context."""
-        import anyio
+        from anyenv.async_run import run_sync
 
-        async def wrapper() -> Self:
-            return await self.__aenter__()
-
-        return anyio.run(wrapper)
+        return run_sync(self.__aenter__())
 
     def __exit__(
         self,
@@ -175,12 +172,9 @@ class Session(abc.ABC):
         exc_tb: types.TracebackType | None,
     ) -> None:
         """Exit sync context."""
-        import anyio
+        from anyenv.async_run import run_sync
 
-        async def wrapper() -> None:
-            await self.__aexit__(exc_type, exc_val, exc_tb)
-
-        anyio.run(wrapper)
+        run_sync(self.__aexit__(exc_type, exc_val, exc_tb))
 
 
 class HttpBackend(abc.ABC):
@@ -244,10 +238,10 @@ class HttpBackend(abc.ABC):
         cache_backend: CacheType = "file",
     ) -> HttpResponse:
         """Synchronous version of request."""
-        import anyio
+        from anyenv.async_run import run_sync
 
-        async def wrapper() -> HttpResponse:
-            return await self.request(
+        return run_sync(
+            self.request(
                 method,
                 url,
                 params=params,
@@ -259,8 +253,7 @@ class HttpBackend(abc.ABC):
                 cache=cache,
                 cache_backend=cache_backend,
             )
-
-        return anyio.run(wrapper)
+        )
 
     @abc.abstractmethod
     async def download(
@@ -287,10 +280,10 @@ class HttpBackend(abc.ABC):
         cache_backend: CacheType = "file",
     ) -> None:
         """Synchronous version of download."""
-        import anyio
+        from anyenv.async_run import run_sync
 
-        async def wrapper() -> None:
-            await self.download(
+        run_sync(
+            self.download(
                 url,
                 path,
                 headers=headers,
@@ -298,8 +291,7 @@ class HttpBackend(abc.ABC):
                 cache=cache,
                 cache_backend=cache_backend,
             )
-
-        return anyio.run(wrapper)
+        )
 
     @abc.abstractmethod
     async def create_session(
@@ -322,17 +314,16 @@ class HttpBackend(abc.ABC):
         cache_backend: CacheType = "file",
     ) -> Session:
         """Synchronous version of create_session."""
-        import anyio
+        from anyenv.async_run import run_sync
 
-        async def wrapper() -> Session:
-            return await self.create_session(
+        return run_sync(
+            self.create_session(
                 base_url=base_url,
                 headers=headers,
                 cache=cache,
                 cache_backend=cache_backend,
             )
-
-        return anyio.run(wrapper)
+        )
 
     async def _handle_callback(
         self,

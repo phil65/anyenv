@@ -48,9 +48,12 @@ def run_sync[T](coro: Coroutine[Any, Any, T]) -> T:
 
     ctx = contextvars.copy_context()
 
+    async def wrapper() -> T:
+        return await coro
+
     try:
         # Try to run directly with anyio
-        return ctx.run(anyio.run, lambda: coro)
+        return ctx.run(anyio.run, wrapper)
     except RuntimeError as e:
         if "already running" in str(e):
             return run_sync_in_thread(coro)
