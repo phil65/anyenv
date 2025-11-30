@@ -110,15 +110,12 @@ class BeamTerminalManager(ProcessManagerProtocol):
                 raise ValueError(msg)  # noqa: TRY301
 
             # Use Beam's process.exec for direct command execution
-            process = self.sandbox_instance.process.exec(
-                *cmd_parts, cwd=str(cwd) if cwd else None, env=env
-            )
+            cwd_ = str(cwd) if cwd else None
+            process = self.sandbox_instance.process.exec(*cmd_parts, cwd=cwd_, env=env)
             terminal.set_process(process)
-
             # Start background task to collect output
             task = asyncio.create_task(self._collect_output(terminal))
             terminal.set_task(task)
-
             logger.info("Created Beam terminal %s: %s", terminal_id, full_command)
 
         except Exception as e:
