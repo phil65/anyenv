@@ -250,10 +250,8 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
         start_time = time.time()
 
         try:
-            # Execute command
             process = await sandbox.exec.aio(*parts, timeout=self.timeout)
             await process.wait.aio()
-
             stdout = await process.stdout.read.aio() if process.stdout else ""
             stderr = await process.stderr.read.aio() if process.stderr else ""
             success = process.returncode == 0

@@ -281,9 +281,7 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
         try:
             cmd_name = parts[0]
             args = parts[1:] if len(parts) > 1 else None
-
             cmd = await sandbox.run_command_detached(cmd_name, args)
-
             async for log_line in sandbox.client.get_logs(
                 sandbox_id=sandbox.sandbox_id, cmd_id=cmd.cmd_id
             ):
