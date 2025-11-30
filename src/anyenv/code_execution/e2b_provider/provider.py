@@ -7,6 +7,12 @@ import time
 from typing import TYPE_CHECKING, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
+from anyenv.code_execution.events import (
+    OutputEvent,
+    ProcessCompletedEvent,
+    ProcessErrorEvent,
+    ProcessStartedEvent,
+)
 from anyenv.code_execution.models import ExecutionResult
 from anyenv.code_execution.parse_output import get_script_path, parse_output, wrap_code
 
@@ -225,24 +231,14 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
 
     async def stream_code(self, code: str) -> AsyncIterator[ExecutionEvent]:
         """Execute code and stream events in the E2B sandbox."""
-        from anyenv.code_execution.events import (
-            OutputEvent,
-            ProcessCompletedEvent,
-            ProcessErrorEvent,
-            ProcessStartedEvent,
-        )
-
         sandbox = self._ensure_initialized()
         process_id = f"e2b_{id(sandbox)}"
-
         # Write code to script file and execute via commands.run
         wrapped_code = wrap_code(code, language=self.language)
         script_path = get_script_path(self.language)
         await sandbox.files.write(script_path, wrapped_code)
         command = self._get_execution_command(script_path)
-
         yield ProcessStartedEvent(process_id=process_id, command=f"execute({len(code)} chars)")
-
         try:
             stdout_events: list[OutputEvent] = []
             stderr_events: list[OutputEvent] = []
@@ -284,23 +280,13 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
                 yield ProcessCompletedEvent(process_id=process_id, exit_code=0)
 
         except Exception as e:  # noqa: BLE001
-            yield ProcessErrorEvent(
-                process_id=process_id, error=str(e), error_type=type(e).__name__
-            )
+            yield ProcessErrorEvent.failed(e, process_id=process_id)
 
     async def stream_command(self, command: str) -> AsyncIterator[ExecutionEvent]:
         """Execute a terminal command and stream events in the E2B sandbox."""
-        from anyenv.code_execution.events import (
-            OutputEvent,
-            ProcessCompletedEvent,
-            ProcessErrorEvent,
-            ProcessStartedEvent,
-        )
-
         sandbox = self._ensure_initialized()
         process_id = f"e2b_cmd_{id(sandbox)}"
         yield ProcessStartedEvent(process_id=process_id, command=command)
-
         try:
             stdout_events = []
             stderr_events = []
@@ -342,9 +328,7 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
                 )
 
         except Exception as e:  # noqa: BLE001
-            yield ProcessErrorEvent(
-                process_id=process_id, error=str(e), error_type=type(e).__name__
-            )
+            yield ProcessErrorEvent.failed(e, process_id=process_id)
 
 
 if __name__ == "__main__":

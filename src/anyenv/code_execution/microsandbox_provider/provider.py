@@ -7,6 +7,12 @@ import time
 from typing import TYPE_CHECKING, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
+from anyenv.code_execution.events import (
+    OutputEvent,
+    ProcessCompletedEvent,
+    ProcessErrorEvent,
+    ProcessStartedEvent,
+)
 from anyenv.code_execution.models import ExecutionResult
 from anyenv.code_execution.parse_output import parse_command
 
@@ -193,13 +199,6 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
 
     async def stream_code(self, code: str) -> AsyncIterator[ExecutionEvent]:
         """Execute code and emit combined events (no real-time streaming)."""
-        from anyenv.code_execution.events import (
-            OutputEvent,
-            ProcessCompletedEvent,
-            ProcessErrorEvent,
-            ProcessStartedEvent,
-        )
-
         process_id = f"microsandbox_{id(self.sandbox)}"
         yield ProcessStartedEvent(process_id=process_id, command=f"execute({len(code)} chars)")
 
@@ -218,19 +217,10 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
                 )
 
         except Exception as e:  # noqa: BLE001
-            yield ProcessErrorEvent(
-                process_id=process_id, error=str(e), error_type=type(e).__name__
-            )
+            yield ProcessErrorEvent.failed(e, process_id=process_id)
 
     async def stream_command(self, command: str) -> AsyncIterator[ExecutionEvent]:
         """Execute terminal command and emit combined events (no real-time streaming)."""
-        from anyenv.code_execution.events import (
-            OutputEvent,
-            ProcessCompletedEvent,
-            ProcessErrorEvent,
-            ProcessStartedEvent,
-        )
-
         process_id = f"microsandbox_cmd_{id(self.sandbox)}"
         yield ProcessStartedEvent(process_id=process_id, command=command)
         try:
@@ -248,6 +238,4 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
                 )
 
         except Exception as e:  # noqa: BLE001
-            yield ProcessErrorEvent(
-                process_id=process_id, error=str(e), error_type=type(e).__name__
-            )
+            yield ProcessErrorEvent.failed(e, process_id=process_id)

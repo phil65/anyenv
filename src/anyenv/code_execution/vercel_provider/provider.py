@@ -7,6 +7,12 @@ import time
 from typing import TYPE_CHECKING, Any, Literal, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
+from anyenv.code_execution.events import (
+    OutputEvent,
+    ProcessCompletedEvent,
+    ProcessErrorEvent,
+    ProcessStartedEvent,
+)
 from anyenv.code_execution.models import ExecutionResult
 from anyenv.code_execution.parse_output import (
     get_script_path,
@@ -108,10 +114,9 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
     async def __aenter__(self) -> Self:
         """Setup Vercel sandbox."""
         # Start tool server via base class
-        await super().__aenter__()
-
         from vercel.sandbox import AsyncSandbox
 
+        await super().__aenter__()
         self.sandbox = await AsyncSandbox.create(
             runtime=self.runtime or self._get_default_runtime(),
             timeout=self.timeout_ms,
@@ -125,9 +130,8 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
         # Install Python dependencies if specified
         if self.dependencies and self.language == "python":
             try:
-                install_result = await self.sandbox.run_command(
-                    "pip", ["install", *self.dependencies]
-                )
+                args = ["install", *self.dependencies]
+                install_result = await self.sandbox.run_command("pip", args)
                 if install_result.exit_code != 0:
                     # Log warning but don't fail - code might still work
                     pass
@@ -237,23 +241,14 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
 
     async def stream_code(self, code: str) -> AsyncIterator[ExecutionEvent]:
         """Execute code and stream events in the Vercel sandbox."""
-        from anyenv.code_execution.events import (
-            OutputEvent,
-            ProcessCompletedEvent,
-            ProcessErrorEvent,
-            ProcessStartedEvent,
-        )
-
         sandbox = self._ensure_initialized()
         process_id = f"vercel_{id(sandbox)}"
         yield ProcessStartedEvent(process_id=process_id, command=f"execute({len(code)} chars)")
-
         try:
             script_path, wrapped_code = self._prepare_code_execution(code)
             await sandbox.write_files([{"path": script_path, "content": wrapped_code.encode()}])
             cmd, args = self._get_execution_command(script_path)
             result = await sandbox.run_command_detached(cmd, args)
-
             async for log_line in sandbox.client.get_logs(
                 sandbox_id=sandbox.sandbox_id, cmd_id=result.cmd_id
             ):
@@ -274,24 +269,14 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
                 )
 
         except Exception as e:  # noqa: BLE001
-            yield ProcessErrorEvent(
-                process_id=process_id, error=str(e), error_type=type(e).__name__
-            )
+            yield ProcessErrorEvent.failed(e, process_id=process_id)
 
     async def stream_command(self, command: str) -> AsyncIterator[ExecutionEvent]:
         """Execute a terminal command and stream events in the Vercel sandbox."""
-        from anyenv.code_execution.events import (
-            OutputEvent,
-            ProcessCompletedEvent,
-            ProcessErrorEvent,
-            ProcessStartedEvent,
-        )
-
         sandbox = self._ensure_initialized()
         parts = parse_command(command)
         process_id = f"vercel_cmd_{id(sandbox)}"
         yield ProcessStartedEvent(process_id=process_id, command=command)
-
         try:
             cmd_name = parts[0]
             args = parts[1:] if len(parts) > 1 else None
@@ -318,9 +303,7 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
                 )
 
         except Exception as e:  # noqa: BLE001
-            yield ProcessErrorEvent(
-                process_id=process_id, error=str(e), error_type=type(e).__name__
-            )
+            yield ProcessErrorEvent.failed(e, process_id=process_id)
 
     def _prepare_code_execution(self, code: str) -> tuple[str, str]:
         """Prepare code for execution, returning script path and wrapped code."""
@@ -335,7 +318,6 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
             Tuple of (cmd, args) where cmd is the executable and args is the arg list.
         """
         runtime = self.runtime or self._get_default_runtime()
-
         match self.language:
             case "python":
                 if runtime == "python3.13":

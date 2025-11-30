@@ -6,6 +6,12 @@ import time
 from typing import TYPE_CHECKING, Any, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
+from anyenv.code_execution.events import (
+    OutputEvent,
+    ProcessCompletedEvent,
+    ProcessErrorEvent,
+    ProcessStartedEvent,
+)
 from anyenv.code_execution.models import ExecutionResult
 from anyenv.code_execution.parse_output import wrap_command
 
@@ -103,13 +109,11 @@ class SshExecutionEnvironment(ExecutionEnvironment):
             "username": self.username,
             **self.ssh_kwargs,
         }
-
         # Add authentication
         if self.private_key_path:
             self.connect_kwargs["client_keys"] = [self.private_key_path]
         elif self.password:
             self.connect_kwargs["password"] = self.password
-
         # Create and enter the asyncssh connection context manager
         self._connection_cm = asyncssh.connect(**self.connect_kwargs)
         self.connection = await self._connection_cm.__aenter__()
@@ -327,13 +331,6 @@ os.environ['TOOL_SERVER_PORT'] = '{self.server_info.port}'
 
     async def stream_code(self, code: str) -> AsyncIterator[ExecutionEvent]:
         """Execute code and stream events over SSH."""
-        from anyenv.code_execution.events import (
-            OutputEvent,
-            ProcessCompletedEvent,
-            ProcessErrorEvent,
-            ProcessStartedEvent,
-        )
-
         connection = self._ensure_connected()
         process_id = f"ssh_{id(connection)}"
         yield ProcessStartedEvent(process_id=process_id, command=f"execute({len(code)} chars)")
@@ -370,23 +367,13 @@ os.environ['TOOL_SERVER_PORT'] = '{self.server_info.port}'
                 )
 
         except Exception as e:  # noqa: BLE001
-            yield ProcessErrorEvent(
-                process_id=process_id, error=str(e), error_type=type(e).__name__
-            )
+            yield ProcessErrorEvent.failed(e, process_id=process_id)
 
     async def stream_command(self, command: str) -> AsyncIterator[ExecutionEvent]:
         """Execute command and stream events over SSH."""
-        from anyenv.code_execution.events import (
-            OutputEvent,
-            ProcessCompletedEvent,
-            ProcessErrorEvent,
-            ProcessStartedEvent,
-        )
-
         connection = self._ensure_connected()
         process_id = f"ssh_cmd_{id(connection)}"
         yield ProcessStartedEvent(process_id=process_id, command=command)
-
         try:
             cmd = f"cd {self._remote_work_dir} && {command}"
             async with connection.create_process(wrap_command(cmd)) as process:
@@ -408,9 +395,7 @@ os.environ['TOOL_SERVER_PORT'] = '{self.server_info.port}'
                     )
 
         except Exception as e:  # noqa: BLE001
-            yield ProcessErrorEvent(
-                process_id=process_id, error=str(e), error_type=type(e).__name__
-            )
+            yield ProcessErrorEvent.failed(e, process_id=process_id)
 
 
 if __name__ == "__main__":

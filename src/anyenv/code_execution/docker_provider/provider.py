@@ -9,6 +9,12 @@ import time
 from typing import TYPE_CHECKING, Literal, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
+from anyenv.code_execution.events import (
+    OutputEvent,
+    ProcessCompletedEvent,
+    ProcessErrorEvent,
+    ProcessStartedEvent,
+)
 from anyenv.code_execution.models import ExecutionResult
 from anyenv.code_execution.parse_output import parse_output, wrap_code
 
@@ -217,33 +223,18 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
 
     async def stream_code(self, code: str) -> AsyncIterator[ExecutionEvent]:
         """Execute code and stream events in the Docker container."""
-        from anyenv.code_execution.events import (
-            OutputEvent,
-            ProcessCompletedEvent,
-            ProcessErrorEvent,
-            ProcessStartedEvent,
-        )
-
         process_id = f"docker_{id(self.container)}"
         yield ProcessStartedEvent(process_id=process_id, command=f"execute({len(code)} chars)")
 
         try:
             if not self.container:
-                yield ProcessErrorEvent(
-                    process_id=process_id,
-                    error="Docker container not initialized",
-                    error_type="RuntimeError",
-                )
+                msg = "Docker container not initialized"
+                yield ProcessErrorEvent(process_id=process_id, error=msg, error_type="RuntimeError")
                 return
-
             if not self.host_workdir:
-                yield ProcessErrorEvent(
-                    process_id=process_id,
-                    error="Host working directory not initialized",
-                    error_type="RuntimeError",
-                )
+                msg = "Host working directory not initialized"
+                yield ProcessErrorEvent(process_id=process_id, error=msg, error_type="RuntimeError")
                 return
-
             lang: Literal["python", "javascript", "typescript"] = (
                 "javascript" if self.language == "typescript" else self.language
             )
@@ -277,19 +268,10 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
                 )
 
         except Exception as e:  # noqa: BLE001
-            yield ProcessErrorEvent(
-                process_id=process_id, error=str(e), error_type=type(e).__name__
-            )
+            yield ProcessErrorEvent.failed(e, process_id=process_id)
 
     async def stream_command(self, command: str) -> AsyncIterator[ExecutionEvent]:
         """Execute a shell command and stream events in the Docker container."""
-        from anyenv.code_execution.events import (
-            OutputEvent,
-            ProcessCompletedEvent,
-            ProcessErrorEvent,
-            ProcessStartedEvent,
-        )
-
         process_id = f"docker_cmd_{id(self.container)}"
         yield ProcessStartedEvent(process_id=process_id, command=command)
 
@@ -325,9 +307,7 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
                 )
 
         except Exception as e:  # noqa: BLE001
-            yield ProcessErrorEvent(
-                process_id=process_id, error=str(e), error_type=type(e).__name__
-            )
+            yield ProcessErrorEvent.failed(e, process_id=process_id)
 
 
 def get_execution_command(language: Language) -> str:

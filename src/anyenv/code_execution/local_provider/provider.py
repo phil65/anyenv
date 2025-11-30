@@ -11,9 +11,13 @@ import time
 from typing import TYPE_CHECKING, Any, Literal, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
-from anyenv.code_execution.local_provider.utils import (
-    find_executable,
+from anyenv.code_execution.events import (
+    OutputEvent,
+    ProcessCompletedEvent,
+    ProcessErrorEvent,
+    ProcessStartedEvent,
 )
+from anyenv.code_execution.local_provider.utils import StreamCapture, find_executable
 from anyenv.code_execution.models import ExecutionResult
 from anyenv.code_execution.parse_output import parse_output, wrap_code
 from anyenv.processes import create_process, create_shell_process
@@ -266,20 +270,12 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
                 async for event in self._stream_code_local(code, process_id):
                     yield event
         except Exception as e:  # noqa: BLE001
-            yield ProcessErrorEvent(
-                process_id=process_id, error=str(e), error_type=type(e).__name__
-            )
+            yield ProcessErrorEvent.failed(e, process_id=process_id)
 
     async def _stream_code_subprocess(
         self, code: str, process_id: str
     ) -> AsyncIterator[ExecutionEvent]:
         """Execute code in subprocess and stream events."""
-        from anyenv.code_execution.events import (
-            OutputEvent,
-            ProcessCompletedEvent,
-            ProcessErrorEvent,
-        )
-
         try:
             args = self._get_subprocess_args()
             process = await create_process(*args, stdin="pipe", stdout="pipe", stderr="stdout")
@@ -323,19 +319,10 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
                 )
 
         except Exception as e:  # noqa: BLE001
-            yield ProcessErrorEvent(
-                process_id=process_id, error=str(e), error_type=type(e).__name__
-            )
+            yield ProcessErrorEvent.failed(e, process_id=process_id)
 
     async def _stream_code_local(self, code: str, process_id: str) -> AsyncIterator[ExecutionEvent]:
         """Execute code locally and stream events."""
-        from anyenv.code_execution.events import (
-            OutputEvent,
-            ProcessCompletedEvent,
-            ProcessErrorEvent,
-        )
-        from anyenv.code_execution.local_provider.utils import StreamCapture
-
         try:
             output_queue: asyncio.Queue[str] = asyncio.Queue()
             stdout_capture = StreamCapture(sys.stdout, output_queue)
@@ -415,25 +402,14 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
                 )
 
         except Exception as e:  # noqa: BLE001
-            yield ProcessErrorEvent(
-                process_id=process_id, error=str(e), error_type=type(e).__name__
-            )
+            yield ProcessErrorEvent.failed(e, process_id=process_id)
 
     async def stream_command(self, command: str) -> AsyncIterator[ExecutionEvent]:
         """Execute a shell command and stream events."""
-        from anyenv.code_execution.events import (
-            OutputEvent,
-            ProcessCompletedEvent,
-            ProcessErrorEvent,
-            ProcessStartedEvent,
-        )
-
         process_id = f"local_cmd_{id(self)}"
         yield ProcessStartedEvent(process_id=process_id, command=command)
-
         try:
             process = await create_shell_process(command, stdout="pipe", stderr="stdout")
-
             if process.stdout is not None:
                 while True:
                     try:
@@ -470,9 +446,7 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
                 )
 
         except Exception as e:  # noqa: BLE001
-            yield ProcessErrorEvent(
-                process_id=process_id, error=str(e), error_type=type(e).__name__
-            )
+            yield ProcessErrorEvent.failed(e, process_id=process_id)
 
 
 if __name__ == "__main__":

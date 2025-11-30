@@ -8,6 +8,12 @@ from typing import TYPE_CHECKING, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.daytona_provider.helpers import convert_language
+from anyenv.code_execution.events import (
+    OutputEvent,
+    ProcessCompletedEvent,
+    ProcessErrorEvent,
+    ProcessStartedEvent,
+)
 from anyenv.code_execution.models import ExecutionResult
 from anyenv.code_execution.parse_output import parse_output, wrap_python_code
 
@@ -177,13 +183,6 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
 
     async def stream_code(self, code: str) -> AsyncIterator[ExecutionEvent]:
         """Execute code and stream events in the Daytona sandbox."""
-        from anyenv.code_execution.events import (
-            OutputEvent,
-            ProcessCompletedEvent,
-            ProcessErrorEvent,
-            ProcessStartedEvent,
-        )
-
         process_id = f"daytona_{id(self.sandbox)}"
         yield ProcessStartedEvent(process_id=process_id, command=f"execute({len(code)} chars)")
 
@@ -204,28 +203,16 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
                 )
 
         except Exception as e:  # noqa: BLE001
-            yield ProcessErrorEvent(
-                process_id=process_id, error=str(e), error_type=type(e).__name__
-            )
+            yield ProcessErrorEvent.failed(e, process_id=process_id)
 
     async def stream_command(self, command: str) -> AsyncIterator[ExecutionEvent]:
         """Execute terminal command and stream events in the Daytona sandbox."""
-        from anyenv.code_execution.events import (
-            OutputEvent,
-            ProcessCompletedEvent,
-            ProcessErrorEvent,
-            ProcessStartedEvent,
-        )
-
         process_id = f"daytona_cmd_{id(self.sandbox)}"
         yield ProcessStartedEvent(process_id=process_id, command=command)
-
         try:
             result = await self.execute_command(command)
-
             if result.stdout:
                 yield OutputEvent(process_id=process_id, data=result.stdout, stream="combined")
-
             if result.success:
                 yield ProcessCompletedEvent(process_id=process_id, exit_code=result.exit_code or 0)
             else:
@@ -235,11 +222,8 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
                     error_type=result.error_type or "CommandError",
                     exit_code=result.exit_code,
                 )
-
         except Exception as e:  # noqa: BLE001
-            yield ProcessErrorEvent(
-                process_id=process_id, error=str(e), error_type=type(e).__name__
-            )
+            yield ProcessErrorEvent.failed(e, process_id=process_id)
 
 
 if __name__ == "__main__":

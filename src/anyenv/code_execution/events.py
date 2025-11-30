@@ -47,6 +47,18 @@ class ProcessErrorEvent(BaseExecutionEvent):
     error_type: str
     exit_code: int | None = None
 
+    @classmethod
+    def failed(
+        cls, exception: Exception, process_id: str, exit_code: int | None = None
+    ) -> ProcessErrorEvent:
+        """Create a ProcessErrorEvent from an exception."""
+        return cls(
+            error=str(exception),
+            error_type=type(exception).__name__,
+            process_id=process_id,
+            exit_code=exit_code,
+        )
+
 
 # Discriminated union of all execution events
 ExecutionEvent = ProcessStartedEvent | OutputEvent | ProcessCompletedEvent | ProcessErrorEvent

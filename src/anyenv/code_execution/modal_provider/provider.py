@@ -8,6 +8,12 @@ from typing import TYPE_CHECKING, Any, Self
 
 import anyenv
 from anyenv.code_execution.base import ExecutionEnvironment
+from anyenv.code_execution.events import (
+    OutputEvent,
+    ProcessCompletedEvent,
+    ProcessErrorEvent,
+    ProcessStartedEvent,
+)
 from anyenv.code_execution.models import ExecutionResult
 from anyenv.code_execution.parse_output import (
     get_script_path,
@@ -270,13 +276,6 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
 
     async def stream_code(self, code: str) -> AsyncIterator[ExecutionEvent]:
         """Execute code and stream events in the Modal sandbox."""
-        from anyenv.code_execution.events import (
-            OutputEvent,
-            ProcessCompletedEvent,
-            ProcessErrorEvent,
-            ProcessStartedEvent,
-        )
-
         sandbox = self._ensure_initialized()
         process_id = f"modal_{id(sandbox)}"
         yield ProcessStartedEvent(process_id=process_id, command=f"execute({len(code)} chars)")
@@ -308,24 +307,14 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
                 )
 
         except Exception as e:  # noqa: BLE001
-            yield ProcessErrorEvent(
-                process_id=process_id, error=str(e), error_type=type(e).__name__
-            )
+            yield ProcessErrorEvent.failed(e, process_id=process_id)
 
     async def stream_command(self, command: str) -> AsyncIterator[ExecutionEvent]:
         """Execute a terminal command and stream events in the Modal sandbox."""
-        from anyenv.code_execution.events import (
-            OutputEvent,
-            ProcessCompletedEvent,
-            ProcessErrorEvent,
-            ProcessStartedEvent,
-        )
-
         sandbox = self._ensure_initialized()
         parts = parse_command(command)
         process_id = f"modal_cmd_{id(sandbox)}"
         yield ProcessStartedEvent(process_id=process_id, command=command)
-
         try:
             process = sandbox.exec(*parts, timeout=self.timeout)
 
@@ -347,9 +336,7 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
                 )
 
         except Exception as e:  # noqa: BLE001
-            yield ProcessErrorEvent(
-                process_id=process_id, error=str(e), error_type=type(e).__name__
-            )
+            yield ProcessErrorEvent.failed(e, process_id=process_id)
 
 
 if __name__ == "__main__":

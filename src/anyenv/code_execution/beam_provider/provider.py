@@ -9,6 +9,12 @@ from typing import TYPE_CHECKING, Literal, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.beam_provider.helpers import get_image
+from anyenv.code_execution.events import (
+    OutputEvent,
+    ProcessCompletedEvent,
+    ProcessErrorEvent,
+    ProcessStartedEvent,
+)
 from anyenv.code_execution.models import ExecutionResult
 from anyenv.code_execution.parse_output import parse_command, parse_output, wrap_code
 
@@ -169,13 +175,6 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
         """Execute code and stream events using Beam's real-time streaming."""
         from beam import SandboxProcess
 
-        from anyenv.code_execution.events import (
-            OutputEvent,
-            ProcessCompletedEvent,
-            ProcessErrorEvent,
-            ProcessStartedEvent,
-        )
-
         self.instance = self.validate_instance()
         process_id = f"beam_{id(self.instance)}"
 
@@ -206,24 +205,13 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
                 )
 
         except Exception as e:  # noqa: BLE001
-            yield ProcessErrorEvent(
-                process_id=process_id, error=str(e), error_type=type(e).__name__
-            )
+            yield ProcessErrorEvent.failed(e, process_id=process_id)
 
     async def stream_command(self, command: str) -> AsyncIterator[ExecutionEvent]:
         """Execute a terminal command and stream events in the Beam sandbox."""
-        from anyenv.code_execution.events import (
-            OutputEvent,
-            ProcessCompletedEvent,
-            ProcessErrorEvent,
-            ProcessStartedEvent,
-        )
-
         self.instance = self.validate_instance()
         process_id = f"beam_cmd_{id(self.instance)}"
-
         yield ProcessStartedEvent(process_id=process_id, command=command)
-
         cmd_parts = parse_command(command)
         try:
             process = self.instance.process.exec(*cmd_parts)
@@ -244,9 +232,7 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
                 )
 
         except Exception as e:  # noqa: BLE001
-            yield ProcessErrorEvent(
-                process_id=process_id, error=str(e), error_type=type(e).__name__
-            )
+            yield ProcessErrorEvent.failed(e, process_id=process_id)
 
 
 if __name__ == "__main__":
