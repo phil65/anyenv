@@ -39,20 +39,12 @@ class PasteRsSharer(TextSharer):
         """
         import anyenv
 
-        response = await anyenv.request(
-            "POST",
-            "https://paste.rs/",
-            data=content.encode(),
-            headers={"Content-Type": "text/plain; charset=utf-8"},
-        )
-
+        headers = {"Content-Type": "text/plain; charset=utf-8"}
+        data = content.encode()
+        response = await anyenv.request("POST", "https://paste.rs/", data=data, headers=headers)
         url = (await response.text()).strip()
         ext = syntax or "txt"
-
-        return ShareResult(
-            url=f"{url}.{ext}",
-            raw_url=url,
-        )
+        return ShareResult(url=f"{url}.{ext}", raw_url=url)
 
 
 if __name__ == "__main__":
@@ -60,10 +52,7 @@ if __name__ == "__main__":
 
     async def main() -> None:  # noqa: D103
         sharer = PasteRsSharer()
-        result = await sharer.share(
-            "# Test Paste\n\nHello from anyenv!",
-            syntax="md",
-        )
+        result = await sharer.share("# Test Paste\n\nHello from anyenv!", syntax="md")
         print(f"URL: {result.url}")
         print(f"Raw: {result.raw_url}")
 

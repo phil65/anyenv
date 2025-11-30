@@ -54,27 +54,16 @@ class GistSharer(TextSharer):
 
         filename = title or f"shared.{syntax or 'txt'}"
         public = visibility == "public"
-
-        payload: dict[str, Any] = {
-            "files": {filename: {"content": content}},
-            "public": public,
+        payload: dict[str, Any] = {"files": {filename: {"content": content}}, "public": public}
+        headers = {
+            "Authorization": f"Bearer {self._token}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28",
         }
-
-        response: dict[str, Any] = await anyenv.post_json(
-            "https://api.github.com/gists",
-            payload,
-            headers={
-                "Authorization": f"Bearer {self._token}",
-                "Accept": "application/vnd.github+json",
-                "X-GitHub-Api-Version": "2022-11-28",
-            },
-        )
-
-        gist_id = response["id"]
-        html_url = response["html_url"]
+        url = "https://api.github.com/gists"
+        response: dict[str, Any] = await anyenv.post_json(url, payload, headers=headers)
         raw_url = response["files"][filename]["raw_url"]
-
-        return ShareResult(url=html_url, raw_url=raw_url, id=gist_id)
+        return ShareResult(url=response["html_url"], raw_url=raw_url, id=response["id"])
 
 
 if __name__ == "__main__":
@@ -83,11 +72,7 @@ if __name__ == "__main__":
     async def main() -> None:
         """Example usage of the GistSharer class."""
         sharer = GistSharer()
-        result = await sharer.share(
-            "# Test Gist\n\nHello from anyenv!",
-            title="test.md",
-            syntax="md",
-        )
+        result = await sharer.share("# Test Gist!", title="test.md", syntax="md")
         print(f"URL: {result.url}")
         print(f"Raw: {result.raw_url}")
         print(f"ID: {result.id}")

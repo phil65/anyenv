@@ -21,6 +21,7 @@ from anyenv.lsp_servers._base import (
     LSPServerInfo,
     NpmInstall,
     RootDetection,
+    severity_from_string,
 )
 
 
@@ -119,7 +120,7 @@ class PyrightServer(LSPServerInfo):
                         column=start.get("character", 0) + 1,
                         end_line=end.get("line", start.get("line", 0)) + 1,
                         end_column=end.get("character", start.get("character", 0)) + 1,
-                        severity=self._severity_from_string(diag.get("severity", "error")),
+                        severity=severity_from_string(diag.get("severity", "error")),
                         message=diag.get("message", ""),
                         code=diag.get("rule"),
                         source=self.id,
@@ -150,7 +151,7 @@ class MypyServer(LSPServerInfo):
                         file=data.get("file", ""),
                         line=data.get("line", 1),
                         column=data.get("column", 1),
-                        severity=self._severity_from_string(data.get("severity", "error")),
+                        severity=severity_from_string(data.get("severity", "error")),
                         message=data.get("message", ""),
                         code=data.get("code"),
                         source=self.id,

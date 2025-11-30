@@ -280,7 +280,7 @@ class LSPServerInfo:
             for pattern in patterns:
                 full_pattern = posixpath.join(current, pattern)
                 try:
-                    if matches := await fs._glob(full_pattern)  # noqa: SLF001:
+                    if matches := await fs._glob(full_pattern):  # noqa: SLF001
                         return matches[0]  # pyright: ignore[reportArgumentType, reportReturnType]
                 except Exception:  # noqa: BLE001
                     # Filesystem might not support glob, try exists
@@ -350,17 +350,18 @@ class LSPServerInfo:
         """Parse JSON diagnostic output. Override for tool-specific formats."""
         return []
 
-    def _severity_from_string(self, severity: str) -> Literal["error", "warning", "info", "hint"]:
-        """Convert severity string to Diagnostic severity."""
-        severity = severity.lower()
-        match severity:
-            case "error" | "err":
-                return "error"
-            case "warning" | "warn":
-                return "warning"
-            case "info" | "information":
-                return "info"
-            case "hint" | "note":
-                return "hint"
-            case _:
-                return "warning"
+
+def severity_from_string(severity: str) -> Literal["error", "warning", "info", "hint"]:
+    """Convert severity string to Diagnostic severity."""
+    severity = severity.lower()
+    match severity:
+        case "error" | "err":
+            return "error"
+        case "warning" | "warn":
+            return "warning"
+        case "info" | "information":
+            return "info"
+        case "hint" | "note":
+            return "hint"
+        case _:
+            return "warning"

@@ -26,11 +26,7 @@ EXPIRY_MAP = {
 }
 
 # Map visibility to Pastebin's api_paste_private values
-VISIBILITY_MAP = {
-    "public": "0",
-    "unlisted": "1",
-    "private": "2",
-}
+VISIBILITY_MAP = {"public": "0", "unlisted": "1", "private": "2"}
 
 
 def _get_expiry_code(seconds: int | None) -> str:
@@ -97,24 +93,14 @@ class PastebinSharer(TextSharer):
         if syntax:
             data["api_paste_format"] = syntax
 
-        response = await anyenv.post(
-            "https://pastebin.com/api/api_post.php",
-            data=data,
-        )
-
+        response = await anyenv.post("https://pastebin.com/api/api_post.php", data=data)
         url = (await response.text()).strip()
-
         if url.startswith("Bad API request"):
             msg = f"Pastebin API error: {url}"
             raise RuntimeError(msg)
-
         paste_key = url.split("/")[-1]
-
-        return ShareResult(
-            url=url,
-            raw_url=f"https://pastebin.com/raw/{paste_key}",
-            id=paste_key,
-        )
+        raw_url = f"https://pastebin.com/raw/{paste_key}"
+        return ShareResult(url=url, raw_url=raw_url, id=paste_key)
 
 
 if __name__ == "__main__":
