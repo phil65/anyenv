@@ -52,12 +52,17 @@ class ExecutionResult:
     """The exit code of the command execution (for command execution only)."""
 
     @classmethod
-    def failed(cls, exception: Exception, start_time: float) -> ExecutionResult:
+    def failed(
+        cls,
+        exception: Exception,
+        start_time: float,
+        error_type: str | None = None,
+    ) -> ExecutionResult:
         """Create an execution result from an exception."""
         return cls(
             result=None,
             duration=time.time() - start_time,
             success=False,
             error=str(exception),
-            error_type=type(exception).__name__,
+            error_type=error_type or type(exception).__name__,
         )

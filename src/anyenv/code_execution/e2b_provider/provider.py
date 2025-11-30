@@ -29,6 +29,32 @@ if TYPE_CHECKING:
     from anyenv.code_execution.models import Language, ServerInfo
 
 
+def _get_error_type(e: Exception):
+    error_type = type(e).__name__
+    error_message = str(e)
+    if error_type == "CommandExitException":
+        # Check if it's a syntax error based on the error message
+        if "SyntaxError:" in error_message:
+            return "SyntaxError"
+        if "IndentationError:" in error_message:
+            return "IndentationError"
+        return "CommandError"
+    return error_type
+
+
+def _get_execution_command(language: Language, script_path: str) -> str:
+    """Get execution command based on language."""
+    match language:
+        case "python":
+            return f"python {script_path}"
+        case "javascript":
+            return f"node {script_path}"
+        case "typescript":
+            return f"npx ts-node {script_path}"
+        case _:
+            return f"python {script_path}"
+
+
 class E2bExecutionEnvironment(ExecutionEnvironment):
     """Executes code in an E2B cloud sandbox."""
 
@@ -59,14 +85,7 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
         self.sandbox: AsyncSandbox | None = None
 
     def _ensure_initialized(self) -> AsyncSandbox:
-        """Validate that the environment is properly initialized.
-
-        Returns:
-            The sandbox instance.
-
-        Raises:
-            RuntimeError: If environment not entered via async context manager.
-        """
+        """Ensure async context."""
         if self.sandbox is None:
             msg = "E2B environment not initialized. Use 'async with' context manager."
             raise RuntimeError(msg)
@@ -125,7 +144,7 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
             wrapped_code = wrap_code(code, language=self.language)
             script_path = get_script_path(self.language)
             await sandbox.files.write(script_path, wrapped_code)
-            command = self._get_execution_command(script_path)
+            command = _get_execution_command(self.language, script_path)
             result = await sandbox.commands.run(command)
             execution_result, error_info = parse_output(result.stdout)
             if result.exit_code == 0 and error_info is None:
@@ -143,48 +162,16 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
                 duration=time.time() - start_time,
                 success=False,
                 exit_code=result.exit_code,
-                error=error_info.get("error", "Command execution failed")
-                if error_info
-                else "Command execution failed",
-                error_type=error_info.get("type", "ExecutionError")
-                if error_info
-                else "ExecutionError",
+                error=(error_info or {}).get("error", "Command execution failed"),
+                error_type=(error_info or {}).get("type", "ExecutionError"),
                 stdout=result.stdout,
                 stderr=result.stderr,
             )
 
         except Exception as e:  # noqa: BLE001
             # Map E2B specific exceptions to our error types
-            error_type = type(e).__name__
-            error_message = str(e)
-            if error_type == "CommandExitException":
-                # Check if it's a syntax error based on the error message
-                if "SyntaxError:" in error_message:
-                    error_type = "SyntaxError"
-                elif "IndentationError:" in error_message:
-                    error_type = "IndentationError"
-                else:
-                    error_type = "CommandError"
-
-            return ExecutionResult(
-                result=None,
-                duration=time.time() - start_time,
-                success=False,
-                error=str(e),
-                error_type=error_type,
-            )
-
-    def _get_execution_command(self, script_path: str) -> str:
-        """Get execution command based on language."""
-        match self.language:
-            case "python":
-                return f"python {script_path}"
-            case "javascript":
-                return f"node {script_path}"
-            case "typescript":
-                return f"npx ts-node {script_path}"
-            case _:
-                return f"python {script_path}"
+            error_type = _get_error_type(e)
+            return ExecutionResult.failed(e, start_time, error_type=error_type)
 
     async def execute_command(self, command: str) -> ExecutionResult:
         """Execute a terminal command in the E2B sandbox."""
@@ -202,27 +189,9 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
                 stdout=result.stdout,
                 stderr=result.stderr,
             )
-
         except Exception as e:  # noqa: BLE001
-            error_type = type(e).__name__
-            error_message = str(e)
-
-            if error_type == "CommandExitException":
-                # Check if it's a syntax error based on the error message
-                if "SyntaxError:" in error_message:
-                    error_type = "SyntaxError"
-                elif "IndentationError:" in error_message:
-                    error_type = "IndentationError"
-                else:
-                    error_type = "CommandError"
-
-            return ExecutionResult(
-                result=None,
-                duration=time.time() - start_time,
-                success=False,
-                error=str(e),
-                error_type=error_type,
-            )
+            error_type = _get_error_type(e)
+            return ExecutionResult.failed(e, start_time, error_type=error_type)
 
     async def stream_code(self, code: str) -> AsyncIterator[ExecutionEvent]:
         """Execute code and stream events in the E2B sandbox."""
@@ -232,7 +201,7 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
         wrapped_code = wrap_code(code, language=self.language)
         script_path = get_script_path(self.language)
         await sandbox.files.write(script_path, wrapped_code)
-        command = self._get_execution_command(script_path)
+        command = _get_execution_command(self.language, script_path)
         yield ProcessStartedEvent(process_id=process_id, command=f"execute({len(code)} chars)")
         try:
             stdout_events: list[OutputEvent] = []
@@ -241,16 +210,14 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
             def on_stdout(data: str) -> None:
                 line = data.rstrip("\n\r")
                 if line:
-                    stdout_events.append(
-                        OutputEvent(process_id=process_id, data=line, stream="stdout")
-                    )
+                    event = OutputEvent(process_id=process_id, data=line, stream="stdout")
+                    stdout_events.append(event)
 
             def on_stderr(data: str) -> None:
                 line = data.rstrip("\n\r")
                 if line:
-                    stderr_events.append(
-                        OutputEvent(process_id=process_id, data=line, stream="stderr")
-                    )
+                    event = OutputEvent(process_id=process_id, data=line, stream="stderr")
+                    stderr_events.append(event)
 
             result = await sandbox.commands.run(
                 command,
@@ -289,16 +256,14 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
             def on_stdout(data: str) -> None:
                 line = data.rstrip("\n\r")
                 if line:
-                    stdout_events.append(
-                        OutputEvent(process_id=process_id, data=line, stream="stdout")
-                    )
+                    event = OutputEvent(process_id=process_id, data=line, stream="stdout")
+                    stdout_events.append(event)
 
             def on_stderr(data: str) -> None:
                 line = data.rstrip("\n\r")
                 if line:
-                    stderr_events.append(
-                        OutputEvent(process_id=process_id, data=line, stream="stderr")
-                    )
+                    event = OutputEvent(process_id=process_id, data=line, stream="stderr")
+                    stderr_events.append(event)
 
             result = await sandbox.commands.run(
                 command,
