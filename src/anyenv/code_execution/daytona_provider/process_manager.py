@@ -238,28 +238,18 @@ class DaytonaTerminalManager(ProcessManagerProtocol):
             sessions = await self.sandbox.process.list_sessions()
             result = {}
             for session in sessions:
-                result[session.session_id] = {
-                    "session_id": session.session_id,
-                    "commands": [
-                        {
-                            "id": cmd.id,
-                            "command": cmd.command,
-                            "exit_code": cmd.exit_code,
-                        }
-                        for cmd in session.commands or []
-                    ],
-                }
+                cmds = [
+                    {"id": i.id, "command": i.command, "exit_code": i.exit_code}
+                    for i in session.commands or []
+                ]
+                result[session.session_id] = {"session_id": session.session_id, "commands": cmds}
         except Exception:
             logger.exception("Error listing sandbox sessions")
             return {}
         else:
             return result
 
-    async def connect_to_session(
-        self,
-        session_id: str,
-        output_byte_limit: int = 1048576,
-    ) -> str:
+    async def connect_to_session(self, session_id: str, output_byte_limit: int = 1048576) -> str:
         """Connect to an existing session in the sandbox and manage it as a terminal."""
         terminal_id = f"daytona_conn_{uuid.uuid4().hex[:8]}"
 
