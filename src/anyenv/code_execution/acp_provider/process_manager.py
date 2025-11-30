@@ -89,35 +89,27 @@ class ACPProcessManager(ProcessManagerProtocol):
             Exception: If terminal creation fails
         """
         args = args or []
-        env = env or {}
-
-        # Create terminal via ACP
         response = await self._requests.create_terminal(
             command=command,
             args=args,
             cwd=str(cwd) if cwd else None,
-            env=env,
+            env=env or {},
             output_byte_limit=output_limit,
         )
-
         terminal_id = response.terminal_id
         process_id = terminal_id  # Use terminal_id directly as process_id
-
-        # Create tracking object
         process = ACPRunningProcess(
             process_id=process_id,
             terminal_id=terminal_id,
             command=command,
             args=args,
             cwd=str(cwd) if cwd else None,
-            env=env,
+            env=env or {},
             created_at=datetime.now(),
             output_limit=output_limit,
         )
-
         self._processes[process_id] = process
         self._terminal_to_process[terminal_id] = process_id
-
         return process_id
 
     async def get_output(self, process_id: str) -> ProcessOutput:
@@ -137,15 +129,12 @@ class ACPProcessManager(ProcessManagerProtocol):
             raise ValueError(msg)
 
         process = self._processes[process_id]
-
         try:
             # Get output from ACP terminal
             response = await self._requests.terminal_output(process.terminal_id)
-
             # ACP combines stdout/stderr, so we put it all in combined
             # and split roughly for stdout (since ACP doesn't separate them)
             combined_output = response.output
-
             return ProcessOutput(
                 stdout=combined_output,  # ACP doesn't separate stdout/stderr
                 stderr="",
@@ -182,10 +171,8 @@ class ACPProcessManager(ProcessManagerProtocol):
             raise ValueError(msg)
 
         process = self._processes[process_id]
-
         if process.exit_code is not None:
             return process.exit_code
-
         try:
             # Wait for terminal exit via ACP
             response = await self._requests.wait_for_terminal_exit(process.terminal_id)
@@ -212,7 +199,6 @@ class ACPProcessManager(ProcessManagerProtocol):
             raise ValueError(msg)
 
         process = self._processes[process_id]
-
         if process.exit_code is not None:
             return  # Already finished
 
@@ -237,10 +223,8 @@ class ACPProcessManager(ProcessManagerProtocol):
             raise ValueError(msg)
 
         process = self._processes[process_id]
-
         with contextlib.suppress(Exception):
             await self._requests.release_terminal(process.terminal_id)
-
         # Remove from tracking
         del self._processes[process_id]
         if process.terminal_id in self._terminal_to_process:
@@ -271,7 +255,6 @@ class ACPProcessManager(ProcessManagerProtocol):
             raise ValueError(msg)
 
         process = self._processes[process_id]
-
         return {
             "process_id": process.process_id,
             "terminal_id": process.terminal_id,
@@ -287,7 +270,6 @@ class ACPProcessManager(ProcessManagerProtocol):
         """Clean up all processes and release resources."""
         # Copy list to avoid modification during iteration
         process_ids = list(self._processes.keys())
-
         for process_id in process_ids:
             with contextlib.suppress(Exception):
                 await self.release_process(process_id)
