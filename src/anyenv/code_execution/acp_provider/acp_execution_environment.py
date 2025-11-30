@@ -69,9 +69,7 @@ class ACPExecutionEnvironment(ExecutionEnvironment):
     def process_manager(self) -> ProcessManagerProtocol:
         """Get ACP process manager for terminal operations."""
         if self._process_manager is None:
-            from anyenv.code_execution.acp_provider.process_manager import (
-                ACPProcessManager,
-            )
+            from anyenv.code_execution.acp_provider.process_manager import ACPProcessManager
 
             self._process_manager = ACPProcessManager(self._requests)
         return self._process_manager
@@ -156,19 +154,11 @@ class ACPExecutionEnvironment(ExecutionEnvironment):
             create_response = await self._requests.create_terminal(
                 command="python",
                 args=[script_name],
-                cwd=None,
-                env={},
                 output_byte_limit=1048576,
             )
 
             terminal_id = create_response.terminal_id
-
-            yield ProcessStartedEvent(
-                process_id=process_id,
-                command=f"python {script_name}",
-                pid=None,
-            )
-
+            yield ProcessStartedEvent(process_id=process_id, command=f"python {script_name}")
             exit_result = await self._requests.wait_for_terminal_exit(terminal_id)
             output_response = await self._requests.terminal_output(terminal_id)
             await self._requests.release_terminal(terminal_id)
@@ -237,8 +227,6 @@ class ACPExecutionEnvironment(ExecutionEnvironment):
             create_response = await self._requests.create_terminal(
                 command=cmd,
                 args=args,
-                cwd=None,
-                env={},
                 output_byte_limit=1048576,
             )
 
@@ -303,19 +291,12 @@ class ACPExecutionEnvironment(ExecutionEnvironment):
             create_response = await self._requests.create_terminal(
                 command=cmd,
                 args=args,
-                cwd=None,
-                env={},
                 output_byte_limit=1048576,
             )
 
             terminal_id = create_response.terminal_id
 
-            yield ProcessStartedEvent(
-                process_id=process_id,
-                command=command,
-                pid=None,
-            )
-
+            yield ProcessStartedEvent(process_id=process_id, command=command)
             exit_result = await self._requests.wait_for_terminal_exit(terminal_id)
             output_response = await self._requests.terminal_output(terminal_id)
             await self._requests.release_terminal(terminal_id)

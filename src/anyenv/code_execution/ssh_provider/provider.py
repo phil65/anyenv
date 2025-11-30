@@ -349,11 +349,8 @@ os.environ['TOOL_SERVER_PORT'] = '{self.server_info.port}'
 
         try:
             if not self.connection:
-                yield ProcessErrorEvent(
-                    process_id=process_id,
-                    error="SSH connection not established",
-                    error_type="RuntimeError",
-                )
+                msg = "SSH connection not established"
+                yield ProcessErrorEvent(process_id=process_id, error=msg, error_type="RuntimeError")
                 return
 
             if self.language == "python":
@@ -363,11 +360,8 @@ os.environ['TOOL_SERVER_PORT'] = '{self.server_info.port}'
             elif self.language == "typescript":
                 result = await self._execute_typescript(code)
             else:
-                yield ProcessErrorEvent(
-                    process_id=process_id,
-                    error=f"Unsupported language: {self.language}",
-                    error_type="ValueError",
-                )
+                msg = f"Unsupported language: {self.language}"
+                yield ProcessErrorEvent(process_id=process_id, error=msg, error_type="ValueError")
                 return
 
             stdout = result.stdout.decode() if isinstance(result.stdout, bytes) else result.stdout
@@ -408,38 +402,27 @@ os.environ['TOOL_SERVER_PORT'] = '{self.server_info.port}'
 
         try:
             if not self.connection:
-                yield ProcessErrorEvent(
-                    process_id=process_id,
-                    error="SSH connection not established",
-                    error_type="RuntimeError",
-                )
+                msg = "SSH connection not established"
+                yield ProcessErrorEvent(process_id=process_id, error=msg, error_type="RuntimeError")
                 return
 
             cmd = f"cd {self._remote_work_dir} && {command}"
             async with self.connection.create_process(wrap_command(cmd)) as process:
                 async for line in process.stdout:
-                    yield OutputEvent(
-                        process_id=process_id,
-                        data=line.rstrip("\n\r"),
-                        stream="stdout",
-                    )
-
+                    data = line.rstrip("\n\r")
+                    yield OutputEvent(process_id=process_id, data=data, stream="stdout")
                 async for line in process.stderr:
-                    yield OutputEvent(
-                        process_id=process_id,
-                        data=line.rstrip("\n\r"),
-                        stream="stderr",
-                    )
-
-                exit_code = process.returncode or 0
-                if exit_code == 0:
-                    yield ProcessCompletedEvent(process_id=process_id, exit_code=exit_code)
+                    data = line.rstrip("\n\r")
+                    yield OutputEvent(process_id=process_id, data=data, stream="stderr")
+                code = process.returncode or 0
+                if code == 0:
+                    yield ProcessCompletedEvent(process_id=process_id, exit_code=code)
                 else:
                     yield ProcessErrorEvent(
                         process_id=process_id,
-                        error=f"Command exited with code {exit_code}",
+                        error=f"Command exited with code {code}",
                         error_type="CommandError",
-                        exit_code=exit_code,
+                        exit_code=code,
                     )
 
         except Exception as e:  # noqa: BLE001
