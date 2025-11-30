@@ -52,6 +52,20 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
         self.language: Language = language
         self.sandbox: AsyncSandbox | None = None
 
+    def _ensure_initialized(self) -> AsyncSandbox:
+        """Validate that the environment is properly initialized.
+
+        Returns:
+            The sandbox instance.
+
+        Raises:
+            RuntimeError: If environment not entered via async context manager.
+        """
+        if self.sandbox is None:
+            msg = "E2B environment not initialized. Use 'async with' context manager."
+            raise RuntimeError(msg)
+        return self.sandbox
+
     async def __aenter__(self) -> Self:
         """Setup E2B sandbox."""
         # Start tool server via base class
@@ -60,14 +74,7 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
         # Create sandbox (uses E2B_API_KEY environment variable)
         from e2b import AsyncSandbox
 
-        if self.template:
-            self.sandbox = await AsyncSandbox.create(
-                template=self.template,
-                timeout=int(self.timeout),
-            )
-        else:
-            self.sandbox = await AsyncSandbox.create(timeout=int(self.timeout))
-
+        self.sandbox = await AsyncSandbox.create(template=self.template, timeout=int(self.timeout))
         # Install dependencies if specified
         if self.dependencies:
             deps_str = " ".join(self.dependencies)
@@ -95,35 +102,30 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
         if self.sandbox and not self.keep_alive:
             with contextlib.suppress(Exception):
                 await self.sandbox.kill()
-
-        # Cleanup server via base class
         await super().__aexit__(exc_type, exc_val, exc_tb)
 
     def get_fs(self) -> E2BFS:
         """Return a E2BFs instance for the sandbox."""
         from upathtools.filesystems import E2BFS
 
-        assert self.sandbox
-        return E2BFS(sandbox_id=self.sandbox.sandbox_id)
+        sandbox = self._ensure_initialized()
+        return E2BFS(sandbox_id=sandbox.sandbox_id)
 
     async def get_domain(self, port: int) -> str:
         """Return the domain name for the sandbox."""
-        assert self.sandbox
-        return self.sandbox.get_host(port)
+        sandbox = self._ensure_initialized()
+        return sandbox.get_host(port)
 
     async def execute(self, code: str) -> ExecutionResult:
         """Execute code in the E2B sandbox."""
-        if not self.sandbox:
-            error_msg = "E2B environment not properly initialized"
-            raise RuntimeError(error_msg)
-
+        sandbox = self._ensure_initialized()
         start_time = time.time()
         try:
             wrapped_code = wrap_code(code, language=self.language)
             script_path = get_script_path(self.language)
-            await self.sandbox.files.write(script_path, wrapped_code)
+            await sandbox.files.write(script_path, wrapped_code)
             command = self._get_execution_command(script_path)
-            result = await self.sandbox.commands.run(command)
+            result = await sandbox.commands.run(command)
             execution_result, error_info = parse_output(result.stdout)
             if result.exit_code == 0 and error_info is None:
                 return ExecutionResult(
@@ -185,13 +187,10 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
 
     async def execute_command(self, command: str) -> ExecutionResult:
         """Execute a terminal command in the E2B sandbox."""
-        if not self.sandbox:
-            error_msg = "E2B environment not properly initialized"
-            raise RuntimeError(error_msg)
-
+        sandbox = self._ensure_initialized()
         start_time = time.time()
         try:
-            result = await self.sandbox.commands.run(command, timeout=int(self.timeout))
+            result = await sandbox.commands.run(command, timeout=int(self.timeout))
             success = result.exit_code == 0
             return ExecutionResult(
                 result=result.stdout if success else None,
@@ -233,20 +232,20 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
             ProcessStartedEvent,
         )
 
-        process_id = f"e2b_{id(self.sandbox)}"
+        sandbox = self._ensure_initialized()
+        process_id = f"e2b_{id(sandbox)}"
+
+        # Write code to script file and execute via commands.run
+        wrapped_code = wrap_code(code, language=self.language)
+        script_path = get_script_path(self.language)
+        await sandbox.files.write(script_path, wrapped_code)
+        command = self._get_execution_command(script_path)
+
         yield ProcessStartedEvent(process_id=process_id, command=f"execute({len(code)} chars)")
 
         try:
-            if not self.sandbox:
-                yield ProcessErrorEvent(
-                    process_id=process_id,
-                    error="E2B environment not properly initialized",
-                    error_type="RuntimeError",
-                )
-                return
-
-            stdout_events = []
-            stderr_events = []
+            stdout_events: list[OutputEvent] = []
+            stderr_events: list[OutputEvent] = []
 
             def on_stdout(data: str) -> None:
                 line = data.rstrip("\n\r")
@@ -262,8 +261,8 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
                         OutputEvent(process_id=process_id, data=line, stream="stderr")
                     )
 
-            result = await self.sandbox.notebook.exec_cell(
-                code,
+            result = await sandbox.commands.run(
+                command,
                 timeout=int(self.timeout),
                 on_stdout=on_stdout,
                 on_stderr=on_stderr,
@@ -274,12 +273,12 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
             for event in stderr_events:
                 yield event
 
-            if result.error:
+            if result.exit_code != 0:
                 yield ProcessErrorEvent(
                     process_id=process_id,
-                    error=str(result.error),
+                    error=result.stderr or f"Command exited with code {result.exit_code}",
                     error_type="ExecutionError",
-                    exit_code=1,
+                    exit_code=result.exit_code,
                 )
             else:
                 yield ProcessCompletedEvent(process_id=process_id, exit_code=0)
@@ -298,18 +297,11 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
             ProcessStartedEvent,
         )
 
-        process_id = f"e2b_cmd_{id(self.sandbox)}"
+        sandbox = self._ensure_initialized()
+        process_id = f"e2b_cmd_{id(sandbox)}"
         yield ProcessStartedEvent(process_id=process_id, command=command)
 
         try:
-            if not self.sandbox:
-                yield ProcessErrorEvent(
-                    process_id=process_id,
-                    error="E2B environment not properly initialized",
-                    error_type="RuntimeError",
-                )
-                return
-
             stdout_events = []
             stderr_events = []
 
@@ -327,7 +319,7 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
                         OutputEvent(process_id=process_id, data=line, stream="stderr")
                     )
 
-            result = await self.sandbox.commands.run(
+            result = await sandbox.commands.run(
                 command,
                 timeout=int(self.timeout),
                 on_stdout=on_stdout,
