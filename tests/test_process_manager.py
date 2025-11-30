@@ -265,7 +265,6 @@ class TestProcessOutput:
             combined="helloerror",
             truncated=True,
             exit_code=0,
-            signal=None,
         )
 
         assert output.stdout == "hello"

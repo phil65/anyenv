@@ -37,14 +37,12 @@ class ACPRunningProcess:
     async def wait_for_exit(self) -> int:
         """Wait for process to complete and return exit code."""
         # This would be implemented by the caller
-        msg = "Use ACPProcessManager.wait_for_exit"
-        raise NotImplementedError(msg)
+        raise NotImplementedError("Use ACPProcessManager.wait_for_exit")
 
     async def kill(self) -> None:
         """Terminate the process."""
         # This would be implemented by the caller
-        msg = "Use ACPProcessManager.kill_process"
-        raise NotImplementedError(msg)
+        raise NotImplementedError("Use ACPProcessManager.kill_process")
 
 
 class ACPProcessManager(ProcessManagerProtocol):
@@ -141,7 +139,6 @@ class ACPProcessManager(ProcessManagerProtocol):
                 combined=combined_output,
                 truncated=response.truncated,
                 exit_code=process.exit_code,
-                signal=None,
             )
         except Exception as e:  # noqa: BLE001
             # Return empty output on error
@@ -149,9 +146,7 @@ class ACPProcessManager(ProcessManagerProtocol):
                 stdout="",
                 stderr=f"Error getting output: {e}",
                 combined=f"Error getting output: {e}",
-                truncated=False,
                 exit_code=process.exit_code,
-                signal=None,
             )
 
     async def wait_for_exit(self, process_id: str) -> int:
