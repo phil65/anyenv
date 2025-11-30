@@ -30,11 +30,7 @@ PYTHON_EXECUTABLES = [
 class StreamCapture(io.StringIO):
     """Capture and forward output to a queue."""
 
-    def __init__(
-        self,
-        original_stream: TextIO,
-        queue: asyncio.Queue[str],
-    ) -> None:
+    def __init__(self, original_stream: TextIO, queue: asyncio.Queue[str]) -> None:
         super().__init__()
         self.original_stream = original_stream
         self.queue = queue

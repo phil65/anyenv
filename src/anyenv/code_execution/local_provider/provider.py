@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import inspect
 import shutil
+import sys
 import time
 from typing import TYPE_CHECKING, Any, Literal, Self
 
@@ -142,15 +144,12 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
                     )
             else:
                 result = namespace.get("_result")
-
-            duration = time.time() - start_time
-            return ExecutionResult(result=result, duration=duration, success=True)
+            return ExecutionResult(result=result, duration=time.time() - start_time, success=True)
 
         except Exception as e:  # noqa: BLE001
-            duration = time.time() - start_time
             return ExecutionResult(
                 result=None,
-                duration=duration,
+                duration=time.time() - start_time,
                 success=False,
                 error=str(e),
                 error_type=type(e).__name__,
@@ -162,12 +161,8 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
 
         try:
             wrapped_code = wrap_code(code, self.language)
-            process = await create_process(
-                *self._get_subprocess_args(),
-                stdin="pipe",
-                stdout="pipe",
-                stderr="pipe",
-            )
+            args = self._get_subprocess_args()
+            process = await create_process(*args, stdin="pipe", stdout="pipe", stderr="pipe")
             self.process = process
             stdout_data, stderr_data = await asyncio.wait_for(
                 process.communicate(wrapped_code.encode()),
@@ -267,10 +262,9 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
             )
 
         except Exception as e:  # noqa: BLE001
-            duration = time.time() - start_time
             return ExecutionResult(
                 result=None,
-                duration=duration,
+                duration=time.time() - start_time,
                 success=False,
                 error=str(e),
                 error_type=type(e).__name__,
@@ -278,10 +272,7 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
 
     async def stream_code(self, code: str) -> AsyncIterator[ExecutionEvent]:
         """Execute code and stream events."""
-        from anyenv.code_execution.events import (
-            ProcessErrorEvent,
-            ProcessStartedEvent,
-        )
+        from anyenv.code_execution.events import ProcessErrorEvent, ProcessStartedEvent
 
         process_id = f"local_{id(self)}"
         yield ProcessStartedEvent(process_id=process_id, command=f"execute({len(code)} chars)")
@@ -309,12 +300,8 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
         )
 
         try:
-            process = await create_process(
-                *self._get_subprocess_args(),
-                stdin="pipe",
-                stdout="pipe",
-                stderr="stdout",
-            )
+            args = self._get_subprocess_args()
+            process = await create_process(*args, stdin="pipe", stdout="pipe", stderr="stdout")
             self.process = process
 
             if process.stdin:
@@ -330,11 +317,8 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
                         )
                         if not line:
                             break
-                        yield OutputEvent(
-                            process_id=process_id,
-                            data=line.decode().rstrip("\n\r"),
-                            stream="combined",
-                        )
+                        data = line.decode().rstrip("\n\r")
+                        yield OutputEvent(process_id=process_id, data=data, stream="combined")
                     except TimeoutError:
                         process.kill()
                         await process.wait()
@@ -364,10 +348,6 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
 
     async def _stream_code_local(self, code: str, process_id: str) -> AsyncIterator[ExecutionEvent]:
         """Execute code locally and stream events."""
-        import contextlib
-        import inspect
-        import sys
-
         from anyenv.code_execution.events import (
             OutputEvent,
             ProcessCompletedEvent,

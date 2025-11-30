@@ -68,7 +68,7 @@ class TextSharer(abc.ABC):
         expires_in: int | None = None,
     ) -> ShareResult:
         """Synchronous version of share."""
-        import anyio
+        from anyenv import run_sync
 
         async def wrapper() -> ShareResult:
             return await self.share(
@@ -79,4 +79,4 @@ class TextSharer(abc.ABC):
                 expires_in=expires_in,
             )
 
-        return anyio.from_thread.run(wrapper)
+        return run_sync(wrapper())

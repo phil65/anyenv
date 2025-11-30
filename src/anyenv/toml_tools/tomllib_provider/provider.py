@@ -36,11 +36,7 @@ class TomlLibProvider(TomlProviderBase):
             raise TomlLoadError(error_msg) from exc
 
     @staticmethod
-    def dump_toml(
-        data: Any,
-        *,
-        pretty: bool = False,
-    ) -> str:
+    def dump_toml(data: Any, *, pretty: bool = False) -> str:
         """Dump data to TOML string using tomllib."""
         # tomllib is read-only, so we need to fallback to another library
         # or raise an error

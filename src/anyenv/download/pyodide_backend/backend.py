@@ -98,12 +98,7 @@ class PyodideSession(Session):
         if self._base_url:
             url = urljoin(self._base_url, url)
 
-        options: dict[str, Any] = {
-            "method": method,
-            "headers": request_headers,
-            "mode": "cors",
-        }
-
+        options: dict[str, Any] = {"method": method, "headers": request_headers, "mode": "cors"}
         # Handle files using FormData
         if files:
             form_data = FormData.new()
@@ -214,12 +209,8 @@ class PyodideBackend(HttpBackend):
 
         try:
             # In browser environment, we need to get the full response first
-            response = await pyfetch(
-                url,
-                headers=headers,
-                cache="force-cache" if cache else "no-store",
-            )
-
+            cache_mode = "force-cache" if cache else "no-store"
+            response = await pyfetch(url, headers=headers, cache=cache_mode)
             # Check for HTTP errors
             if 400 <= response.status < 600:  # noqa: PLR2004
                 pyodide_response = PyodideResponse(response)
@@ -228,7 +219,6 @@ class PyodideBackend(HttpBackend):
 
             content = await response.bytes()
             total = len(content)
-
             # Write to file and handle progress
             with pathlib.Path(path).open("wb") as f:
                 if progress_callback:

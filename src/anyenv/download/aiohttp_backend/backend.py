@@ -118,13 +118,8 @@ class AiohttpSession(Session):
                             form.add_field(field_name, content)
                         case (str() as filename, content):
                             form.add_field(field_name, content, filename=filename)
-                        case (str() as filename, content, str() as content_type):
-                            form.add_field(
-                                field_name,
-                                content,
-                                filename=filename,
-                                content_type=content_type,
-                            )
+                        case (str() as filename, content, str() as typ):
+                            form.add_field(field_name, content, filename=filename, content_type=typ)
                         case _:
                             msg = f"Invalid file specification for field {field_name!r}"
                             raise ValueError(msg)
