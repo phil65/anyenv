@@ -67,17 +67,11 @@ class ProcessManager(ProcessManagerProtocol):
         """
         process_id = f"proc_{uuid.uuid4().hex[:8]}"
         args = args or []
-
-        # Prepare environment
         proc_env = dict(os.environ)
         if env:
             proc_env.update(env)
-
-        # Convert cwd to Path if provided
         work_dir = Path(cwd) if cwd else None
-
         try:
-            # Start process
             process = await create_process(
                 command,
                 *args,
@@ -97,12 +91,9 @@ class ProcessManager(ProcessManagerProtocol):
                 process=process,
                 output_limit=output_limit,
             )
-
             self._processes[process_id] = running_proc
-
             # Start output collection task
             self._output_tasks[process_id] = asyncio.create_task(self._collect_output(running_proc))
-
             logger.info("Started process %s: %s %s", process_id, command, " ".join(args))
         except Exception as e:
             msg = f"Failed to start process: {command} {' '.join(args)}"
@@ -114,17 +105,12 @@ class ProcessManager(ProcessManagerProtocol):
     async def _collect_output(self, proc: RunningProcess) -> None:
         """Collect output from process in background."""
         try:
-            # Read output streams concurrently
             stdout_task = asyncio.create_task(self._read_stream(proc.process.stdout))
             stderr_task = asyncio.create_task(self._read_stream(proc.process.stderr))
-
             stdout_chunks = []
             stderr_chunks = []
-
-            # Collect output until both streams close
             stdout_done = False
             stderr_done = False
-
             while not (stdout_done and stderr_done):
                 done, pending = await asyncio.wait(
                     [stdout_task, stderr_task],
@@ -211,8 +197,6 @@ class ProcessManager(ProcessManagerProtocol):
 
         proc = self._processes[process_id]
         exit_code = await proc.wait_for_exit()
-
-        # Wait for output collection to finish
         if process_id in self._output_tasks:
             await self._output_tasks[process_id]
 
@@ -233,8 +217,6 @@ class ProcessManager(ProcessManagerProtocol):
 
         proc = self._processes[process_id]
         await proc.kill()
-
-        # Cancel output collection task
         if process_id in self._output_tasks:
             self._output_tasks[process_id].cancel()
             with contextlib.suppress(asyncio.CancelledError):
@@ -254,20 +236,15 @@ class ProcessManager(ProcessManagerProtocol):
         if process_id not in self._processes:
             msg = f"Process {process_id} not found"
             raise ValueError(msg)
-
-        # Kill if still running
         proc = self._processes[process_id]
         if await proc.is_running():
             await proc.kill()
-
-        # Clean up tasks
         if process_id in self._output_tasks:
             self._output_tasks[process_id].cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self._output_tasks[process_id]
             del self._output_tasks[process_id]
 
-        # Remove from tracking
         del self._processes[process_id]
         logger.info("Released process %s", process_id)
 
@@ -306,7 +283,6 @@ class ProcessManager(ProcessManagerProtocol):
     async def cleanup(self) -> None:
         """Clean up all processes."""
         logger.info("Cleaning up %s processes", len(self._processes))
-
         # Try graceful termination first
         termination_tasks = []
         for proc in self._processes.values():
@@ -334,7 +310,6 @@ class ProcessManager(ProcessManagerProtocol):
         # Clear all tracking
         self._processes.clear()
         self._output_tasks.clear()
-
         logger.info("Process cleanup completed")
 
 
@@ -361,7 +336,6 @@ class BaseTerminal:
 
         self._output_buffer.append(output)
         self._output_size += len(output.encode())
-
         # Apply truncation if limit exceeded
         if self._output_size > self.output_limit:
             self._truncate_output()
@@ -369,7 +343,6 @@ class BaseTerminal:
     def _truncate_output(self) -> None:
         """Truncate output from beginning to stay within limit."""
         target_size = int(self.output_limit * 0.9)  # Keep 90% of limit
-
         # Remove chunks from beginning until under limit
         while self._output_buffer and self._output_size > target_size:
             removed = self._output_buffer.pop(0)
