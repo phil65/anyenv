@@ -70,12 +70,24 @@ class SshExecutionEnvironment(ExecutionEnvironment):
         self.connection: SSHClientConnection | None = None
         self._remote_work_dir: str | None = None
 
+    def _ensure_connected(self) -> SSHClientConnection:
+        """Validate that SSH connection is established.
+
+        Returns:
+            The SSH connection.
+
+        Raises:
+            RuntimeError: If not connected via async context manager.
+        """
+        if self.connection is None:
+            msg = "SSH connection not established. Use 'async with' context manager."
+            raise RuntimeError(msg)
+        return self.connection
+
     async def run(self, command: str) -> SSHCompletedProcess:
         """Run a command on the remote machine with login shell."""
-        if not self.connection:
-            msg = "SSH connection not established"
-            raise RuntimeError(msg)
-        return await self.connection.run(wrap_command(command))
+        connection = self._ensure_connected()
+        return await connection.run(wrap_command(command))
 
     async def __aenter__(self) -> Self:
         """Establish SSH connection and set up remote environment."""
@@ -143,14 +155,14 @@ class SshExecutionEnvironment(ExecutionEnvironment):
         await super().__aexit__(exc_type, exc_val, exc_tb)
 
     def get_fs(self) -> SSHFileSystem:
-        """Return a ModalFS instance for the sandbox."""
+        """Return a SSHFileSystem instance for the remote machine."""
         from sshfs import SSHFileSystem
 
+        self._ensure_connected()
         return SSHFileSystem(**self.connect_kwargs)
 
     async def _verify_tools(self) -> None:
         """Verify that required tools are available on the remote machine."""
-        assert self.connection
         if self.language == "python":
             # Require uv to be available - use login shell to load profile
             uv_result = await self.run("which uv")
@@ -164,10 +176,9 @@ class SshExecutionEnvironment(ExecutionEnvironment):
                 raise RuntimeError(msg)
 
     async def _install_dependencies(self) -> None:
-        """Check dependencies are valid."""
+        """Install dependencies on the remote machine."""
         # For Python, dependencies are handled via uv run --with
         # For JS/TS, we still need to install them in the working directory
-        assert self.connection
         if self.language in ("javascript", "typescript") and self.dependencies:
             deps_str = " ".join(self.dependencies)
             cmd = f"npm init -y && npm install {deps_str}"
@@ -181,10 +192,7 @@ class SshExecutionEnvironment(ExecutionEnvironment):
 
     async def execute(self, code: str) -> ExecutionResult:
         """Execute code on the remote machine."""
-        if not self.connection:
-            msg = "SSH connection not established"
-            raise RuntimeError(msg)
-
+        self._ensure_connected()
         start_time = time.time()
         try:
             if self.language == "python":
@@ -222,13 +230,7 @@ class SshExecutionEnvironment(ExecutionEnvironment):
             )
 
         except Exception as e:  # noqa: BLE001
-            return ExecutionResult(
-                result=None,
-                duration=time.time() - start_time,
-                success=False,
-                error=str(e),
-                error_type=type(e).__name__,
-            )
+            return ExecutionResult.failed(e, start_time)
 
     async def run_in_working_dir(
         self,
@@ -243,9 +245,8 @@ class SshExecutionEnvironment(ExecutionEnvironment):
 
     async def _execute_python(self, code: str) -> SSHCompletedProcess:
         """Execute Python code using uv run --with for dependencies."""
-        # Create temporary script file
+        self._ensure_connected()
         script_path = f"{self._remote_work_dir}/script.py"
-        assert self.connection
         await self.write_file(script_path, code)
         # Build uv run command with dependencies
         if self.dependencies:
@@ -261,17 +262,15 @@ class SshExecutionEnvironment(ExecutionEnvironment):
 
     async def _execute_javascript(self, code: str) -> Any:
         """Execute JavaScript code using node."""
+        self._ensure_connected()
         script_path = f"{self._remote_work_dir}/script.js"
-        assert self.connection
-        # Write code to remote file
         await self.write_file(script_path, code)
         return await self.run_in_working_dir(f"node {script_path}", timeout=True)
 
     async def _execute_typescript(self, code: str) -> Any:
         """Execute TypeScript code using ts-node or similar."""
+        self._ensure_connected()
         script_path = f"{self._remote_work_dir}/script.ts"
-        assert self.connection
-        # Write code to remote file
         await self.write_file(script_path, code)
         # Try ts-node first, fall back to tsc + node
         ts_node_result = await self.run("which ts-node")
@@ -299,10 +298,7 @@ os.environ['TOOL_SERVER_PORT'] = '{self.server_info.port}'
 
     async def execute_command(self, command: str) -> ExecutionResult:
         """Execute a shell command on the remote machine."""
-        if not self.connection:
-            msg = "SSH connection not established"
-            raise RuntimeError(msg)
-
+        self._ensure_connected()
         start_time = time.time()
 
         try:
@@ -327,13 +323,7 @@ os.environ['TOOL_SERVER_PORT'] = '{self.server_info.port}'
             )
 
         except Exception as e:  # noqa: BLE001
-            return ExecutionResult(
-                result=None,
-                duration=time.time() - start_time,
-                success=False,
-                error=str(e),
-                error_type=type(e).__name__,
-            )
+            return ExecutionResult.failed(e, start_time)
 
     async def stream_code(self, code: str) -> AsyncIterator[ExecutionEvent]:
         """Execute code and stream events over SSH."""
@@ -344,15 +334,11 @@ os.environ['TOOL_SERVER_PORT'] = '{self.server_info.port}'
             ProcessStartedEvent,
         )
 
-        process_id = f"ssh_{id(self.connection)}"
+        connection = self._ensure_connected()
+        process_id = f"ssh_{id(connection)}"
         yield ProcessStartedEvent(process_id=process_id, command=f"execute({len(code)} chars)")
 
         try:
-            if not self.connection:
-                msg = "SSH connection not established"
-                yield ProcessErrorEvent(process_id=process_id, error=msg, error_type="RuntimeError")
-                return
-
             if self.language == "python":
                 result = await self._execute_python(code)
             elif self.language == "javascript":
@@ -397,17 +383,13 @@ os.environ['TOOL_SERVER_PORT'] = '{self.server_info.port}'
             ProcessStartedEvent,
         )
 
-        process_id = f"ssh_cmd_{id(self.connection)}"
+        connection = self._ensure_connected()
+        process_id = f"ssh_cmd_{id(connection)}"
         yield ProcessStartedEvent(process_id=process_id, command=command)
 
         try:
-            if not self.connection:
-                msg = "SSH connection not established"
-                yield ProcessErrorEvent(process_id=process_id, error=msg, error_type="RuntimeError")
-                return
-
             cmd = f"cd {self._remote_work_dir} && {command}"
-            async with self.connection.create_process(wrap_command(cmd)) as process:
+            async with connection.create_process(wrap_command(cmd)) as process:
                 async for line in process.stdout:
                     data = line.rstrip("\n\r")
                     yield OutputEvent(process_id=process_id, data=data, stream="stdout")

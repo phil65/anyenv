@@ -43,7 +43,6 @@ class E2BTerminal(BaseTerminal):
         if self._exit_code is not None:
             return self._exit_code
         if self._handle and self._handle.exit_code is not None:
-            # Get exit code from handle if available
             self._exit_code = self._handle.exit_code
             return self._exit_code
         return None
@@ -74,7 +73,7 @@ class E2BTerminalManager(ProcessManagerProtocol):
         terminal_id = f"e2b_term_{uuid.uuid4().hex[:8]}"
         args = args or []
         env = env or {}
-        full_command = f"{command} {' '.join(args)}" if args else command
+        full_cmd = f"{command} {' '.join(args)}" if args else command
         terminal = E2BTerminal(
             terminal_id=terminal_id,
             command=command,
@@ -96,20 +95,16 @@ class E2BTerminalManager(ProcessManagerProtocol):
 
             # Start command in background with streaming handlers
             handle = await self.sandbox.commands.run(
-                full_command,
+                full_cmd,
                 background=True,
                 envs=env,
                 cwd=str(cwd) if cwd else None,
                 on_stdout=on_stdout,
                 on_stderr=on_stderr,
             )
-
             terminal.set_handle(handle)
-            msg = "Created E2B terminal %s (PID %s): %s"
-            logger.info(msg, terminal_id, handle.pid, full_command)
-
+            logger.info("Created E2B terminal %s (PID %s): %s", terminal_id, handle.pid, full_cmd)
         except Exception as e:
-            # Clean up on failure
             self._terminals.pop(terminal_id, None)
             msg = f"Failed to create E2B terminal: {e}"
             logger.exception(msg)
@@ -122,7 +117,6 @@ class E2BTerminalManager(ProcessManagerProtocol):
         terminal = self.get_terminal(process_id)
         output = terminal.get_output()
         exit_code = terminal.get_exit_code()
-
         return ProcessOutput(stdout=output, stderr="", combined=output, exit_code=exit_code)
 
     async def wait_for_exit(self, process_id: str) -> int:
@@ -131,13 +125,10 @@ class E2BTerminalManager(ProcessManagerProtocol):
         handle = terminal._handle  # noqa: SLF001
         try:
             if handle and handle.exit_code is None:
-                # Wait for the E2B command to complete
                 result = await handle.wait()
                 terminal.set_exit_code(result.exit_code)
-
                 # Add any final output from the final result
                 # (streaming output is already collected via callbacks)
-
         except Exception:
             logger.exception("Error waiting for process %s", process_id)
             terminal.set_exit_code(1)
@@ -148,13 +139,11 @@ class E2BTerminalManager(ProcessManagerProtocol):
         """Kill a running process using E2B's process management."""
         terminal = self.get_terminal(process_id)
         try:
-            # Kill the E2B process using the PID
             if terminal.pid and terminal.is_running():
                 killed = await self.sandbox.commands.kill(terminal.pid)
                 if killed:
                     terminal.set_exit_code(130)  # SIGINT exit code
-                    msg = "Killed E2B process %s (PID %s)"
-                    logger.info(msg, process_id, terminal.pid)
+                    logger.info("Killed E2B process %s (PID %s)", process_id, terminal.pid)
                 else:
                     msg = "Failed to kill E2B terminal %s (PID %s) - process not found"
                     logger.warning(msg, process_id, terminal.pid)
@@ -227,11 +216,7 @@ class E2BTerminalManager(ProcessManagerProtocol):
         else:
             return result
 
-    async def connect_to_process(
-        self,
-        pid: int,
-        output_byte_limit: int = 1048576,
-    ) -> str:
+    async def connect_to_process(self, pid: int, output_byte_limit: int = 1048576) -> str:
         """Connect to an existing process in the sandbox and manage it as a terminal."""
         terminal_id = f"e2b_conn_{uuid.uuid4().hex[:8]}"
 
@@ -243,8 +228,6 @@ class E2BTerminalManager(ProcessManagerProtocol):
                 raise ValueError(msg)  # noqa: TRY301
 
             process_info = processes[pid]
-
-            # Create terminal for the existing process
             terminal = E2BTerminal(
                 terminal_id=terminal_id,
                 command=process_info["command"],
@@ -267,10 +250,8 @@ class E2BTerminalManager(ProcessManagerProtocol):
                 on_stdout=on_stdout,
                 on_stderr=on_stderr,
             )
-
             terminal.set_handle(handle)
             self._terminals[terminal_id] = terminal
-
             logger.info("Connected to E2B process %s as terminal %s", pid, terminal_id)
 
         except Exception as e:
@@ -286,7 +267,6 @@ class E2BTerminalManager(ProcessManagerProtocol):
         if not terminal.pid:
             msg = f"Terminal {terminal_id} has no process ID"
             raise ValueError(msg)
-
         try:
             await self.sandbox.commands.send_stdin(terminal.pid, data)
             msg = "Sent stdin to terminal %s (PID %s): %r"

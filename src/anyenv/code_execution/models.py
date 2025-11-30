@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import time
 from typing import Any, Literal
 
 
@@ -49,3 +50,14 @@ class ExecutionResult:
 
     exit_code: int | None = None
     """The exit code of the command execution (for command execution only)."""
+
+    @classmethod
+    def failed(cls, exception: Exception, start_time: float) -> ExecutionResult:
+        """Create an execution result from an exception."""
+        return cls(
+            result=None,
+            duration=time.time() - start_time,
+            success=False,
+            error=str(exception),
+            error_type=type(exception).__name__,
+        )

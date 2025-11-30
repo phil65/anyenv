@@ -195,13 +195,7 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
             )
 
         except Exception as e:  # noqa: BLE001
-            return ExecutionResult(
-                result=None,
-                duration=time.time() - start_time,
-                success=False,
-                error=str(e),
-                error_type=type(e).__name__,
-            )
+            return ExecutionResult.failed(e, start_time)
 
     async def execute_command(self, command: str) -> ExecutionResult:
         """Execute a terminal command in the Vercel sandbox."""
@@ -233,13 +227,7 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
             )
 
         except Exception as e:  # noqa: BLE001
-            return ExecutionResult(
-                result=None,
-                duration=time.time() - start_time,
-                success=False,
-                error=str(e),
-                error_type=type(e).__name__,
-            )
+            return ExecutionResult.failed(e, start_time)
 
     async def stream_code(self, code: str) -> AsyncIterator[ExecutionEvent]:
         """Execute code and stream events in the Vercel sandbox."""

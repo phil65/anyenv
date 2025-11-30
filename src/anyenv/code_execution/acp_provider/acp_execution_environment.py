@@ -53,11 +53,7 @@ class ACPExecutionEnvironment(ExecutionEnvironment):
             dependencies: Optional list of dependencies (handled by client)
             **kwargs: Additional keyword arguments
         """
-        super().__init__(
-            lifespan_handler=lifespan_handler,
-            dependencies=dependencies,
-            **kwargs,
-        )
+        super().__init__(lifespan_handler=lifespan_handler, dependencies=dependencies, **kwargs)
         self._fs = fs
         self._requests = requests
 
@@ -92,18 +88,11 @@ class ACPExecutionEnvironment(ExecutionEnvironment):
             self._fs.write_text(script_name, code)
 
             # Execute using ACP terminal
-            create_response = await self._requests.create_terminal(
-                command="python",
-                args=[script_name],
-                output_byte_limit=1048576,
-            )
-
+            create_response = await self._create_terminal(cmd="python", args=[script_name])
             terminal_id = create_response.terminal_id
-
             exit_result = await self._requests.wait_for_terminal_exit(terminal_id)
             output_response = await self._requests.terminal_output(terminal_id)
             await self._requests.release_terminal(terminal_id)
-
             with contextlib.suppress(Exception):
                 await self._fs._rm(script_name)  # noqa: SLF001
 
@@ -121,17 +110,7 @@ class ACPExecutionEnvironment(ExecutionEnvironment):
             )
 
         except Exception as e:  # noqa: BLE001
-            duration = time.perf_counter() - start_time
-            return ExecutionResult(
-                result=None,
-                stdout=None,
-                stderr=str(e),
-                success=False,
-                exit_code=1,
-                error=f"Error executing code via ACP: {e}",
-                duration=duration,
-                error_type=type(e).__name__,
-            )
+            return ExecutionResult.failed(e, start_time)
 
     async def stream_code(self, code: str) -> AsyncIterator[ExecutionEvent]:
         """Execute code and stream events.
@@ -145,40 +124,24 @@ class ACPExecutionEnvironment(ExecutionEnvironment):
         start_time = time.perf_counter()
         process_id = str(uuid.uuid4())[:8]
         script_name = f"temp_script_{process_id}.py"
-
         try:
             self._fs.write_text(script_name, code)
-
-            create_response = await self._requests.create_terminal(
-                command="python",
-                args=[script_name],
-                output_byte_limit=1048576,
-            )
-
+            create_response = await self._create_terminal("python", args=[script_name])
             terminal_id = create_response.terminal_id
             yield ProcessStartedEvent(process_id=process_id, command=f"python {script_name}")
             exit_result = await self._requests.wait_for_terminal_exit(terminal_id)
-            output_response = await self._requests.terminal_output(terminal_id)
+            response = await self._requests.terminal_output(terminal_id)
             await self._requests.release_terminal(terminal_id)
-
             with contextlib.suppress(Exception):
                 await self._fs._rm(script_name)  # noqa: SLF001
-
-            if output_response.output:
-                yield OutputEvent(
-                    process_id=process_id,
-                    data=output_response.output,
-                    stream="combined",
-                )
-
+            if response.output:
+                yield OutputEvent(process_id=process_id, data=response.output, stream="combined")
             exit_code = exit_result.exit_code or 0
-            duration = time.perf_counter() - start_time
-
             if exit_code == 0:
                 yield ProcessCompletedEvent(
                     process_id=process_id,
                     exit_code=exit_code,
-                    duration=duration,
+                    duration=time.perf_counter() - start_time,
                 )
             else:
                 yield ProcessErrorEvent(
@@ -196,6 +159,10 @@ class ACPExecutionEnvironment(ExecutionEnvironment):
                 exit_code=1,
             )
 
+    async def _create_terminal(self, cmd: str, args: list[str]):
+        """Create a terminal session with the given command and arguments."""
+        return await self._requests.create_terminal(cmd, args=args, output_byte_limit=1048576)
+
     async def execute_command(self, command: str) -> ExecutionResult:
         """Execute a terminal command using ACP terminal capabilities.
 
@@ -211,8 +178,6 @@ class ACPExecutionEnvironment(ExecutionEnvironment):
             if not parts:
                 return ExecutionResult(
                     result=None,
-                    stdout=None,
-                    stderr=None,
                     success=False,
                     exit_code=1,
                     error="Empty command provided",
@@ -221,19 +186,11 @@ class ACPExecutionEnvironment(ExecutionEnvironment):
 
             cmd = parts[0]
             args = parts[1:] if len(parts) > 1 else []
-
-            create_response = await self._requests.create_terminal(
-                command=cmd,
-                args=args,
-                output_byte_limit=1048576,
-            )
-
+            create_response = await self._create_terminal(cmd=cmd, args=args)
             terminal_id = create_response.terminal_id
-
             exit_result = await self._requests.wait_for_terminal_exit(terminal_id)
             output_response = await self._requests.terminal_output(terminal_id)
             await self._requests.release_terminal(terminal_id)
-
             exit_code = exit_result.exit_code or 0
             duration = time.perf_counter() - start_time
             output = output_response.output or ""
@@ -246,19 +203,8 @@ class ACPExecutionEnvironment(ExecutionEnvironment):
                 error=None if exit_code == 0 else f"Command exited with code {exit_code}",
                 duration=duration,
             )
-
         except Exception as e:  # noqa: BLE001
-            duration = time.perf_counter() - start_time
-            return ExecutionResult(
-                result=None,
-                stdout=None,
-                stderr=str(e),
-                success=False,
-                exit_code=1,
-                error=f"Error executing command via ACP: {e}",
-                duration=duration,
-                error_type=type(e).__name__,
-            )
+            return ExecutionResult.failed(e, start_time)
 
     async def stream_command(self, command: str) -> AsyncIterator[ExecutionEvent]:
         """Execute a terminal command and stream events.
@@ -271,7 +217,6 @@ class ACPExecutionEnvironment(ExecutionEnvironment):
         """
         start_time = time.perf_counter()
         process_id = str(uuid.uuid4())[:8]
-
         try:
             parts = command.split()
             if not parts:
@@ -283,37 +228,21 @@ class ACPExecutionEnvironment(ExecutionEnvironment):
                 )
                 return
 
-            cmd = parts[0]
             args = parts[1:] if len(parts) > 1 else []
-
-            create_response = await self._requests.create_terminal(
-                command=cmd,
-                args=args,
-                output_byte_limit=1048576,
-            )
-
+            create_response = await self._create_terminal(cmd=parts[0], args=args)
             terminal_id = create_response.terminal_id
-
             yield ProcessStartedEvent(process_id=process_id, command=command)
             exit_result = await self._requests.wait_for_terminal_exit(terminal_id)
-            output_response = await self._requests.terminal_output(terminal_id)
+            response = await self._requests.terminal_output(terminal_id)
             await self._requests.release_terminal(terminal_id)
-
-            if output_response.output:
-                yield OutputEvent(
-                    process_id=process_id,
-                    data=output_response.output,
-                    stream="combined",
-                )
-
+            if response.output:
+                yield OutputEvent(process_id=process_id, data=response.output, stream="combined")
             exit_code = exit_result.exit_code or 0
-            duration = time.perf_counter() - start_time
-
             if exit_code == 0:
                 yield ProcessCompletedEvent(
                     process_id=process_id,
                     exit_code=exit_code,
-                    duration=duration,
+                    duration=time.perf_counter() - start_time,
                 )
             else:
                 yield ProcessErrorEvent(
@@ -428,14 +357,7 @@ class ACPExecutionEnvironment(ExecutionEnvironment):
     #         cmd = parts[0]
     #         args = parts[1:] if len(parts) > 1 else []
     #
-    #         create_response = await self._requests.create_terminal(
-    #             command=cmd,
-    #             args=args,
-    #
-    #
-    #             output_byte_limit=1048576,
-    #         )
-    #
+    #         create_response = await self._create_terminal(cmd, args)
     #         terminal_id = create_response.terminal_id
     #
     #         yield ProcessStartedEvent(
@@ -479,26 +401,15 @@ class ACPExecutionEnvironment(ExecutionEnvironment):
     #     """
     #     process_id = str(uuid.uuid4())[:8]
     #     script_name = f"temp_script_{process_id}.py"
-    #
     #     try:
     #         self._fs.write_text(script_name, code)
-    #
-    #         create_response = await self._requests.create_terminal(
-    #             command="python",
-    #             args=[script_name],
-    #
-    #
-    #             output_byte_limit=1048576,
-    #         )
-    #
+    #         create_response = await self._create_terminal("python", [script_name])
     #         terminal_id = create_response.terminal_id
-    #
     #         yield ProcessStartedEvent(
     #             process_id=process_id,
     #             command=f"python {script_name}",
     #             pid=None,
     #         )
-    #
     #         # Stream output via polling
     #         async for event in self._stream_terminal_polling(
     #             terminal_id, process_id, poll_interval
@@ -506,7 +417,6 @@ class ACPExecutionEnvironment(ExecutionEnvironment):
     #             yield event
     #
     #         await self._requests.release_terminal(terminal_id)
-    #
     #         with contextlib.suppress(Exception):
     #             await self._fs._rm(script_name)
     #

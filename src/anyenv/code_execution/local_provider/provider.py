@@ -147,13 +147,7 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
             return ExecutionResult(result=result, duration=time.time() - start_time, success=True)
 
         except Exception as e:  # noqa: BLE001
-            return ExecutionResult(
-                result=None,
-                duration=time.time() - start_time,
-                success=False,
-                error=str(e),
-                error_type=type(e).__name__,
-            )
+            return ExecutionResult.failed(e, start_time)
 
     async def _execute_subprocess(self, code: str) -> ExecutionResult:
         """Execute code in subprocess with communication via stdin/stdout."""
@@ -203,17 +197,10 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
             )
 
         except Exception as e:  # noqa: BLE001
-            # Cleanup process if it exists
-            if self.process:
+            if self.process:  # Cleanup process if it exists
                 self.process.kill()
                 await self.process.wait()
-            return ExecutionResult(
-                result=None,
-                duration=time.time() - start_time,
-                success=False,
-                error=str(e),
-                error_type=type(e).__name__,
-            )
+            return ExecutionResult.failed(e, start_time)
 
     def _get_subprocess_args(self) -> list[str]:
         """Get subprocess arguments based on language."""
@@ -262,13 +249,7 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
             )
 
         except Exception as e:  # noqa: BLE001
-            return ExecutionResult(
-                result=None,
-                duration=time.time() - start_time,
-                success=False,
-                error=str(e),
-                error_type=type(e).__name__,
-            )
+            return ExecutionResult.failed(e, start_time)
 
     async def stream_code(self, code: str) -> AsyncIterator[ExecutionEvent]:
         """Execute code and stream events."""

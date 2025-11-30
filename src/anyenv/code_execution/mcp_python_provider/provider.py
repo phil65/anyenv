@@ -164,16 +164,7 @@ class McpPythonExecutionEnvironment(ExecutionEnvironment):
                 )
 
         except Exception as e:  # noqa: BLE001
-            duration = time.time() - start_time
-            return ExecutionResult(
-                result=None,
-                duration=duration,
-                success=False,
-                stdout=None,
-                stderr=None,
-                error=str(e),
-                error_type=type(e).__name__,
-            )
+            return ExecutionResult.failed(e, start_time)
 
     async def execute_command(self, command: str) -> ExecutionResult:
         """Execute a terminal command (not supported in MCP Python environment)."""

@@ -157,14 +157,7 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
             )
 
         except Exception as e:  # noqa: BLE001
-            duration = time.time() - start_time
-            return ExecutionResult(
-                result=None,
-                duration=duration,
-                success=False,
-                error=str(e),
-                error_type=type(e).__name__,
-            )
+            return ExecutionResult.failed(e, start_time)
 
     async def execute_command(self, command: str) -> ExecutionResult:
         """Execute a terminal command in Docker container and return result."""
@@ -220,14 +213,7 @@ class DockerExecutionEnvironment(ExecutionEnvironment):
             )
 
         except Exception as e:  # noqa: BLE001
-            duration = time.time() - start_time
-            return ExecutionResult(
-                result=None,
-                duration=duration,
-                success=False,
-                error=str(e),
-                error_type=type(e).__name__,
-            )
+            return ExecutionResult.failed(e, start_time)
 
     async def stream_code(self, code: str) -> AsyncIterator[ExecutionEvent]:
         """Execute code and stream events in the Docker container."""

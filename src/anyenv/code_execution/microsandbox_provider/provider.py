@@ -148,13 +148,7 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
             )
 
         except Exception as e:  # noqa: BLE001
-            return ExecutionResult(
-                result=None,
-                duration=time.time() - start_time,
-                success=False,
-                error=str(e),
-                error_type=type(e).__name__,
-            )
+            return ExecutionResult.failed(e, start_time)
 
     async def execute_command(self, command: str) -> ExecutionResult:
         """Execute a terminal command in the Microsandbox environment."""
@@ -187,13 +181,7 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
             )
 
         except Exception as e:  # noqa: BLE001
-            return ExecutionResult(
-                result=None,
-                duration=time.time() - start_time,
-                success=False,
-                error=str(e),
-                error_type=type(e).__name__,
-            )
+            return ExecutionResult.failed(e, start_time)
 
     # Note: Streaming methods not implemented as Microsandbox doesn't
     # support real-time streaming
@@ -242,14 +230,10 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
 
         process_id = f"microsandbox_cmd_{id(self.sandbox)}"
         yield ProcessStartedEvent(process_id=process_id, command=command)
-
         try:
             result = await self.execute_command(command)
-
-            # Emit output as single combined event
-            if result.stdout:
+            if result.stdout:  # Emit output as single combined event
                 yield OutputEvent(process_id=process_id, data=result.stdout, stream="combined")
-
             if result.success:
                 yield ProcessCompletedEvent(process_id=process_id, exit_code=result.exit_code or 0)
             else:
