@@ -170,7 +170,7 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
         """Cleanup sandbox."""
         if self.sandbox:
             with contextlib.suppress(Exception):
-                self.sandbox.terminate()
+                await self.sandbox.terminate.aio()
 
         # Cleanup server via base class
         await super().__aexit__(exc_type, exc_val, exc_tb)
@@ -180,9 +180,8 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
         # https://modal.com/docs/guide/sandbox-networking
         import websockets
 
-        # Create a connect token, optionally including arbitrary user metadata.
-        assert self.sandbox
-        creds = await self.sandbox.create_connect_token.aio(user_metadata={"user_id": "foo"})
+        sandbox = self._ensure_initialized()
+        creds = await sandbox.create_connect_token.aio(user_metadata={"user_id": "foo"})
         # Make an HTTP request, passing the token in the Authorization header.
         await anyenv.get(creds.url, headers={"Authorization": f"Bearer {creds.token}"})
         # You can also put the token in a `_modal_connect_token` query param.
@@ -206,7 +205,6 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
             # Create temporary script file
             script_content = wrap_code(code, language=self.language)
             script_path = get_script_path(self.language)
-
             # Write script to sandbox using filesystem API
             with await sandbox.open.aio(script_path, "w") as f:
                 await f.write.aio(script_content)
