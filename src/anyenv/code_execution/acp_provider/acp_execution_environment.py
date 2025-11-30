@@ -95,8 +95,6 @@ class ACPExecutionEnvironment(ExecutionEnvironment):
             create_response = await self._requests.create_terminal(
                 command="python",
                 args=[script_name],
-                cwd=None,
-                env={},
                 output_byte_limit=1048576,
             )
 
@@ -433,8 +431,8 @@ class ACPExecutionEnvironment(ExecutionEnvironment):
     #         create_response = await self._requests.create_terminal(
     #             command=cmd,
     #             args=args,
-    #             cwd=None,
-    #             env={},
+    #
+    #
     #             output_byte_limit=1048576,
     #         )
     #
@@ -488,8 +486,8 @@ class ACPExecutionEnvironment(ExecutionEnvironment):
     #         create_response = await self._requests.create_terminal(
     #             command="python",
     #             args=[script_name],
-    #             cwd=None,
-    #             env={},
+    #
+    #
     #             output_byte_limit=1048576,
     #         )
     #

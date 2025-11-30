@@ -25,9 +25,9 @@ class RunningProcess:
     process_id: str
     command: str
     args: list[str]
-    cwd: Path | None
-    env: dict[str, str]
     process: asyncio.subprocess.Process
+    cwd: Path | None = None
+    env: dict[str, str] = field(default_factory=dict)
     created_at: datetime = field(default_factory=datetime.now)
     output_limit: int | None = None
     _stdout_buffer: list[str] = field(default_factory=list)
@@ -83,18 +83,13 @@ class RunningProcess:
         stdout = "".join(self._stdout_buffer)
         stderr = "".join(self._stderr_buffer)
         combined = stdout + stderr
-
-        # Check if process has exited
-        exit_code = self.process.returncode
-        signal = None  # TODO: Extract signal info if available
-
         return ProcessOutput(
             stdout=stdout,
             stderr=stderr,
             combined=combined,
             truncated=self._truncated,
-            exit_code=exit_code,
-            signal=signal,
+            exit_code=self.process.returncode,
+            signal=None,  # TODO: Extract signal info if available,
         )
 
     async def is_running(self) -> bool:

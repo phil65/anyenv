@@ -345,8 +345,8 @@ class BaseTerminal:
     terminal_id: str
     command: str
     args: list[str]
-    cwd: str | None
-    env: dict[str, str]
+    cwd: str | None = None
+    env: dict[str, str] = field(default_factory=dict)
     created_at: datetime = field(default_factory=datetime.now)
     output_limit: int = 1048576
     _output_buffer: list[str] = field(default_factory=list)

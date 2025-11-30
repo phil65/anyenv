@@ -276,8 +276,6 @@ class DaytonaTerminalManager(ProcessManagerProtocol):
                 terminal_id=terminal_id,
                 command=command_text,
                 args=[],
-                cwd=None,
-                env={},
                 session_id=session_id,
                 output_limit=output_byte_limit,
             )

@@ -203,8 +203,6 @@ async def test_output_truncation():
         process_id="test",
         command="test",
         args=[],
-        cwd=None,
-        env={},
         process=MagicMock(),
         output_limit=output_limit,
     )
@@ -228,8 +226,6 @@ class TestRunningProcess:
             process_id="test",
             command="test",
             args=[],
-            cwd=None,
-            env={},
             process=mock_process,
         )
 
@@ -249,8 +245,6 @@ class TestRunningProcess:
             process_id="test",
             command="test",
             args=[],
-            cwd=None,
-            env={},
             process=mock_process,
         )
 
