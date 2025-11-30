@@ -277,16 +277,16 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
         process_id = f"vercel_cmd_{id(sandbox)}"
         yield ProcessStartedEvent(process_id=process_id, command=command)
         try:
-            cmd = await sandbox.run_command_detached(cmd, args or None)
+            async_cmd = await sandbox.run_command_detached(cmd, args or None)
             async for log_line in sandbox.client.get_logs(
-                sandbox_id=sandbox.sandbox_id, cmd_id=cmd.cmd_id
+                sandbox_id=sandbox.sandbox_id, cmd_id=async_cmd.cmd_id
             ):
                 if log_line.data:
                     for line in log_line.data.splitlines():
                         if line.strip():
                             yield OutputEvent(process_id=process_id, data=line, stream="combined")
 
-            finished = await cmd.wait()
+            finished = await async_cmd.wait()
             if finished.exit_code == 0:
                 yield ProcessCompletedEvent(process_id=process_id, exit_code=finished.exit_code)
             else:
