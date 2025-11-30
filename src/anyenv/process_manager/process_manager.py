@@ -210,7 +210,7 @@ class ProcessManager(ProcessManagerProtocol):
             raise ValueError(msg)
 
         proc = self._processes[process_id]
-        exit_code = await proc.wait()
+        exit_code = await proc.wait_for_exit()
 
         # Wait for output collection to finish
         if process_id in self._output_tasks:
@@ -312,7 +312,7 @@ class ProcessManager(ProcessManagerProtocol):
         for proc in self._processes.values():
             if await proc.is_running():
                 proc.process.terminate()
-                termination_tasks.append(proc.wait())
+                termination_tasks.append(proc.wait_for_exit())
 
         if termination_tasks:
             try:

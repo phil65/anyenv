@@ -34,7 +34,7 @@ class ACPRunningProcess:
         """Check if process is still running."""
         return self.exit_code is None
 
-    async def wait(self) -> int:
+    async def wait_for_exit(self) -> int:
         """Wait for process to complete and return exit code."""
         # This would be implemented by the caller
         msg = "Use ACPProcessManager.wait_for_exit"

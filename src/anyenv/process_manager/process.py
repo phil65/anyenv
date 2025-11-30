@@ -96,7 +96,7 @@ class RunningProcess:
         """Check if process is still running."""
         return self.process.returncode is None
 
-    async def wait(self) -> int:
+    async def wait_for_exit(self) -> int:
         """Wait for process to complete and return exit code."""
         return await self.process.wait()
 
