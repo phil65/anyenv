@@ -218,12 +218,10 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
     async def execute_command(self, command: str) -> ExecutionResult:
         """Execute a terminal command in the Vercel sandbox."""
         sandbox = self._ensure_initialized()
-        parts = parse_command(command)
+        cmd, args = parse_command(command)
         start_time = time.time()
         try:
-            cmd = parts[0]
-            args = parts[1:] if len(parts) > 1 else None
-            result = await sandbox.run_command(cmd, args)
+            result = await sandbox.run_command(cmd, args or None)
             stdout = await result.stdout()
             stderr = await result.stderr()
             success = result.exit_code == 0
@@ -275,13 +273,11 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
     async def stream_command(self, command: str) -> AsyncIterator[ExecutionEvent]:
         """Execute a terminal command and stream events in the Vercel sandbox."""
         sandbox = self._ensure_initialized()
-        parts = parse_command(command)
+        cmd, args = parse_command(command)
         process_id = f"vercel_cmd_{id(sandbox)}"
         yield ProcessStartedEvent(process_id=process_id, command=command)
         try:
-            cmd_name = parts[0]
-            args = parts[1:] if len(parts) > 1 else None
-            cmd = await sandbox.run_command_detached(cmd_name, args)
+            cmd = await sandbox.run_command_detached(cmd, args or None)
             async for log_line in sandbox.client.get_logs(
                 sandbox_id=sandbox.sandbox_id, cmd_id=cmd.cmd_id
             ):

@@ -100,10 +100,10 @@ class BeamTerminalManager(ProcessManagerProtocol):
         self._terminals[terminal_id] = terminal
         # Start the process using Beam's exec
         try:
-            cmd_parts = parse_command(full_command)
-            # Use Beam's process.exec for direct command execution
+            cmd, args = parse_command(full_command)
+            # Use process.exec for command execution
             cwd_ = str(cwd) if cwd else None
-            process = self.sandbox_instance.process.exec(*cmd_parts, cwd=cwd_, env=env)
+            process = self.sandbox_instance.process.exec(cmd, *args, cwd=cwd_, env=env)
             terminal.set_process(process)
             # Start background task to collect output
             task = asyncio.create_task(self._collect_output(terminal))

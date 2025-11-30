@@ -246,11 +246,11 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
     async def execute_command(self, command: str) -> ExecutionResult:
         """Execute a terminal command in the Modal sandbox."""
         sandbox = self._ensure_initialized()
-        parts = parse_command(command)
+        cmd, args = parse_command(command)
         start_time = time.time()
 
         try:
-            process = await sandbox.exec.aio(*parts, timeout=self.timeout)
+            process = await sandbox.exec.aio(cmd, *args, timeout=self.timeout)
             await process.wait.aio()
             stdout = await process.stdout.read.aio() if process.stdout else ""
             stderr = await process.stderr.read.aio() if process.stderr else ""
@@ -306,11 +306,11 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
     async def stream_command(self, command: str) -> AsyncIterator[ExecutionEvent]:
         """Execute a terminal command and stream events in the Modal sandbox."""
         sandbox = self._ensure_initialized()
-        parts = parse_command(command)
+        cmd, args = parse_command(command)
         process_id = f"modal_cmd_{id(sandbox)}"
         yield ProcessStartedEvent(process_id=process_id, command=command)
         try:
-            process = await sandbox.exec.aio(*parts, timeout=self.timeout)
+            process = await sandbox.exec.aio(cmd, *args, timeout=self.timeout)
             async for line in process.stdout:
                 yield OutputEvent(process_id=process_id, data=line.rstrip("\n\r"), stream="stdout")
             async for line in process.stderr:

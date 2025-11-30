@@ -168,11 +168,9 @@ class ACPExecutionEnvironment(ExecutionEnvironment):
         Returns:
             ExecutionResult with command output and metadata
         """
-        parts = parse_command(command)
-        cmd = parts[0]
+        cmd, args = parse_command(command)
         start_time = time.perf_counter()
         try:
-            args = parts[1:] if len(parts) > 1 else []
             create_response = await self._create_terminal(cmd=cmd, args=args)
             terminal_id = create_response.terminal_id
             exit_result = await self._requests.wait_for_terminal_exit(terminal_id)
@@ -202,12 +200,11 @@ class ACPExecutionEnvironment(ExecutionEnvironment):
         Yields:
             ExecutionEvent objects as they occur
         """
-        parts = parse_command(command)
-        args = parts[1:] if len(parts) > 1 else []
+        cmd, args = parse_command(command)
         start_time = time.perf_counter()
         process_id = str(uuid.uuid4())[:8]
         try:
-            create_response = await self._create_terminal(cmd=parts[0], args=args)
+            create_response = await self._create_terminal(cmd=cmd, args=args)
             terminal_id = create_response.terminal_id
             yield ProcessStartedEvent(process_id=process_id, command=command)
             exit_result = await self._requests.wait_for_terminal_exit(terminal_id)

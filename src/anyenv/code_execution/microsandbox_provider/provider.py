@@ -170,11 +170,9 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
     async def execute_command(self, command: str) -> ExecutionResult:
         """Execute a terminal command in the Microsandbox environment."""
         sandbox = self._ensure_initialized()
-        parts = parse_command(command)
+        cmd, args = parse_command(command)
         start_time = time.time()
         try:
-            cmd = parts[0]
-            args = parts[1:] if len(parts) > 1 else []
             execution = await sandbox.command.run(cmd, args)
             stdout = await execution.output()
             stderr = await execution.error()

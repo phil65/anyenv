@@ -150,10 +150,10 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
     async def execute_command(self, command: str) -> ExecutionResult:
         """Execute a terminal command in the Beam sandbox."""
         self.instance = self.validate_instance()
-        cmd_parts = parse_command(command)
+        cmd, args = parse_command(command)
         start_time = time.time()
         try:
-            process = self.instance.process.exec(*cmd_parts)
+            process = self.instance.process.exec(cmd, *args)
             exit_code = await asyncio.to_thread(process.wait)
             output = "\n".join(line.rstrip("\n\r") for line in process.logs)
             success = exit_code == 0
@@ -212,9 +212,9 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
         self.instance = self.validate_instance()
         process_id = f"beam_cmd_{id(self.instance)}"
         yield ProcessStartedEvent(process_id=process_id, command=command)
-        cmd_parts = parse_command(command)
+        cmd, args = parse_command(command)
         try:
-            process = self.instance.process.exec(*cmd_parts)
+            process = self.instance.process.exec(cmd, *args)
             for line in process.logs:
                 yield OutputEvent(
                     process_id=process_id, data=line.rstrip("\n\r"), stream="combined"

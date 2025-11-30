@@ -208,7 +208,7 @@ def wrap_command(command: str) -> str:
     return f"bash -l -c '{escaped_command}'"
 
 
-def parse_command(command: str) -> list[str]:
+def parse_command(command: str) -> tuple[str, list[str]]:
     """Parse a command string into parts.
 
     Args:
@@ -224,4 +224,6 @@ def parse_command(command: str) -> list[str]:
     if not parts:
         msg = "Empty command provided"
         raise ValueError(msg)
-    return parts
+    cmd = parts[0]
+    args = parts[1:] if len(parts) > 1 else []
+    return cmd, args
