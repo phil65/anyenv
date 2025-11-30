@@ -232,11 +232,7 @@ class LSPServerInfo:
         )
         return posixpath.dirname(found) if found else project_root
 
-    async def resolve_initialization(
-        self,
-        root: str,
-        fs: AsyncFileSystem,
-    ) -> dict[str, Any]:
+    async def resolve_initialization(self, root: str, fs: AsyncFileSystem) -> dict[str, Any]:
         """Resolve dynamic LSP initialization options.
 
         Default implementation returns the static `initialization` dict.
@@ -248,11 +244,7 @@ class LSPServerInfo:
         """
         return dict(self.initialization)
 
-    async def resolve_env(
-        self,
-        root: str,
-        fs: AsyncFileSystem,
-    ) -> dict[str, str]:
+    async def resolve_env(self, root: str, fs: AsyncFileSystem) -> dict[str, str]:
         """Resolve environment variables for the server process.
 
         Default implementation returns the static `env` dict.
@@ -288,9 +280,8 @@ class LSPServerInfo:
             for pattern in patterns:
                 full_pattern = posixpath.join(current, pattern)
                 try:
-                    matches = await fs._glob(full_pattern)  # noqa: SLF001
-                    if matches:
-                        return matches[0]
+                    if matches := await fs._glob(full_pattern)  # noqa: SLF001:
+                        return matches[0]  # pyright: ignore[reportArgumentType, reportReturnType]
                 except Exception:  # noqa: BLE001
                     # Filesystem might not support glob, try exists
                     try:
