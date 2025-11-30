@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
+from collections.abc import AsyncGenerator
 from typing import TYPE_CHECKING
 
 
 if TYPE_CHECKING:
-    import asyncio
     from collections.abc import AsyncIterable, AsyncIterator, Iterable
 
 
@@ -40,9 +41,6 @@ async def as_generated[T](
         async for value in as_generated([generator(3)], [queue]):
             print(value)  # Mixed output from generator and queue
     """
-    import asyncio
-    from collections.abc import AsyncGenerator
-
     exc_queue: asyncio.Queue[Exception] = asyncio.Queue()
     result_queue: asyncio.Queue[T | None] = asyncio.Queue()
 

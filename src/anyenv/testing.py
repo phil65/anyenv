@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import types
-from typing import Any
 
 from anyenv.anypath import Path
 
@@ -14,7 +13,6 @@ def open_in_playground(
     title: str = "Open in Pydantic Playground",
     dependencies: list[str] | None = None,
     open_browser: bool = True,
-    **kwargs: Any,
 ) -> str:
     """Create a link to Pydantic playground with a pre-populated file.
 
@@ -25,7 +23,6 @@ def open_in_playground(
         title: The title of the link (not used in URL generation)
         dependencies: List of package dependencies to include as PEP 723 header
         open_browser: Whether to automatically open the link in a browser
-        **kwargs: Additional keyword arguments to pass to the Pydantic playground
 
     Returns:
         A URL string pointing to the Pydantic playground
@@ -55,15 +52,11 @@ def open_in_playground(
         content = pep723_header + content
 
     file_data = [{"name": filename, "content": content, "activeIndex": 1}]
-
     json_str = json.dumps(file_data)
     encoded = quote(json_str)
-
     url = f"https://pydantic.run/new?files={encoded}"
-
     if open_browser:
         webbrowser.open(url)
-
     return url
 
 
