@@ -29,7 +29,7 @@ if TYPE_CHECKING:
     from anyenv.code_execution.models import Language, ServerInfo
 
 
-def _get_error_type(e: Exception):
+def _get_error_type(e: Exception) -> str:
     error_type = type(e).__name__
     error_message = str(e)
     if error_type == "CommandExitException":
