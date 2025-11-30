@@ -35,10 +35,14 @@ class ExecutionEnvironment(ABC):
             dependencies: Optional list of dependencies to install
             **kwargs: Additional keyword arguments for specific providers
         """
+        from anyenv.lsp_servers import DiagnosticRunner
+
         self.lifespan_handler = lifespan_handler
         self.server_info: ServerInfo | None = None
         self.dependencies = dependencies or []
         self._process_manager: ProcessManagerProtocol | None = None
+        self.lsp_servers = DiagnosticRunner(self)
+        self.lsp_servers.register_defaults()
 
     async def __aenter__(self) -> Self:
         """Setup environment (start server, spawn process, etc.)."""
