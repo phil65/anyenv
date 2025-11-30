@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import time
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, Self
 
 import anyenv
 from anyenv.code_execution.base import ExecutionEnvironment
@@ -24,15 +24,30 @@ from anyenv.code_execution.parse_output import (
 
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator
+    from collections.abc import AsyncIterator, Collection
     from contextlib import AbstractAsyncContextManager
+    import os
     from types import TracebackType
 
+    import modal
     from modal import App, Image, Sandbox
     from upathtools.filesystems import ModalFS
 
     from anyenv.code_execution.events import ExecutionEvent
     from anyenv.code_execution.models import Language, ServerInfo
+
+
+def _get_execution_command(language: Language, script_path: str) -> list[str]:
+    """Get execution command based on language."""
+    match language:
+        case "python":
+            return ["python", script_path]
+        case "javascript":
+            return ["node", script_path]
+        case "typescript":
+            return ["npx", "ts-node", script_path]
+        case _:
+            return ["python", script_path]
 
 
 class ModalExecutionEnvironment(ExecutionEnvironment):
@@ -44,8 +59,11 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
         dependencies: list[str] | None = None,
         app_name: str | None = None,
         image: Image | None = None,
-        volumes: dict[str, Any] | None = None,
-        secrets: list[Any] | None = None,
+        volumes: dict[
+            str | os.PathLike, modal.volume.Volume | modal.cloud_bucket_mount.CloudBucketMount
+        ]
+        | None = None,
+        secrets: Collection[modal.secret.Secret] | None = None,
         cpu: float | None = None,
         memory: int | None = None,
         gpu: str | None = None,
@@ -74,7 +92,7 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
         super().__init__(lifespan_handler=lifespan_handler, dependencies=dependencies)
         self.app_name = app_name or "anyenv-execution"
         self.image = image
-        self.volumes = volumes
+        self.volumes = volumes or {}
         self.secrets = secrets
         self.cpu = cpu
         self.memory = memory
@@ -129,27 +147,18 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
                 case _:
                     self.image = modal.Image.debian_slim().pip_install("python", "pip")
         # Create sandbox with configuration
-        sandbox_kwargs: dict[str, Any] = {
-            "app": self.app,
-            "image": self.image,
-            "timeout": self.timeout,
-            "workdir": self.workdir,
-        }
-
-        if self.volumes:
-            sandbox_kwargs["volumes"] = self.volumes
-        if self.secrets:
-            sandbox_kwargs["secrets"] = self.secrets
-        if self.cpu is not None:
-            sandbox_kwargs["cpu"] = self.cpu
-        if self.memory is not None:
-            sandbox_kwargs["memory"] = self.memory
-        if self.gpu is not None:
-            sandbox_kwargs["gpu"] = self.gpu
-        if self.idle_timeout is not None:
-            sandbox_kwargs["idle_timeout"] = self.idle_timeout
-
-        self.sandbox = modal.Sandbox.create(**sandbox_kwargs)
+        self.sandbox = await modal.Sandbox.create.aio(
+            app=self.app,
+            image=self.image,
+            timeout=self.timeout,
+            workdir=self.workdir,
+            volumes=self.volumes,
+            secrets=self.secrets,
+            cpu=self.cpu,
+            memory=self.memory,
+            gpu=self.gpu,
+            idle_timeout=self.idle_timeout,
+        )
         return self
 
     async def __aexit__(
@@ -173,7 +182,7 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
 
         # Create a connect token, optionally including arbitrary user metadata.
         assert self.sandbox
-        creds = self.sandbox.create_connect_token(user_metadata={"user_id": "foo"})
+        creds = await self.sandbox.create_connect_token.aio(user_metadata={"user_id": "foo"})
         # Make an HTTP request, passing the token in the Authorization header.
         await anyenv.get(creds.url, headers={"Authorization": f"Bearer {creds.token}"})
         # You can also put the token in a `_modal_connect_token` query param.
@@ -199,14 +208,14 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
             script_path = get_script_path(self.language)
 
             # Write script to sandbox using filesystem API
-            with sandbox.open(script_path, "w") as f:
-                f.write(script_content)
+            with await sandbox.open.aio(script_path, "w") as f:
+                await f.write.aio(script_content)
 
-            command = self._get_execution_command(script_path)
-            process = sandbox.exec(*command, timeout=self.timeout)
-            process.wait()
-            stdout = process.stdout.read() if process.stdout else ""
-            stderr = process.stderr.read() if process.stderr else ""
+            command = _get_execution_command(self.language, script_path)
+            process = await sandbox.exec.aio(*command, timeout=self.timeout)
+            await process.wait.aio()
+            stdout = await process.stdout.read.aio() if process.stdout else ""
+            stderr = await process.stderr.read.aio() if process.stderr else ""
             execution_result, error_info = parse_output(stdout)
             if process.returncode == 0 and error_info is None:
                 return ExecutionResult(
@@ -242,11 +251,11 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
 
         try:
             # Execute command
-            process = sandbox.exec(*parts, timeout=self.timeout)
-            process.wait()
+            process = await sandbox.exec.aio(*parts, timeout=self.timeout)
+            await process.wait.aio()
 
-            stdout = process.stdout.read() if process.stdout else ""
-            stderr = process.stderr.read() if process.stderr else ""
+            stdout = await process.stdout.read.aio() if process.stdout else ""
+            stderr = await process.stderr.read.aio() if process.stderr else ""
             success = process.returncode == 0
             return ExecutionResult(
                 result=stdout if success else None,
@@ -262,18 +271,6 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
         except Exception as e:  # noqa: BLE001
             return ExecutionResult.failed(e, start_time)
 
-    def _get_execution_command(self, script_path: str) -> list[str]:
-        """Get execution command based on language."""
-        match self.language:
-            case "python":
-                return ["python", script_path]
-            case "javascript":
-                return ["node", script_path]
-            case "typescript":
-                return ["npx", "ts-node", script_path]
-            case _:
-                return ["python", script_path]
-
     async def stream_code(self, code: str) -> AsyncIterator[ExecutionEvent]:
         """Execute code and stream events in the Modal sandbox."""
         sandbox = self._ensure_initialized()
@@ -283,19 +280,18 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
         try:
             script_content = wrap_code(code, language=self.language)
             script_path = get_script_path(self.language)
-            with sandbox.open(script_path, "w") as f:
-                f.write(script_content)
+            with await sandbox.open.aio(script_path, "w") as f:
+                await f.write.aio(script_content)
+            exec_command = _get_execution_command(self.language, script_path)
+            process = await sandbox.exec.aio(*exec_command, timeout=self.timeout)
 
-            exec_command = self._get_execution_command(script_path)
-            process = sandbox.exec(*exec_command, timeout=self.timeout)
-
-            for line in process.stdout:
+            async for line in process.stdout:
                 yield OutputEvent(process_id=process_id, data=line.rstrip("\n\r"), stream="stdout")
 
-            for line in process.stderr:
+            async for line in process.stderr:
                 yield OutputEvent(process_id=process_id, data=line.rstrip("\n\r"), stream="stderr")
 
-            exit_code = process.wait()
+            exit_code = await process.wait.aio()
             if exit_code == 0:
                 yield ProcessCompletedEvent(process_id=process_id, exit_code=exit_code)
             else:
@@ -316,15 +312,13 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
         process_id = f"modal_cmd_{id(sandbox)}"
         yield ProcessStartedEvent(process_id=process_id, command=command)
         try:
-            process = sandbox.exec(*parts, timeout=self.timeout)
-
-            for line in process.stdout:
+            process = await sandbox.exec.aio(*parts, timeout=self.timeout)
+            async for line in process.stdout:
                 yield OutputEvent(process_id=process_id, data=line.rstrip("\n\r"), stream="stdout")
-
-            for line in process.stderr:
+            async for line in process.stderr:
                 yield OutputEvent(process_id=process_id, data=line.rstrip("\n\r"), stream="stderr")
 
-            exit_code = process.wait()
+            exit_code = await process.wait.aio()
             if exit_code == 0:
                 yield ProcessCompletedEvent(process_id=process_id, exit_code=exit_code)
             else:
