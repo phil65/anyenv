@@ -74,15 +74,11 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
 
     async def __aenter__(self) -> Self:
         """Setup E2B sandbox."""
-        # Start tool server via base class
-        await super().__aenter__()
-
-        # Create sandbox (uses E2B_API_KEY environment variable)
         from e2b import AsyncSandbox
 
+        await super().__aenter__()
         self.sandbox = await AsyncSandbox.create(template=self.template, timeout=int(self.timeout))
-        # Install dependencies if specified
-        if self.dependencies:
+        if self.dependencies:  # Install dependencies if specified
             deps_str = " ".join(self.dependencies)
             match self.language:
                 case "python":
@@ -91,7 +87,6 @@ class E2bExecutionEnvironment(ExecutionEnvironment):
                     install_result = await self.sandbox.commands.run(f"npm install {deps_str}")
                 case _:
                     install_result = None
-
             if install_result and install_result.exit_code != 0:
                 # Log warning but don't fail - code might still work
                 pass

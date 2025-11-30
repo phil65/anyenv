@@ -117,7 +117,6 @@ class SshExecutionEnvironment(ExecutionEnvironment):
         # Create and enter the asyncssh connection context manager
         self._connection_cm = asyncssh.connect(**self.connect_kwargs)
         self.connection = await self._connection_cm.__aenter__()
-        assert self.connection
         # Set up remote working directory
         if self.cwd:
             self._remote_work_dir = self.cwd
@@ -136,11 +135,8 @@ class SshExecutionEnvironment(ExecutionEnvironment):
 
         await self.run(f"mkdir -p {self._remote_work_dir}")
         await self._verify_tools()
-
-        # Install dependencies if specified
-        if self.dependencies:
+        if self.dependencies:  # Install dependencies if specified
             await self._install_dependencies()
-
         return self
 
     async def __aexit__(
@@ -236,11 +232,7 @@ class SshExecutionEnvironment(ExecutionEnvironment):
         except Exception as e:  # noqa: BLE001
             return ExecutionResult.failed(e, start_time)
 
-    async def run_in_working_dir(
-        self,
-        cmd: str,
-        timeout: bool = False,
-    ) -> SSHCompletedProcess:
+    async def run_in_working_dir(self, cmd: str, timeout: bool = False) -> SSHCompletedProcess:
         """Run a command in the working directory."""
         cmd = f"cd {self._remote_work_dir} && {cmd}"
         if timeout:
@@ -308,22 +300,17 @@ os.environ['TOOL_SERVER_PORT'] = '{self.server_info.port}'
         try:
             result = await self.run_in_working_dir(command, timeout=True)
             success = result.returncode == 0
+            stderr = err.decode() if isinstance(err := result.stderr, bytes) else err
+            stdout = out.decode() if isinstance(out := result.stdout, bytes) else out
+            error = stderr if not success else None
             return ExecutionResult(
                 result=result.stdout if success else None,
                 duration=time.time() - start_time,
                 success=success,
-                error=result.stderr.decode()
-                if isinstance(result.stderr, bytes)
-                else result.stderr
-                if not success
-                else None,
+                error=error,
                 error_type="RemoteCommandError" if not success else None,
-                stdout=result.stdout.decode()
-                if isinstance(result.stdout, bytes)
-                else result.stdout,
-                stderr=result.stderr.decode()
-                if isinstance(result.stderr, bytes)
-                else result.stderr,
+                stdout=stdout,
+                stderr=stderr,
             )
 
         except Exception as e:  # noqa: BLE001

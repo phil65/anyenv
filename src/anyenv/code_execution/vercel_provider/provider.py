@@ -49,6 +49,19 @@ if TYPE_CHECKING:
     from anyenv.code_execution.models import Language, ServerInfo
 
 
+def _get_default_runtime(language: Language) -> VercelRuntime:
+    """Get default runtime based on language."""
+    match language:
+        case "python":
+            return "python3.13"
+        case "javascript":
+            return "node22"
+        case "typescript":
+            return "node22"
+        case _:
+            return "python3.13"
+
+
 class VercelExecutionEnvironment(ExecutionEnvironment):
     """Executes code in a Vercel cloud sandbox."""
 
@@ -118,7 +131,7 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
 
         await super().__aenter__()
         self.sandbox = await AsyncSandbox.create(
-            runtime=self.runtime or self._get_default_runtime(),
+            runtime=self.runtime or _get_default_runtime(self.language),
             timeout=self.timeout_ms,
             resources=self.resources,
             ports=self.ports,
@@ -165,18 +178,6 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
 
         sandbox = self._ensure_initialized()
         return VercelFS(sandbox=sandbox)
-
-    def _get_default_runtime(self) -> VercelRuntime:
-        """Get default runtime based on language."""
-        match self.language:
-            case "python":
-                return "python3.13"
-            case "javascript":
-                return "node22"
-            case "typescript":
-                return "node22"
-            case _:
-                return "python3.13"
 
     async def execute(self, code: str) -> ExecutionResult:
         """Execute code in the Vercel sandbox."""
@@ -317,7 +318,7 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
         Returns:
             Tuple of (cmd, args) where cmd is the executable and args is the arg list.
         """
-        runtime = self.runtime or self._get_default_runtime()
+        runtime = self.runtime or _get_default_runtime(self.language)
         match self.language:
             case "python":
                 if runtime == "python3.13":
