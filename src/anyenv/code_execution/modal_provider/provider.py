@@ -3,14 +3,18 @@
 from __future__ import annotations
 
 import contextlib
-import shlex
 import time
 from typing import TYPE_CHECKING, Any, Self
 
 import anyenv
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.models import ExecutionResult
-from anyenv.code_execution.parse_output import get_script_path, parse_output, wrap_code
+from anyenv.code_execution.parse_output import (
+    get_script_path,
+    parse_command,
+    parse_output,
+    wrap_code,
+)
 
 
 if TYPE_CHECKING:
@@ -75,6 +79,20 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
         self.language: Language = language
         self.app: App | None = None
         self.sandbox: Sandbox | None = None
+
+    def _ensure_initialized(self) -> Sandbox:
+        """Validate that the environment is properly initialized.
+
+        Returns:
+            The sandbox instance.
+
+        Raises:
+            RuntimeError: If environment not entered via async context manager.
+        """
+        if self.sandbox is None:
+            msg = "Modal environment not initialized. Use 'async with' context manager."
+            raise RuntimeError(msg)
+        return self.sandbox
 
     async def __aenter__(self) -> Self:
         """Setup Modal sandbox."""
@@ -162,15 +180,12 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
         """Return a ModalFS instance for the sandbox."""
         from upathtools.filesystems import ModalFS
 
-        assert self.sandbox
-        return ModalFS(sandbox_id=self.sandbox.object_id)
+        sandbox = self._ensure_initialized()
+        return ModalFS(sandbox_id=sandbox.object_id)
 
     async def execute(self, code: str) -> ExecutionResult:
         """Execute code in the Modal sandbox."""
-        if not self.sandbox:
-            error_msg = "Modal environment not properly initialized"
-            raise RuntimeError(error_msg)
-
+        sandbox = self._ensure_initialized()
         start_time = time.time()
         try:
             # Create temporary script file
@@ -178,11 +193,11 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
             script_path = get_script_path(self.language)
 
             # Write script to sandbox using filesystem API
-            with self.sandbox.open(script_path, "w") as f:
+            with sandbox.open(script_path, "w") as f:
                 f.write(script_content)
 
             command = self._get_execution_command(script_path)
-            process = self.sandbox.exec(*command, timeout=self.timeout)
+            process = sandbox.exec(*command, timeout=self.timeout)
             process.wait()
             stdout = process.stdout.read() if process.stdout else ""
             stderr = process.stderr.read() if process.stderr else ""
@@ -215,20 +230,13 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
 
     async def execute_command(self, command: str) -> ExecutionResult:
         """Execute a terminal command in the Modal sandbox."""
-        if not self.sandbox:
-            error_msg = "Modal environment not properly initialized"
-            raise RuntimeError(error_msg)
-
+        sandbox = self._ensure_initialized()
+        parts = parse_command(command)
         start_time = time.time()
 
         try:
-            parts = shlex.split(command)
-            if not parts:
-                error_msg = "Empty command provided"
-                raise ValueError(error_msg)  # noqa: TRY301
-
             # Execute command
-            process = self.sandbox.exec(*parts, timeout=self.timeout)
+            process = sandbox.exec(*parts, timeout=self.timeout)
             process.wait()
 
             stdout = process.stdout.read() if process.stdout else ""
@@ -269,25 +277,18 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
             ProcessStartedEvent,
         )
 
-        process_id = f"modal_{id(self.sandbox)}"
+        sandbox = self._ensure_initialized()
+        process_id = f"modal_{id(sandbox)}"
         yield ProcessStartedEvent(process_id=process_id, command=f"execute({len(code)} chars)")
 
         try:
-            if not self.sandbox:
-                yield ProcessErrorEvent(
-                    process_id=process_id,
-                    error="Modal environment not properly initialized",
-                    error_type="RuntimeError",
-                )
-                return
-
             script_content = wrap_code(code, language=self.language)
             script_path = get_script_path(self.language)
-            with self.sandbox.open(script_path, "w") as f:
+            with sandbox.open(script_path, "w") as f:
                 f.write(script_content)
 
             exec_command = self._get_execution_command(script_path)
-            process = self.sandbox.exec(*exec_command, timeout=self.timeout)
+            process = sandbox.exec(*exec_command, timeout=self.timeout)
 
             for line in process.stdout:
                 yield OutputEvent(process_id=process_id, data=line.rstrip("\n\r"), stream="stdout")
@@ -320,26 +321,13 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
             ProcessStartedEvent,
         )
 
-        process_id = f"modal_cmd_{id(self.sandbox)}"
+        sandbox = self._ensure_initialized()
+        parts = parse_command(command)
+        process_id = f"modal_cmd_{id(sandbox)}"
         yield ProcessStartedEvent(process_id=process_id, command=command)
 
         try:
-            if not self.sandbox:
-                yield ProcessErrorEvent(
-                    process_id=process_id,
-                    error="Modal environment not properly initialized",
-                    error_type="RuntimeError",
-                )
-                return
-
-            parts = shlex.split(command)
-            if not parts:
-                yield ProcessErrorEvent(
-                    process_id=process_id, error="Empty command", error_type="ValueError"
-                )
-                return
-
-            process = self.sandbox.exec(*parts, timeout=self.timeout)
+            process = sandbox.exec(*parts, timeout=self.timeout)
 
             for line in process.stdout:
                 yield OutputEvent(process_id=process_id, data=line.rstrip("\n\r"), stream="stdout")

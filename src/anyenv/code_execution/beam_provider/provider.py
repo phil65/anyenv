@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import shlex
 import time
 from typing import TYPE_CHECKING, Literal, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.beam_provider.helpers import get_image
 from anyenv.code_execution.models import ExecutionResult
-from anyenv.code_execution.parse_output import parse_output, wrap_code
+from anyenv.code_execution.parse_output import parse_command, parse_output, wrap_code
 
 
 if TYPE_CHECKING:
@@ -145,13 +144,9 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
     async def execute_command(self, command: str) -> ExecutionResult:
         """Execute a terminal command in the Beam sandbox."""
         self.instance = self.validate_instance()
+        cmd_parts = parse_command(command)
         start_time = time.time()
         try:
-            cmd_parts = shlex.split(command)
-            if not cmd_parts:
-                msg = "Empty command"
-                raise ValueError(msg)  # noqa: TRY301
-
             process = self.instance.process.exec(*cmd_parts)
             exit_code = await asyncio.to_thread(process.wait)
             output = "\n".join(line.rstrip("\n\r") for line in process.logs)
@@ -229,14 +224,8 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
 
         yield ProcessStartedEvent(process_id=process_id, command=command)
 
+        cmd_parts = parse_command(command)
         try:
-            cmd_parts = shlex.split(command)
-            if not cmd_parts:
-                yield ProcessErrorEvent(
-                    process_id=process_id, error="Empty command", error_type="ValueError"
-                )
-                return
-
             process = self.instance.process.exec(*cmd_parts)
             for line in process.logs:
                 yield OutputEvent(

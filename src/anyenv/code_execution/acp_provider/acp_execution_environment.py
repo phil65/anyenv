@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import time
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 import uuid
 
 from anyenv.code_execution.base import ExecutionEnvironment
@@ -15,6 +15,7 @@ from anyenv.code_execution.events import (
     ProcessStartedEvent,
 )
 from anyenv.code_execution.models import ExecutionResult
+from anyenv.code_execution.parse_output import parse_command
 
 
 if TYPE_CHECKING:
@@ -42,7 +43,6 @@ class ACPExecutionEnvironment(ExecutionEnvironment):
         requests: ACPRequests,
         lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
         dependencies: list[str] | None = None,
-        **kwargs: Any,
     ) -> None:
         """Initialize ACP execution environment.
 
@@ -51,9 +51,8 @@ class ACPExecutionEnvironment(ExecutionEnvironment):
             requests: ACP requests helper for terminal operations
             lifespan_handler: Optional async context manager for tool server
             dependencies: Optional list of dependencies (handled by client)
-            **kwargs: Additional keyword arguments
         """
-        super().__init__(lifespan_handler=lifespan_handler, dependencies=dependencies, **kwargs)
+        super().__init__(lifespan_handler=lifespan_handler, dependencies=dependencies)
         self._fs = fs
         self._requests = requests
 
@@ -83,10 +82,8 @@ class ACPExecutionEnvironment(ExecutionEnvironment):
         try:
             script_id = str(uuid.uuid4())[:8]
             script_name = f"temp_script_{script_id}.py"
-
             # Write code to temporary file using ACP filesystem
             self._fs.write_text(script_name, code)
-
             # Execute using ACP terminal
             create_response = await self._create_terminal(cmd="python", args=[script_name])
             terminal_id = create_response.terminal_id
@@ -102,7 +99,6 @@ class ACPExecutionEnvironment(ExecutionEnvironment):
             return ExecutionResult(
                 result=output,
                 stdout=output,
-                stderr=None,
                 success=exit_code == 0,
                 exit_code=exit_code,
                 error=None if exit_code == 0 else f"Process exited with code {exit_code}",
@@ -172,19 +168,10 @@ class ACPExecutionEnvironment(ExecutionEnvironment):
         Returns:
             ExecutionResult with command output and metadata
         """
+        parts = parse_command(command)
+        cmd = parts[0]
         start_time = time.perf_counter()
         try:
-            parts = command.split()
-            if not parts:
-                return ExecutionResult(
-                    result=None,
-                    success=False,
-                    exit_code=1,
-                    error="Empty command provided",
-                    duration=0.0,
-                )
-
-            cmd = parts[0]
             args = parts[1:] if len(parts) > 1 else []
             create_response = await self._create_terminal(cmd=cmd, args=args)
             terminal_id = create_response.terminal_id
@@ -215,20 +202,11 @@ class ACPExecutionEnvironment(ExecutionEnvironment):
         Yields:
             ExecutionEvent objects as they occur
         """
+        parts = parse_command(command)
+        args = parts[1:] if len(parts) > 1 else []
         start_time = time.perf_counter()
         process_id = str(uuid.uuid4())[:8]
         try:
-            parts = command.split()
-            if not parts:
-                yield ProcessErrorEvent(
-                    process_id=process_id,
-                    error="Empty command provided",
-                    error_type="ValueError",
-                    exit_code=1,
-                )
-                return
-
-            args = parts[1:] if len(parts) > 1 else []
             create_response = await self._create_terminal(cmd=parts[0], args=args)
             terminal_id = create_response.terminal_id
             yield ProcessStartedEvent(process_id=process_id, command=command)

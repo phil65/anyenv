@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 import contextlib
-import shlex
 import time
 from typing import TYPE_CHECKING, Any, Literal, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.models import ExecutionResult
-from anyenv.code_execution.parse_output import get_script_path, parse_output, wrap_code
+from anyenv.code_execution.parse_output import (
+    get_script_path,
+    parse_command,
+    parse_output,
+    wrap_code,
+)
 
 
 # Vercel runtime options based on the API error message
@@ -87,6 +91,20 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
         self.team_id = team_id
         self.sandbox: AsyncSandbox | None = None
 
+    def _ensure_initialized(self) -> AsyncSandbox:
+        """Validate that the environment is properly initialized.
+
+        Returns:
+            The sandbox instance.
+
+        Raises:
+            RuntimeError: If environment not entered via async context manager.
+        """
+        if self.sandbox is None:
+            msg = "Vercel environment not initialized. Use 'async with' context manager."
+            raise RuntimeError(msg)
+        return self.sandbox
+
     async def __aenter__(self) -> Self:
         """Setup Vercel sandbox."""
         # Start tool server via base class
@@ -134,15 +152,15 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
 
     async def get_domain(self, port: int) -> str:
         """Get domain for the Vercel sandbox."""
-        assert self.sandbox
-        return self.sandbox.domain(port)
+        sandbox = self._ensure_initialized()
+        return sandbox.domain(port)
 
     def get_fs(self) -> VercelFS:
         """Return a VercelFS instance for the sandbox."""
         from upathtools.filesystems import VercelFS
 
-        assert self.sandbox
-        return VercelFS(sandbox=self.sandbox)
+        sandbox = self._ensure_initialized()
+        return VercelFS(sandbox=sandbox)
 
     def _get_default_runtime(self) -> VercelRuntime:
         """Get default runtime based on language."""
@@ -158,18 +176,13 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
 
     async def execute(self, code: str) -> ExecutionResult:
         """Execute code in the Vercel sandbox."""
-        if not self.sandbox:
-            error_msg = "Vercel environment not properly initialized"
-            raise RuntimeError(error_msg)
-
+        sandbox = self._ensure_initialized()
         start_time = time.time()
         try:
             script_path, wrapped_code = self._prepare_code_execution(code)
-            await self.sandbox.write_files([
-                {"path": script_path, "content": wrapped_code.encode()}
-            ])
+            await sandbox.write_files([{"path": script_path, "content": wrapped_code.encode()}])
             cmd, args = self._get_execution_command(script_path)
-            result = await self.sandbox.run_command(cmd, args)
+            result = await sandbox.run_command(cmd, args)
             stdout = await result.stdout()
             stderr = await result.stderr()
             execution_result, error_info = parse_output(stdout)
@@ -199,20 +212,13 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
 
     async def execute_command(self, command: str) -> ExecutionResult:
         """Execute a terminal command in the Vercel sandbox."""
-        if not self.sandbox:
-            error_msg = "Vercel environment not properly initialized"
-            raise RuntimeError(error_msg)
-
+        sandbox = self._ensure_initialized()
+        parts = parse_command(command)
         start_time = time.time()
         try:
-            parts = shlex.split(command)
-            if not parts:
-                error_msg = "Empty command provided"
-                raise ValueError(error_msg)  # noqa: TRY301
-
             cmd = parts[0]
             args = parts[1:] if len(parts) > 1 else None
-            result = await self.sandbox.run_command(cmd, args)
+            result = await sandbox.run_command(cmd, args)
             stdout = await result.stdout()
             stderr = await result.stderr()
             success = result.exit_code == 0
@@ -238,35 +244,25 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
             ProcessStartedEvent,
         )
 
-        process_id = f"vercel_{id(self.sandbox)}"
+        sandbox = self._ensure_initialized()
+        process_id = f"vercel_{id(sandbox)}"
         yield ProcessStartedEvent(process_id=process_id, command=f"execute({len(code)} chars)")
 
         try:
-            if not self.sandbox:
-                yield ProcessErrorEvent(
-                    process_id=process_id,
-                    error="Vercel environment not properly initialized",
-                    error_type="RuntimeError",
-                )
-                return
-
             script_path, wrapped_code = self._prepare_code_execution(code)
-            await self.sandbox.write_files([
-                {"path": script_path, "content": wrapped_code.encode()}
-            ])
+            await sandbox.write_files([{"path": script_path, "content": wrapped_code.encode()}])
+            cmd, args = self._get_execution_command(script_path)
+            result = await sandbox.run_command_detached(cmd, args)
 
-            cmd_name, args = self._get_execution_command(script_path)
-            cmd = await self.sandbox.run_command_detached(cmd_name, args)
-
-            async for log_line in self.sandbox.client.get_logs(
-                sandbox_id=self.sandbox.sandbox_id, cmd_id=cmd.cmd_id
+            async for log_line in sandbox.client.get_logs(
+                sandbox_id=sandbox.sandbox_id, cmd_id=result.cmd_id
             ):
                 if log_line.data:
                     for line in log_line.data.splitlines():
                         if line.strip():
                             yield OutputEvent(process_id=process_id, data=line, stream="combined")
 
-            finished = await cmd.wait()
+            finished = await result.wait()
             if finished.exit_code == 0:
                 yield ProcessCompletedEvent(process_id=process_id, exit_code=finished.exit_code)
             else:
@@ -291,32 +287,19 @@ class VercelExecutionEnvironment(ExecutionEnvironment):
             ProcessStartedEvent,
         )
 
-        process_id = f"vercel_cmd_{id(self.sandbox)}"
+        sandbox = self._ensure_initialized()
+        parts = parse_command(command)
+        process_id = f"vercel_cmd_{id(sandbox)}"
         yield ProcessStartedEvent(process_id=process_id, command=command)
 
         try:
-            if not self.sandbox:
-                yield ProcessErrorEvent(
-                    process_id=process_id,
-                    error="Vercel environment not properly initialized",
-                    error_type="RuntimeError",
-                )
-                return
-
-            parts = shlex.split(command)
-            if not parts:
-                yield ProcessErrorEvent(
-                    process_id=process_id, error="Empty command", error_type="ValueError"
-                )
-                return
-
             cmd_name = parts[0]
             args = parts[1:] if len(parts) > 1 else None
 
-            cmd = await self.sandbox.run_command_detached(cmd_name, args)
+            cmd = await sandbox.run_command_detached(cmd_name, args)
 
-            async for log_line in self.sandbox.client.get_logs(
-                sandbox_id=self.sandbox.sandbox_id, cmd_id=cmd.cmd_id
+            async for log_line in sandbox.client.get_logs(
+                sandbox_id=sandbox.sandbox_id, cmd_id=cmd.cmd_id
             ):
                 if log_line.data:
                     for line in log_line.data.splitlines():

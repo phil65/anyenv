@@ -9,6 +9,7 @@ import shlex
 from typing import TYPE_CHECKING, Any
 import uuid
 
+from anyenv.code_execution.parse_output import parse_command
 from anyenv.log import get_logger
 from anyenv.process_manager import ProcessManagerProtocol, ProcessOutput
 from anyenv.process_manager.process_manager import BaseTerminal
@@ -85,30 +86,21 @@ class BeamTerminalManager(ProcessManagerProtocol):
         """Create a new terminal session using Beam's process management."""
         terminal_id = f"beam_term_{uuid.uuid4().hex[:8]}"
         args = args or []
-        env = env or {}
-
         # Build command with proper shell escaping
         full_command = shlex.join([command, *args]) if args else command
-
-        # Create terminal
         terminal = BeamTerminal(
             terminal_id=terminal_id,
             command=command,
             args=args,
             cwd=str(cwd) if cwd else None,
-            env=env,
+            env=env or {},
             output_limit=output_limit or 1048576,
         )
 
         self._terminals[terminal_id] = terminal
-
         # Start the process using Beam's exec
         try:
-            cmd_parts = shlex.split(full_command)
-            if not cmd_parts:
-                msg = "Empty command"
-                raise ValueError(msg)  # noqa: TRY301
-
+            cmd_parts = parse_command(full_command)
             # Use Beam's process.exec for direct command execution
             cwd_ = str(cwd) if cwd else None
             process = self.sandbox_instance.process.exec(*cmd_parts, cwd=cwd_, env=env)
@@ -117,9 +109,7 @@ class BeamTerminalManager(ProcessManagerProtocol):
             task = asyncio.create_task(self._collect_output(terminal))
             terminal.set_task(task)
             logger.info("Created Beam terminal %s: %s", terminal_id, full_command)
-
         except Exception as e:
-            # Clean up on failure
             self._terminals.pop(terminal_id, None)
             msg = f"Failed to create Beam terminal: {e}"
             logger.exception(msg)
@@ -133,15 +123,10 @@ class BeamTerminalManager(ProcessManagerProtocol):
             process = terminal._process  # noqa: SLF001
             if not process:
                 return
-
-            # Stream output from Beam process
-            for line in process.logs:
+            for line in process.logs:  # Stream output from Beam process
                 terminal.add_output(line + "\n")
-
-            # Get final exit code
             final_exit_code = await asyncio.to_thread(process.wait)
             terminal.set_exit_code(final_exit_code)
-
         except Exception as e:
             logger.exception("Error collecting output for Beam terminal %s", terminal.terminal_id)
             terminal.add_output(f"Terminal error: {e}\n")
@@ -156,7 +141,6 @@ class BeamTerminalManager(ProcessManagerProtocol):
         terminal = self._terminals[process_id]
         output = terminal.get_output()
         exit_code = terminal.get_exit_code()
-
         return ProcessOutput(stdout=output, stderr="", combined=output, exit_code=exit_code)
 
     async def wait_for_exit(self, process_id: str) -> int:

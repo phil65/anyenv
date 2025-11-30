@@ -1,14 +1,14 @@
-"""Microsandbox execution environment that runs code in containerized sandboxes."""
+"""Microsandbox execution environment that runs code in lightweight sandboxes."""
 
 from __future__ import annotations
 
 import contextlib
-import shlex
 import time
 from typing import TYPE_CHECKING, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.models import ExecutionResult
+from anyenv.code_execution.parse_output import parse_command
 
 
 if TYPE_CHECKING:
@@ -64,6 +64,20 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
         self.image = image
         self.sandbox: PythonSandbox | NodeSandbox | None = None
 
+    def _ensure_initialized(self) -> PythonSandbox | NodeSandbox:
+        """Validate that the environment is properly initialized.
+
+        Returns:
+            The sandbox instance.
+
+        Raises:
+            RuntimeError: If environment not entered via async context manager.
+        """
+        if self.sandbox is None:
+            msg = "Microsandbox environment not initialized. Use 'async with' context manager."
+            raise RuntimeError(msg)
+        return self.sandbox
+
     async def __aenter__(self) -> Self:
         """Setup Microsandbox environment."""
         # Start tool server via base class
@@ -113,18 +127,15 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
         """Return a MicrosandboxFS instance for the sandbox."""
         from upathtools.filesystems import MicrosandboxFS
 
-        assert self.sandbox
-        return MicrosandboxFS(sandbox=self.sandbox)
+        sandbox = self._ensure_initialized()
+        return MicrosandboxFS(sandbox=sandbox)
 
     async def execute(self, code: str) -> ExecutionResult:
         """Execute code in the Microsandbox environment."""
-        if not self.sandbox:
-            error_msg = "Microsandbox environment not properly initialized"
-            raise RuntimeError(error_msg)
-
+        sandbox = self._ensure_initialized()
         start_time = time.time()
         try:
-            execution = await self.sandbox.run(code)
+            execution = await sandbox.run(code)
             stdout = await execution.output()
             stderr = await execution.error()
             success = not execution.has_error()
@@ -152,21 +163,13 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
 
     async def execute_command(self, command: str) -> ExecutionResult:
         """Execute a terminal command in the Microsandbox environment."""
-        if not self.sandbox:
-            error_msg = "Microsandbox environment not properly initialized"
-            raise RuntimeError(error_msg)
-
+        sandbox = self._ensure_initialized()
+        parts = parse_command(command)
         start_time = time.time()
         try:
-            # Parse command into command and args
-            parts = shlex.split(command)
-            if not parts:
-                error_msg = "Empty command provided"
-                raise ValueError(error_msg)  # noqa: TRY301
-
             cmd = parts[0]
             args = parts[1:] if len(parts) > 1 else []
-            execution = await self.sandbox.command.run(cmd, args)
+            execution = await sandbox.command.run(cmd, args)
             stdout = await execution.output()
             stderr = await execution.error()
             success = execution.success

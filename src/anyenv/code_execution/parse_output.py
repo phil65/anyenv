@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shlex
 from typing import Any, Literal
 
 
@@ -205,3 +206,22 @@ def wrap_command(command: str) -> str:
     # Escape single quotes in the command
     escaped_command = command.replace("'", "'\"'\"'")
     return f"bash -l -c '{escaped_command}'"
+
+
+def parse_command(command: str) -> list[str]:
+    """Parse a command string into parts.
+
+    Args:
+        command: Command string to parse.
+
+    Returns:
+        List of command parts.
+
+    Raises:
+        ValueError: If command is empty or whitespace-only.
+    """
+    parts = shlex.split(command)
+    if not parts:
+        msg = "Empty command provided"
+        raise ValueError(msg)
+    return parts
