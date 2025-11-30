@@ -23,7 +23,7 @@ def get_storage(
     cache_backend: CacheType,
     cache_dir: StrPath,
     cache_ttl: int,
-) -> hishel.AsyncBaseStorage:
+) -> hishel.AsyncSqliteStorage:
     """Get storage backend."""
     import hishel
 

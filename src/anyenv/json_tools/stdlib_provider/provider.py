@@ -51,10 +51,10 @@ class StdLibProvider(JsonProviderBase):
             # Standard library's json can't handle datetime objects directly
             # So we need a custom encoder
             class CustomEncoder(json.JSONEncoder):
-                def default(self, obj: Any) -> Any:
-                    if isinstance(obj, datetime.datetime):
-                        return obj.isoformat()
-                    return super().default(obj)
+                def default(self, o: Any) -> Any:
+                    if isinstance(o, datetime.datetime):
+                        return o.isoformat()
+                    return super().default(o)
 
             return json.dumps(
                 data,

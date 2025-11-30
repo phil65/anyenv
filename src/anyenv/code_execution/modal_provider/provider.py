@@ -172,7 +172,6 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
             with contextlib.suppress(Exception):
                 await self.sandbox.terminate.aio()
 
-        # Cleanup server via base class
         await super().__aexit__(exc_type, exc_val, exc_tb)
 
     async def send(self, message: str) -> None:
@@ -208,7 +207,6 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
             # Write script to sandbox using filesystem API
             with await sandbox.open.aio(script_path, "w") as f:
                 await f.write.aio(script_content)
-
             command = _get_execution_command(self.language, script_path)
             process = await sandbox.exec.aio(*command, timeout=self.timeout)
             await process.wait.aio()
