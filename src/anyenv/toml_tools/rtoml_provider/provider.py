@@ -24,7 +24,7 @@ class RtomlProvider(TomlProviderBase):
                 case Path():
                     return rtoml.load(data)
                 case UPath():
-                    content = data.read_text()
+                    content = data.read_text("utf-8")
                     return rtoml.loads(content)
                 case TextIOWrapper():
                     content = data.read()

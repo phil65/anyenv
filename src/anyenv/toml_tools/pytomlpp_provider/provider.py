@@ -22,7 +22,7 @@ class PytomlppProvider(TomlProviderBase):
         try:
             match data:
                 case Path() | UPath():
-                    content = data.read_text()
+                    content = data.read_text("utf-8")
                     return pytomlpp.loads(content)
                 case TextIOWrapper():
                     content = data.read()
