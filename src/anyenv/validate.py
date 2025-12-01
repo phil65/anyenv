@@ -5,6 +5,8 @@ from __future__ import annotations
 import importlib.util
 from typing import Any, cast
 
+from anyenv.helpers import get_object_name
+
 
 _has_pydantic = importlib.util.find_spec("pydantic") is not None
 
@@ -63,7 +65,7 @@ def validate_json_data[T](data: Any, return_type: type[T] | None = None) -> T:  
             adapter = TypeAdapter(return_type)
             return adapter.validate_python(data)
         except Exception as e:
-            expected = getattr(return_type, "__name__", str(return_type))
+            expected = get_object_name(return_type, str(return_type))
             error_msg = f"Data doesn't match type {expected}: {e}"
             raise TypeError(error_msg) from e
 
@@ -121,6 +123,6 @@ def validate_json_data[T](data: Any, return_type: type[T] | None = None) -> T:  
     # Last resort - simple isinstance check
     if isinstance(data, return_type):
         return cast(T, data)
-    expected = getattr(return_type, "__name__", str(return_type))
+    expected = get_object_name(return_type, str(return_type))
     error_msg = f"Expected {expected}, got {type(data).__name__}"
     raise TypeError(error_msg)
