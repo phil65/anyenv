@@ -123,8 +123,7 @@ class ACPProcessManager(ProcessManagerProtocol):
             ValueError: If process ID not found
         """
         if process_id not in self._processes:
-            msg = f"Process {process_id} not found"
-            raise ValueError(msg)
+            raise ValueError(f"Process {process_id} not found")
 
         process = self._processes[process_id]
         try:
@@ -162,8 +161,7 @@ class ACPProcessManager(ProcessManagerProtocol):
             ValueError: If process ID not found
         """
         if process_id not in self._processes:
-            msg = f"Process {process_id} not found"
-            raise ValueError(msg)
+            raise ValueError(f"Process {process_id} not found")
 
         process = self._processes[process_id]
         if process.exit_code is not None:
@@ -190,8 +188,7 @@ class ACPProcessManager(ProcessManagerProtocol):
             ValueError: If process ID not found
         """
         if process_id not in self._processes:
-            msg = f"Process {process_id} not found"
-            raise ValueError(msg)
+            raise ValueError(f"Process {process_id} not found")
 
         process = self._processes[process_id]
         if process.exit_code is not None:
@@ -214,8 +211,7 @@ class ACPProcessManager(ProcessManagerProtocol):
             ValueError: If process ID not found
         """
         if process_id not in self._processes:
-            msg = f"Process {process_id} not found"
-            raise ValueError(msg)
+            raise ValueError(f"Process {process_id} not found")
 
         process = self._processes[process_id]
         with contextlib.suppress(Exception):
@@ -246,8 +242,7 @@ class ACPProcessManager(ProcessManagerProtocol):
             ValueError: If process ID not found
         """
         if process_id not in self._processes:
-            msg = f"Process {process_id} not found"
-            raise ValueError(msg)
+            raise ValueError(f"Process {process_id} not found")
 
         process = self._processes[process_id]
         return {
