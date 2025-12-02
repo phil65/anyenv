@@ -10,6 +10,14 @@ from typing import TYPE_CHECKING, Any
 from anyenv.process_manager import ProcessManagerProtocol, ProcessOutput
 
 
+class ProcessNotFoundError(ValueError):
+    """Raised when a process ID is not found."""
+
+    def __init__(self, process_id: str) -> None:
+        self.process_id = process_id
+        super().__init__(f"Process {process_id} not found")
+
+
 if TYPE_CHECKING:
     from pathlib import Path
 
@@ -120,10 +128,10 @@ class ACPProcessManager(ProcessManagerProtocol):
             Current process output
 
         Raises:
-            ValueError: If process ID not found
+            ProcessNotFoundError: If process ID not found
         """
         if process_id not in self._processes:
-            raise ValueError(f"Process {process_id} not found")
+            raise ProcessNotFoundError(process_id)
 
         process = self._processes[process_id]
         try:
@@ -158,10 +166,10 @@ class ACPProcessManager(ProcessManagerProtocol):
             Exit code
 
         Raises:
-            ValueError: If process ID not found
+            ProcessNotFoundError: If process ID not found
         """
         if process_id not in self._processes:
-            raise ValueError(f"Process {process_id} not found")
+            raise ProcessNotFoundError(process_id)
 
         process = self._processes[process_id]
         if process.exit_code is not None:
@@ -185,10 +193,10 @@ class ACPProcessManager(ProcessManagerProtocol):
             process_id: Process identifier
 
         Raises:
-            ValueError: If process ID not found
+            ProcessNotFoundError: If process ID not found
         """
         if process_id not in self._processes:
-            raise ValueError(f"Process {process_id} not found")
+            raise ProcessNotFoundError(process_id)
 
         process = self._processes[process_id]
         if process.exit_code is not None:
@@ -208,10 +216,10 @@ class ACPProcessManager(ProcessManagerProtocol):
             process_id: Process identifier
 
         Raises:
-            ValueError: If process ID not found
+            ProcessNotFoundError: If process ID not found
         """
         if process_id not in self._processes:
-            raise ValueError(f"Process {process_id} not found")
+            raise ProcessNotFoundError(process_id)
 
         process = self._processes[process_id]
         with contextlib.suppress(Exception):
@@ -239,10 +247,10 @@ class ACPProcessManager(ProcessManagerProtocol):
             Process information dict
 
         Raises:
-            ValueError: If process ID not found
+            ProcessNotFoundError: If process ID not found
         """
         if process_id not in self._processes:
-            raise ValueError(f"Process {process_id} not found")
+            raise ProcessNotFoundError(process_id)
 
         process = self._processes[process_id]
         return {
