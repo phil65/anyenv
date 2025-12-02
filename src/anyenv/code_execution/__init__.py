@@ -7,6 +7,7 @@ from typing import Any, Literal, overload, TYPE_CHECKING, assert_never
 from anyenv.code_execution.base import ExecutionEnvironment
 
 from anyenv.code_execution.beam_provider import BeamExecutionEnvironment
+from anyenv.code_execution.mock_provider import MockExecutionEnvironment, MockProcessManager
 from anyenv.code_execution.daytona_provider import DaytonaExecutionEnvironment
 from anyenv.code_execution.docker_provider import DockerExecutionEnvironment
 from anyenv.code_execution.local_provider import LocalExecutionEnvironment
@@ -273,6 +274,8 @@ __all__ = [
     "LocalExecutionEnvironment",
     "McpPythonExecutionEnvironment",
     "MicrosandboxExecutionEnvironment",
+    "MockExecutionEnvironment",
+    "MockProcessManager",
     "ModalExecutionEnvironment",
     "ServerInfo",
     "SshExecutionEnvironment",
