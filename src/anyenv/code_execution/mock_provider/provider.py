@@ -219,25 +219,11 @@ class MockExecutionEnvironment(ExecutionEnvironment):
         result = self._code_results.get(code, self._default_result)
         process_id = f"stream_{uuid.uuid4().hex[:8]}"
 
-        yield ProcessStartedEvent(
-            process_id=process_id,
-            command="python",
-            pid=12345,
-        )
-
+        yield ProcessStartedEvent(process_id=process_id, command="python", pid=12345)
         if result.stdout:
-            yield OutputEvent(
-                process_id=process_id,
-                data=result.stdout,
-                stream="stdout",
-            )
-
+            yield OutputEvent(process_id=process_id, data=result.stdout, stream="stdout")
         if result.stderr:
-            yield OutputEvent(
-                process_id=process_id,
-                data=result.stderr,
-                stream="stderr",
-            )
+            yield OutputEvent(process_id=process_id, data=result.stderr, stream="stderr")
 
         yield ProcessCompletedEvent(
             process_id=process_id,
@@ -250,25 +236,11 @@ class MockExecutionEnvironment(ExecutionEnvironment):
         result = self._command_results.get(command, self._default_result)
         process_id = f"cmd_{uuid.uuid4().hex[:8]}"
 
-        yield ProcessStartedEvent(
-            process_id=process_id,
-            command=command,
-            pid=12345,
-        )
-
+        yield ProcessStartedEvent(process_id=process_id, command=command, pid=12345)
         if result.stdout:
-            yield OutputEvent(
-                process_id=process_id,
-                data=result.stdout,
-                stream="stdout",
-            )
-
+            yield OutputEvent(process_id=process_id, data=result.stdout, stream="stdout")
         if result.stderr:
-            yield OutputEvent(
-                process_id=process_id,
-                data=result.stderr,
-                stream="stderr",
-            )
+            yield OutputEvent(process_id=process_id, data=result.stderr, stream="stderr")
 
         yield ProcessCompletedEvent(
             process_id=process_id,
