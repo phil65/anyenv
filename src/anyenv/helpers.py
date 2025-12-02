@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-import types
 from typing import TYPE_CHECKING, Any
 
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    import types
 
 
 def get_object_name(fn: Callable[..., Any] | types.ModuleType, fallback: str = "<unknown>") -> str:
