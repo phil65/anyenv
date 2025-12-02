@@ -239,7 +239,7 @@ async def test_get_fs_returns_memory_filesystem(mock_env: MockExecutionEnvironme
     await mock_env.set_file_content("/via_helper.txt", "test")
 
     # Should be the same filesystem
-    assert await fs._cat_file("/via_helper.txt") == b"test"
+    assert await fs._cat_file("/via_helper.txt") == b"test"  # noqa: SLF001
 
 
 async def test_default_result_configuration():

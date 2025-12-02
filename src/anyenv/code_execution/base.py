@@ -90,7 +90,7 @@ class ExecutionEnvironment(ABC):
         """
         if isinstance(content, str):
             content = content.encode()
-        await self.get_fs()._pipe_file(path, content)
+        await self.get_fs()._pipe_file(path, content)  # noqa: SLF001
 
     async def get_file_content(self, path: str) -> bytes:
         """Get file content from the filesystem.
@@ -101,7 +101,7 @@ class ExecutionEnvironment(ABC):
         Returns:
             File content as bytes
         """
-        return await self.get_fs()._cat_file(path)
+        return await self.get_fs()._cat_file(path)  # noqa: SLF001
 
     @abstractmethod
     def stream_code(self, code: str) -> AsyncIterator[ExecutionEvent]:
