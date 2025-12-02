@@ -218,8 +218,8 @@ async def test_process_manager_not_found_errors(mock_env: MockExecutionEnvironme
 
 async def test_memory_filesystem_operations(mock_env: MockExecutionEnvironment):
     """Test memory filesystem helper methods."""
-    mock_env.set_file_content("/test/file.txt", "hello world")
-    content = mock_env.get_file_content("/test/file.txt")
+    await mock_env.set_file_content("/test/file.txt", "hello world")
+    content = await mock_env.get_file_content("/test/file.txt")
 
     assert content == b"hello world"
 
@@ -227,8 +227,8 @@ async def test_memory_filesystem_operations(mock_env: MockExecutionEnvironment):
 async def test_memory_filesystem_binary_content(mock_env: MockExecutionEnvironment):
     """Test memory filesystem with binary content."""
     binary_data = b"\x00\x01\x02\x03"
-    mock_env.set_file_content("/binary.bin", binary_data)
-    content = mock_env.get_file_content("/binary.bin")
+    await mock_env.set_file_content("/binary.bin", binary_data)
+    content = await mock_env.get_file_content("/binary.bin")
 
     assert content == binary_data
 
@@ -236,10 +236,10 @@ async def test_memory_filesystem_binary_content(mock_env: MockExecutionEnvironme
 async def test_get_fs_returns_memory_filesystem(mock_env: MockExecutionEnvironment):
     """Test that get_fs returns the memory filesystem."""
     fs = mock_env.get_fs()
-    mock_env.set_file_content("/via_helper.txt", "test")
+    await mock_env.set_file_content("/via_helper.txt", "test")
 
     # Should be the same filesystem
-    assert fs.cat_file("/via_helper.txt") == b"test"
+    assert await fs._cat_file("/via_helper.txt") == b"test"
 
 
 async def test_default_result_configuration():

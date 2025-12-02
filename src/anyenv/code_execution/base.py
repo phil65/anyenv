@@ -81,6 +81,28 @@ class ExecutionEnvironment(ABC):
         msg = "VFS is not supported"
         raise NotImplementedError(msg)
 
+    async def set_file_content(self, path: str, content: str | bytes) -> None:
+        """Set file content in the filesystem.
+
+        Args:
+            path: Path in the filesystem
+            content: File content (str or bytes)
+        """
+        if isinstance(content, str):
+            content = content.encode()
+        await self.get_fs()._pipe_file(path, content)
+
+    async def get_file_content(self, path: str) -> bytes:
+        """Get file content from the filesystem.
+
+        Args:
+            path: Path in the filesystem
+
+        Returns:
+            File content as bytes
+        """
+        return await self.get_fs()._cat_file(path)
+
     @abstractmethod
     def stream_code(self, code: str) -> AsyncIterator[ExecutionEvent]:
         """Execute code and stream events (required).

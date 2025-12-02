@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any
 import uuid
 
+from fsspec.implementations.asyn_wrapper import AsyncFileSystemWrapper
 from fsspec.implementations.memory import MemoryFileSystem
 
 from anyenv.code_execution.base import ExecutionEnvironment
@@ -191,7 +192,8 @@ class MockExecutionEnvironment(ExecutionEnvironment):
             stderr="",
             exit_code=0,
         )
-        self._fs = MemoryFileSystem()
+        self._sync_fs = MemoryFileSystem()
+        self._fs = AsyncFileSystemWrapper(self._sync_fs)
         self._process_manager = MockProcessManager(
             default_output=default_process_output,
             command_outputs=process_outputs,
@@ -203,8 +205,8 @@ class MockExecutionEnvironment(ExecutionEnvironment):
         return self._process_manager
 
     def get_fs(self) -> AsyncFileSystem:
-        """Return the memory filesystem."""
-        return self._fs  # type: ignore[return-value]
+        """Return the async-wrapped memory filesystem."""
+        return self._fs
 
     async def execute(self, code: str) -> ExecutionResult:
         """Execute code and return mock result."""
@@ -247,25 +249,3 @@ class MockExecutionEnvironment(ExecutionEnvironment):
             exit_code=result.exit_code or (0 if result.success else 1),
             duration=result.duration,
         )
-
-    def set_file_content(self, path: str, content: str | bytes) -> None:
-        """Helper to set file content in memory filesystem.
-
-        Args:
-            path: Path in the memory filesystem
-            content: File content (str or bytes)
-        """
-        if isinstance(content, str):
-            content = content.encode()
-        self._fs.pipe_file(path, content)
-
-    def get_file_content(self, path: str) -> bytes:
-        """Helper to get file content from memory filesystem.
-
-        Args:
-            path: Path in the memory filesystem
-
-        Returns:
-            File content as bytes
-        """
-        return self._fs.cat_file(path)
