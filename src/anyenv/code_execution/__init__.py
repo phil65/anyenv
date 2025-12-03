@@ -11,7 +11,6 @@ from anyenv.code_execution.mock_provider import MockExecutionEnvironment, MockPr
 from anyenv.code_execution.daytona_provider import DaytonaExecutionEnvironment
 from anyenv.code_execution.docker_provider import DockerExecutionEnvironment
 from anyenv.code_execution.local_provider import LocalExecutionEnvironment
-from anyenv.code_execution.mcp_python_provider import McpPythonExecutionEnvironment
 from anyenv.code_execution.e2b_provider import E2bExecutionEnvironment
 from anyenv.code_execution.srt_provider import SRTExecutionEnvironment, SandboxConfig
 from anyenv.code_execution.microsandbox_provider import MicrosandboxExecutionEnvironment
@@ -41,7 +40,6 @@ ExecutionEnvironmentStr = Literal[
     "local",
     "docker",
     "ssh",
-    "mcp",
     "daytona",
     "e2b",
     "beam",
@@ -91,17 +89,6 @@ def get_environment(
     cwd: str | None = None,
     **ssh_kwargs: Any,
 ) -> SshExecutionEnvironment: ...
-
-
-@overload
-def get_environment(
-    provider: Literal["mcp"],
-    *,
-    lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
-    dependencies: list[str] | None = None,
-    allow_networking: bool = True,
-    timeout: float = 30.0,
-) -> McpPythonExecutionEnvironment: ...
 
 
 @overload
@@ -261,8 +248,6 @@ def get_environment(  # noqa: PLR0911
             return DockerExecutionEnvironment(**kwargs)
         case "ssh":
             return SshExecutionEnvironment(**kwargs)
-        case "mcp":
-            return McpPythonExecutionEnvironment(**kwargs)
         case "daytona":
             return DaytonaExecutionEnvironment(**kwargs)
         case "e2b":
@@ -289,7 +274,6 @@ __all__ = [
     "ExecutionEnvironment",
     "ExecutionResult",
     "LocalExecutionEnvironment",
-    "McpPythonExecutionEnvironment",
     "MicrosandboxExecutionEnvironment",
     "MockExecutionEnvironment",
     "MockProcessManager",

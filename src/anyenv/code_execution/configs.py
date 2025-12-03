@@ -18,7 +18,6 @@ if TYPE_CHECKING:
     from anyenv.code_execution.docker_provider import DockerExecutionEnvironment
     from anyenv.code_execution.e2b_provider import E2bExecutionEnvironment
     from anyenv.code_execution.local_provider import LocalExecutionEnvironment
-    from anyenv.code_execution.mcp_python_provider import McpPythonExecutionEnvironment
     from anyenv.code_execution.models import ServerInfo
     from anyenv.code_execution.srt_provider import SRTExecutionEnvironment
 
@@ -275,33 +274,6 @@ class DaytonaExecutionEnvironmentConfig(BaseExecutionEnvironmentConfig):
         )
 
 
-class McpPythonExecutionEnvironmentConfig(BaseExecutionEnvironmentConfig):
-    """MCP Python execution environment configuration.
-
-    Executes Python code with Model Context Protocol support for AI integrations.
-    """
-
-    type: Literal["mcp_python"] = Field("mcp_python", init=False)
-
-    allow_networking: bool = Field(default=True, title="Allow Networking")
-    """Allow network access."""
-
-    def get_provider(
-        self, lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None
-    ) -> McpPythonExecutionEnvironment:
-        """Create MCP Python execution environment instance."""
-        from anyenv.code_execution.mcp_python_provider import (
-            McpPythonExecutionEnvironment,
-        )
-
-        return McpPythonExecutionEnvironment(
-            lifespan_handler=lifespan_handler,
-            dependencies=self.dependencies,
-            allow_networking=self.allow_networking,
-            timeout=self.timeout,
-        )
-
-
 class SRTExecutionEnvironmentConfig(BaseExecutionEnvironmentConfig):
     """Sandboxed execution environment using Anthropic's sandbox-runtime.
 
@@ -351,7 +323,6 @@ ExecutionEnvironmentConfig = Annotated[
     | E2bExecutionEnvironmentConfig
     | BeamExecutionEnvironmentConfig
     | DaytonaExecutionEnvironmentConfig
-    | McpPythonExecutionEnvironmentConfig
     | SRTExecutionEnvironmentConfig,
     Field(discriminator="type"),
 ]
