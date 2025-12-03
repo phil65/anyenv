@@ -11,6 +11,7 @@ from anyenv.code_execution.mock_provider import MockExecutionEnvironment, MockPr
 from anyenv.code_execution.daytona_provider import DaytonaExecutionEnvironment
 from anyenv.code_execution.docker_provider import DockerExecutionEnvironment
 from anyenv.code_execution.local_provider import LocalExecutionEnvironment
+from anyenv.code_execution.pyodide_provider import PyodideExecutionEnvironment
 from anyenv.code_execution.e2b_provider import E2bExecutionEnvironment
 from anyenv.code_execution.srt_provider import SRTExecutionEnvironment, SandboxConfig
 from anyenv.code_execution.microsandbox_provider import MicrosandboxExecutionEnvironment
@@ -47,6 +48,7 @@ ExecutionEnvironmentStr = Literal[
     "microsandbox",
     "modal",
     "srt",
+    "pyodide",
 ]
 
 
@@ -194,6 +196,24 @@ def get_environment(
 ) -> SRTExecutionEnvironment: ...
 
 
+@overload
+def get_environment(
+    provider: Literal["pyodide"],
+    *,
+    lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
+    dependencies: list[str] | None = None,
+    timeout: float = 30.0,
+    startup_timeout: float = 60.0,
+    allow_net: bool | list[str] = True,
+    allow_read: bool | list[str] = False,
+    allow_write: bool | list[str] = False,
+    allow_env: bool | list[str] = False,
+    allow_run: bool | list[str] = False,
+    allow_ffi: bool | list[str] = False,
+    deno_executable: str | None = None,
+) -> PyodideExecutionEnvironment: ...
+
+
 def get_environment(  # noqa: PLR0911
     provider: ExecutionEnvironmentStr,
     **kwargs: Any,
@@ -262,6 +282,8 @@ def get_environment(  # noqa: PLR0911
             return ModalExecutionEnvironment(**kwargs)
         case "srt":
             return SRTExecutionEnvironment(**kwargs)
+        case "pyodide":
+            return PyodideExecutionEnvironment(**kwargs)
         case _ as unreachable:
             assert_never(unreachable)
 
@@ -278,6 +300,7 @@ __all__ = [
     "MockExecutionEnvironment",
     "MockProcessManager",
     "ModalExecutionEnvironment",
+    "PyodideExecutionEnvironment",
     "SRTExecutionEnvironment",
     "SandboxConfig",
     "ServerInfo",
