@@ -16,6 +16,8 @@ from anyenv.code_execution.srt_provider.config import SandboxConfig
 if TYPE_CHECKING:
     from contextlib import AbstractAsyncContextManager
 
+    from upathtools.filesystems.sandbox_filesystems import SRTFS
+
     from anyenv.code_execution.models import Language, ServerInfo
 
 
@@ -63,10 +65,26 @@ class SRTExecutionEnvironment(LocalExecutionEnvironment):
         self._settings_file = self._create_settings_file()
         atexit.register(self._cleanup_settings_file)
 
+    def get_fs(self) -> SRTFS:
+        """Get sandboxed filesystem."""
+        from upathtools.filesystems.sandbox_filesystems import SRTFS
+
+        return SRTFS(
+            allowed_domains=self.sandbox_config.allowed_domains,
+            denied_domains=self.sandbox_config.denied_domains,
+            allow_unix_sockets=self.sandbox_config.allow_unix_sockets,
+            allow_all_unix_sockets=self.sandbox_config.allow_all_unix_sockets,
+            allow_local_binding=self.sandbox_config.allow_local_binding,
+            deny_read=self.sandbox_config.deny_read,
+            allow_write=self.sandbox_config.allow_write,
+            deny_write=self.sandbox_config.deny_write,
+            timeout=self.timeout,
+        )
+
     def _create_settings_file(self) -> Path:
         """Create temporary srt settings file."""
         settings = self.sandbox_config.to_srt_settings()
-        fd, path = tempfile.mkstemp(suffix=".json", prefix="srt-settings-")
+        _fd, path = tempfile.mkstemp(suffix=".json", prefix="srt-settings-")
         path = Path(path)
         path.write_text(json.dumps(settings, indent=2))
         return path
