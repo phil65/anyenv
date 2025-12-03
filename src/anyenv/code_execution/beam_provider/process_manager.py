@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from beam import SandboxInstance
+    from beta9 import SandboxProcess
 
 
 logger = get_logger(__name__)
@@ -28,7 +29,7 @@ logger = get_logger(__name__)
 class BeamTerminal(BaseTerminal):
     """Represents a terminal session using Beam's process management."""
 
-    _process: Any = None  # SandboxProcess
+    _process: SandboxProcess | None = None
     _task: asyncio.Task[Any] | None = None
 
     def is_running(self) -> bool:
