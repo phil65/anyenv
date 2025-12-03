@@ -30,3 +30,4 @@ junit.xml
 uv.lock
 # DiskCache cache file
 ./model_cache
+node_modules/
