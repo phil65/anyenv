@@ -102,12 +102,13 @@ class PyodideFS(AsyncFileSystem):
             content = base64.b64decode(result["content"])
             if start is not None or end is not None:
                 return content[start:end]
-            return content
         except RuntimeError as e:
             if "No such file or directory" in str(e) or "FileNotFoundError" in str(e):
                 msg = f"File not found: {path}"
                 raise FileNotFoundError(msg) from e
             raise
+        else:
+            return content
 
     async def _pipe_file(
         self,

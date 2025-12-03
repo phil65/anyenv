@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 import shutil
 import time
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Any, Self
 
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.events import (

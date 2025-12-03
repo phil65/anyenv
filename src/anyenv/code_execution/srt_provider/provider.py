@@ -84,8 +84,8 @@ class SRTExecutionEnvironment(LocalExecutionEnvironment):
     def _create_settings_file(self) -> Path:
         """Create temporary srt settings file."""
         settings = self.sandbox_config.to_srt_settings()
-        _fd, path = tempfile.mkstemp(suffix=".json", prefix="srt-settings-")
-        path = Path(path)
+        _fd, path_str = tempfile.mkstemp(suffix=".json", prefix="srt-settings-")
+        path = Path(path_str)
         path.write_text(json.dumps(settings, indent=2))
         return path
 
