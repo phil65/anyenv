@@ -13,6 +13,7 @@ from anyenv.code_execution.docker_provider import DockerExecutionEnvironment
 from anyenv.code_execution.local_provider import LocalExecutionEnvironment
 from anyenv.code_execution.mcp_python_provider import McpPythonExecutionEnvironment
 from anyenv.code_execution.e2b_provider import E2bExecutionEnvironment
+from anyenv.code_execution.srt_provider import SRTExecutionEnvironment, SandboxConfig
 from anyenv.code_execution.microsandbox_provider import MicrosandboxExecutionEnvironment
 from anyenv.code_execution.modal_provider import ModalExecutionEnvironment
 from anyenv.code_execution.vercel_provider import (
@@ -47,6 +48,7 @@ ExecutionEnvironmentStr = Literal[
     "vercel",
     "microsandbox",
     "modal",
+    "srt",
 ]
 
 
@@ -192,6 +194,19 @@ def get_environment(
 ) -> ModalExecutionEnvironment: ...
 
 
+@overload
+def get_environment(
+    provider: Literal["srt"],
+    *,
+    lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None,
+    sandbox_config: SandboxConfig | None = None,
+    dependencies: list[str] | None = None,
+    timeout: float = 30.0,
+    executable: str | None = None,
+    language: Language = "python",
+) -> SRTExecutionEnvironment: ...
+
+
 def get_environment(  # noqa: PLR0911
     provider: ExecutionEnvironmentStr,
     **kwargs: Any,
@@ -260,6 +275,8 @@ def get_environment(  # noqa: PLR0911
             return MicrosandboxExecutionEnvironment(**kwargs)
         case "modal":
             return ModalExecutionEnvironment(**kwargs)
+        case "srt":
+            return SRTExecutionEnvironment(**kwargs)
         case _ as unreachable:
             assert_never(unreachable)
 
@@ -277,6 +294,8 @@ __all__ = [
     "MockExecutionEnvironment",
     "MockProcessManager",
     "ModalExecutionEnvironment",
+    "SRTExecutionEnvironment",
+    "SandboxConfig",
     "ServerInfo",
     "SshExecutionEnvironment",
     "VercelExecutionEnvironment",

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 from anyenv.code_execution.models import Language
+from anyenv.code_execution.srt_provider.config import SandboxConfig
 
 
 if TYPE_CHECKING:
@@ -19,6 +20,7 @@ if TYPE_CHECKING:
     from anyenv.code_execution.local_provider import LocalExecutionEnvironment
     from anyenv.code_execution.mcp_python_provider import McpPythonExecutionEnvironment
     from anyenv.code_execution.models import ServerInfo
+    from anyenv.code_execution.srt_provider import SRTExecutionEnvironment
 
 
 class BaseExecutionEnvironmentConfig(BaseModel):
@@ -300,6 +302,48 @@ class McpPythonExecutionEnvironmentConfig(BaseExecutionEnvironmentConfig):
         )
 
 
+class SRTExecutionEnvironmentConfig(BaseExecutionEnvironmentConfig):
+    """Sandboxed execution environment using Anthropic's sandbox-runtime.
+
+    Executes code locally with OS-level sandboxing for network and filesystem restrictions.
+    Requires `srt` CLI: `npm install -g @anthropic-ai/sandbox-runtime`
+    """
+
+    type: Literal["srt"] = Field("srt", init=False)
+
+    language: Language = Field(
+        default="python",
+        title="Programming Language",
+        examples=["python", "javascript", "typescript"],
+    )
+    """Programming language to use."""
+
+    executable: str | None = Field(
+        default=None,
+        title="Executable",
+        examples=["/usr/bin/python3", "python3.13"],
+    )
+    """Executable to use (auto-detect if None)."""
+
+    sandbox: SandboxConfig = Field(default_factory=SandboxConfig)
+    """Sandbox restrictions configuration."""
+
+    def get_provider(
+        self, lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None
+    ) -> SRTExecutionEnvironment:
+        """Create sandboxed execution environment instance."""
+        from anyenv.code_execution.srt_provider import SRTExecutionEnvironment
+
+        return SRTExecutionEnvironment(
+            sandbox_config=self.sandbox,
+            lifespan_handler=lifespan_handler,
+            dependencies=self.dependencies,
+            timeout=self.timeout,
+            executable=self.executable,
+            language=self.language,
+        )
+
+
 # Union type for all execution environment configurations
 ExecutionEnvironmentConfig = Annotated[
     LocalExecutionEnvironmentConfig
@@ -307,6 +351,7 @@ ExecutionEnvironmentConfig = Annotated[
     | E2bExecutionEnvironmentConfig
     | BeamExecutionEnvironmentConfig
     | DaytonaExecutionEnvironmentConfig
-    | McpPythonExecutionEnvironmentConfig,
+    | McpPythonExecutionEnvironmentConfig
+    | SRTExecutionEnvironmentConfig,
     Field(discriminator="type"),
 ]

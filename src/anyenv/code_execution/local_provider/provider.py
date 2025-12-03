@@ -226,9 +226,24 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
             case _:
                 return [self.executable]
 
+    def wrap_command(self, command: str) -> str:
+        """Wrap a shell command before execution.
+
+        Subclasses can override to add sandboxing, containers, etc.
+        Default implementation returns command unchanged.
+
+        Args:
+            command: Shell command to wrap
+
+        Returns:
+            Wrapped command string
+        """
+        return command
+
     async def execute_command(self, command: str) -> ExecutionResult:
         """Execute a shell command and return result with metadata."""
         start_time = time.time()
+        command = self.wrap_command(command)
 
         try:
             process = await create_shell_process(command, stdout="pipe", stderr="pipe")
@@ -406,6 +421,7 @@ class LocalExecutionEnvironment(ExecutionEnvironment):
 
     async def stream_command(self, command: str) -> AsyncIterator[ExecutionEvent]:
         """Execute a shell command and stream events."""
+        command = self.wrap_command(command)
         process_id = f"local_cmd_{id(self)}"
         yield ProcessStartedEvent(process_id=process_id, command=command)
         try:
