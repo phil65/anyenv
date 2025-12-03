@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import contextlib
 import json
 from pathlib import Path
 import shutil
@@ -160,7 +161,7 @@ class PyodideExecutionEnvironment(ExecutionEnvironment):
             ready_msg = json.loads(ready_line)
             if not ready_msg.get("ready"):
                 msg = f"Unexpected startup message: {ready_msg}"
-                raise RuntimeError(msg)
+                raise RuntimeError(msg)  # noqa: TRY301
         except TimeoutError as e:
             await self._kill_process()
             msg = f"Pyodide initialization timed out after {self.startup_timeout}s"
@@ -183,14 +184,11 @@ class PyodideExecutionEnvironment(ExecutionEnvironment):
     ) -> None:
         """Shutdown the Deno/Pyodide server."""
         if self._process and self._process.returncode is None:
-            try:
-                # Graceful shutdown
+            with contextlib.suppress(Exception):
                 await asyncio.wait_for(
                     self._send_request("shutdown", {}),
                     timeout=5.0,
                 )
-            except Exception:  # noqa: BLE001
-                pass
             await self._kill_process()
 
         await super().__aexit__(exc_type, exc_val, exc_tb)
@@ -262,7 +260,7 @@ class PyodideExecutionEnvironment(ExecutionEnvironment):
         self,
         method: str,
         params: dict,
-    ) -> AsyncIterator[dict]:
+    ) -> AsyncIterator[dict[str, Any]]:
         """Send a streaming request and yield events."""
         async with self._lock:
             if not self._process or not self._process.stdin:
@@ -495,7 +493,7 @@ class PyodideFS(AsyncFileSystem):
 
     async def _fs_request(self, method: str, params: dict) -> Any:
         """Send a filesystem request to the Pyodide server."""
-        return await self._env._send_request(method, params)
+        return await self._env._send_request(method, params)  # noqa: SLF001
 
     @overload
     async def _ls(
@@ -544,12 +542,13 @@ class PyodideFS(AsyncFileSystem):
             content = base64.b64decode(result["content"])
             if start is not None or end is not None:
                 return content[start:end]
-            return content
         except RuntimeError as e:
             if "No such file or directory" in str(e) or "FileNotFoundError" in str(e):
                 msg = f"File not found: {path}"
                 raise FileNotFoundError(msg) from e
             raise
+        else:
+            return content
 
     async def _pipe_file(
         self,

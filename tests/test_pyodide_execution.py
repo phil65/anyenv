@@ -22,7 +22,7 @@ async def test_pyodide_simple_execution():
         result = await env.execute(code)
 
     assert result.success is True
-    assert result.result == 5
+    assert result.result == 5  # noqa: PLR2004
     assert result.duration >= 0
     assert result.error is None
 
@@ -49,7 +49,7 @@ async def test_pyodide_execution_state_persistence():
         # Second execution - use the variable
         result2 = await env.execute("x * 2")
         assert result2.success is True
-        assert result2.result == 84
+        assert result2.result == 84  # noqa: PLR2004
 
 
 async def test_pyodide_execution_error_handling():
@@ -102,9 +102,9 @@ int(x.sum())
     assert result.success is True
     # Pyodide may convert numpy scalars to dicts, so extract value if needed
     if isinstance(result.result, dict):
-        assert 6 in result.result.values()
+        assert 6 in result.result.values()  # noqa: PLR2004
     else:
-        assert result.result == 6
+        assert result.result == 6  # noqa: PLR2004
 
 
 async def test_pyodide_streaming_execution():
@@ -117,10 +117,10 @@ for i in range(3):
 
     async with PyodideExecutionEnvironment() as env:
         async for event in env.stream_code(code):
-            events.append(event)
+            events.append(event)  # noqa: PERF401
 
     # Should have at least started + some output + completed
-    assert len(events) >= 2
+    assert len(events) >= 2  # noqa: PLR2004
 
     event_types = [e.event_type for e in events]
     assert "started" in event_types
@@ -185,10 +185,10 @@ async def test_pyodide_fs_write_and_read():
 
         # Write a file
         test_content = b"Hello from PyodideFS!"
-        await fs._pipe_file("/tmp/test_file.txt", test_content)
+        await fs._pipe_file("/tmp/test_file.txt", test_content)  # noqa: SLF001
 
         # Read it back
-        content = await fs._cat_file("/tmp/test_file.txt")
+        content = await fs._cat_file("/tmp/test_file.txt")  # noqa: SLF001
         assert content == test_content
 
 
@@ -198,14 +198,14 @@ async def test_pyodide_fs_mkdir_and_ls():
         fs = env.get_fs()
 
         # Create directory
-        await fs._mkdir("/tmp/test_dir")
+        await fs._mkdir("/tmp/test_dir")  # noqa: SLF001
 
         # Write some files
-        await fs._pipe_file("/tmp/test_dir/file1.txt", b"content1")
-        await fs._pipe_file("/tmp/test_dir/file2.txt", b"content2")
+        await fs._pipe_file("/tmp/test_dir/file1.txt", b"content1")  # noqa: SLF001
+        await fs._pipe_file("/tmp/test_dir/file2.txt", b"content2")  # noqa: SLF001
 
         # List directory
-        entries = await fs._ls("/tmp/test_dir", detail=True)
+        entries = await fs._ls("/tmp/test_dir", detail=True)  # noqa: SLF001
         names = [e["name"] for e in entries]
 
         assert any("file1.txt" in n for n in names)
@@ -218,13 +218,13 @@ async def test_pyodide_fs_exists():
         fs = env.get_fs()
 
         # File shouldn't exist yet
-        assert not await fs._exists("/tmp/nonexistent_file.txt")
+        assert not await fs._exists("/tmp/nonexistent_file.txt")  # noqa: SLF001
 
         # Create it
-        await fs._pipe_file("/tmp/exists_test.txt", b"test")
+        await fs._pipe_file("/tmp/exists_test.txt", b"test")  # noqa: SLF001
 
         # Now it should exist
-        assert await fs._exists("/tmp/exists_test.txt")
+        assert await fs._exists("/tmp/exists_test.txt")  # noqa: SLF001
 
 
 async def test_pyodide_fs_info():
@@ -234,10 +234,10 @@ async def test_pyodide_fs_info():
 
         # Write a file with known content
         content = b"12345"
-        await fs._pipe_file("/tmp/info_test.txt", content)
+        await fs._pipe_file("/tmp/info_test.txt", content)  # noqa: SLF001
 
         # Get info
-        info = await fs._info("/tmp/info_test.txt")
+        info = await fs._info("/tmp/info_test.txt")  # noqa: SLF001
         assert info["type"] == "file"
         assert info["size"] == len(content)
 
@@ -248,14 +248,14 @@ async def test_pyodide_fs_rm():
         fs = env.get_fs()
 
         # Create and verify
-        await fs._pipe_file("/tmp/to_delete.txt", b"delete me")
-        assert await fs._exists("/tmp/to_delete.txt")
+        await fs._pipe_file("/tmp/to_delete.txt", b"delete me")  # noqa: SLF001
+        assert await fs._exists("/tmp/to_delete.txt")  # noqa: SLF001
 
         # Delete
-        await fs._rm_file("/tmp/to_delete.txt")
+        await fs._rm_file("/tmp/to_delete.txt")  # noqa: SLF001
 
         # Verify deleted
-        assert not await fs._exists("/tmp/to_delete.txt")
+        assert not await fs._exists("/tmp/to_delete.txt")  # noqa: SLF001
 
 
 async def test_pyodide_fs_isfile_isdir():
@@ -264,14 +264,14 @@ async def test_pyodide_fs_isfile_isdir():
         fs = env.get_fs()
 
         # Create a file and directory
-        await fs._mkdir("/tmp/is_dir_test")
-        await fs._pipe_file("/tmp/is_file_test.txt", b"test")
+        await fs._mkdir("/tmp/is_dir_test")  # noqa: SLF001
+        await fs._pipe_file("/tmp/is_file_test.txt", b"test")  # noqa: SLF001
 
         # Check types
-        assert await fs._isdir("/tmp/is_dir_test")
-        assert not await fs._isfile("/tmp/is_dir_test")
-        assert await fs._isfile("/tmp/is_file_test.txt")
-        assert not await fs._isdir("/tmp/is_file_test.txt")
+        assert await fs._isdir("/tmp/is_dir_test")  # noqa: SLF001
+        assert not await fs._isfile("/tmp/is_dir_test")  # noqa: SLF001
+        assert await fs._isfile("/tmp/is_file_test.txt")  # noqa: SLF001
+        assert not await fs._isdir("/tmp/is_file_test.txt")  # noqa: SLF001
 
 
 async def test_pyodide_fs_integration_with_code():
@@ -280,7 +280,7 @@ async def test_pyodide_fs_integration_with_code():
         fs = env.get_fs()
 
         # Write a file via filesystem
-        await fs._pipe_file("/tmp/from_fs.txt", b"Written via PyodideFS")
+        await fs._pipe_file("/tmp/from_fs.txt", b"Written via PyodideFS")  # noqa: SLF001
 
         # Read it via executed code (need to return the value explicitly)
         result = await env.execute("""
@@ -308,7 +308,7 @@ with open('/tmp/from_code.txt', 'w') as f:
         assert result.success is True
 
         # Read via filesystem
-        content = await fs._cat_file("/tmp/from_code.txt")
+        content = await fs._cat_file("/tmp/from_code.txt")  # noqa: SLF001
         assert content == b"Written via Python code"
 
 

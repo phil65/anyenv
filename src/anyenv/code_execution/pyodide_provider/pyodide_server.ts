@@ -1,4 +1,12 @@
-/// <reference lib="deno.ns" />
+// Deno runtime type declarations (for IDE support when not using Deno's TS)
+declare const Deno: {
+  stdin: {
+    readable: ReadableStream<Uint8Array>;
+  };
+  exit(code: number): never;
+};
+
+declare const globalThis: Record<string, unknown>;
 
 /**
  * Pyodide Server - JSON-RPC bridge over stdin/stdout
@@ -26,6 +34,7 @@
  * - fs_exists: Check if path exists
  */
 
+// @ts-ignore: npm: specifier is Deno-specific
 import { loadPyodide, type PyodideInterface } from "npm:pyodide@0.27.5";
 
 // Types
@@ -480,7 +489,7 @@ async function execute(code: string): Promise<ExecuteResult> {
  */
 async function* stream(
   code: string,
-  requestId: number
+  _requestId: number
 ): AsyncGenerator<StreamEvent> {
   if (!pyodide) throw new Error("Pyodide not initialized");
 
@@ -504,7 +513,7 @@ async function* stream(
     await autoInstallImports(code);
 
     // Execute the code
-    const result = await pyodide.runPythonAsync(code);
+    await pyodide.runPythonAsync(code);
 
     // Yield any buffered events
     for (const event of events) {
@@ -793,6 +802,7 @@ async function main(): Promise<void> {
 }
 
 // Run if main module
+// @ts-ignore: import.meta.main is Deno-specific
 if (import.meta.main) {
   main().catch((err) => {
     console.error(JSON.stringify({ fatal: true, error: String(err) }));
