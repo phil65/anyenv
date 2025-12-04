@@ -8,6 +8,7 @@ import os
 from typing import TYPE_CHECKING, Any, Unpack, assert_never
 
 from anyenv.download.http_types import SecretStr
+from anyenv.download.middleware import header_middlewares
 
 
 StrPath = str | os.PathLike[str]
@@ -156,9 +157,11 @@ async def request(
 
     http_backend = get_backend(backend, cache_dir=cache_dir, cache_ttl=cache_ttl)
 
+    # Apply header middlewares first
+    processed_headers = header_middlewares.apply(url, headers)
+
     # Apply authentication if api_key is provided
     processed_params = params
-    processed_headers = headers or {}
 
     if api_key is not None:
         key_value = api_key.get_secret_value() if isinstance(api_key, SecretStr) else api_key
