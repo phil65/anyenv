@@ -217,21 +217,16 @@ class AiohttpBackend(HttpBackend):
                             form.add_field(key, str(value))
 
                     # Add files
-                    for field_name, file_info in files.items():
+                    for fieldname, file_info in files.items():
                         match file_info:
                             case str() | bytes() as content:
-                                form.add_field(field_name, content)
+                                form.add_field(fieldname, content)
                             case (str() as filename, content):
-                                form.add_field(field_name, content, filename=filename)
-                            case (str() as filename, content, str() as content_type):
-                                form.add_field(
-                                    field_name,
-                                    content,
-                                    filename=filename,
-                                    content_type=content_type,
-                                )
+                                form.add_field(fieldname, content, filename=filename)
+                            case (str() as fname, content, str() as typ):
+                                form.add_field(fieldname, content, filename=fname, content_type=typ)
                             case _:
-                                msg = f"Invalid file specification for field {field_name!r}"
+                                msg = f"Invalid file specification for field {fieldname!r}"
                                 raise ValueError(msg)
                     data = form
 

@@ -172,14 +172,8 @@ class HttpxBackend(HttpBackend):
         if cache:
             storage = get_storage(cache_backend, self.cache_dir, self.cache_ttl)
             policy = get_cache_policy()
-
             # Create the cached client directly using hishel's AsyncCacheClient
-            return AsyncCacheClient(
-                storage=storage,
-                policy=policy,
-                headers=headers,
-                base_url=url,
-            )
+            return AsyncCacheClient(storage=storage, policy=policy, headers=headers, base_url=url)
         return httpx.AsyncClient(headers=headers, base_url=url)
 
     async def request(
@@ -281,11 +275,9 @@ if __name__ == "__main__":
     async def main() -> None:
         """Test the HTTPX backend."""
         backend = HttpxBackend()
-        await backend.download(
-            url="http://speedtest.tele2.net/10MB.zip",
-            path=Path.cwd() / "file.zip",
-            headers={"User-Agent": "anyenv"},
-        )
+        path = Path.cwd() / "file.zip"
+        url = "http://speedtest.tele2.net/10MB.zip"
+        await backend.download(url=url, path=path, headers={"User-Agent": "anyenv"})
 
     import anyio
 
