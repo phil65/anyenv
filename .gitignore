@@ -31,3 +31,6 @@ uv.lock
 # DiskCache cache file
 ./model_cache
 node_modules/
+
+# Stakpak session files
+.stakpak/session*
