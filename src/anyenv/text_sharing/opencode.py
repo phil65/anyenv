@@ -3,10 +3,15 @@
 from __future__ import annotations
 
 import json
+from typing import TYPE_CHECKING, Self
 
 import httpx
 
-from anyenv.text_sharing.base import ShareResult, TextSharer, Visibility
+from anyenv.text_sharing.base import ShareResult, TextSharer
+
+
+if TYPE_CHECKING:
+    from anyenv.text_sharing.base import Visibility
 
 
 class OpenCodeSharer(TextSharer):
@@ -99,10 +104,10 @@ class OpenCodeSharer(TextSharer):
             )
 
         except httpx.HTTPStatusError as e:
-            if e.response.status_code == 404:
+            if e.response.status_code == 404:  # noqa: PLR2004
                 msg = "OpenCode API endpoint not found - service may be unavailable"
                 raise RuntimeError(msg) from e
-            if e.response.status_code == 429:
+            if e.response.status_code == 429:  # noqa: PLR2004
                 msg = "Rate limited by OpenCode API"
                 raise RuntimeError(msg) from e
             msg = f"OpenCode API error (HTTP {e.response.status_code}): {e.response.text}"
@@ -130,15 +135,16 @@ class OpenCodeSharer(TextSharer):
                 json={"sessionID": session_id, "secret": secret},
             )
             response.raise_for_status()
-            return True
         except httpx.HTTPError:
             return False
+        else:
+            return True
 
     async def close(self) -> None:
         """Close the HTTP client."""
         await self._client.aclose()
 
-    async def __aenter__(self) -> OpenCodeSharer:
+    async def __aenter__(self) -> Self:
         return self
 
     async def __aexit__(self, *args: object) -> None:
