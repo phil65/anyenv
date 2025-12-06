@@ -6,11 +6,12 @@ from typing import Literal, assert_never, overload
 
 from anyenv.text_sharing.base import ShareResult, TextSharer, Visibility
 from anyenv.text_sharing.github_gist import GistSharer
+from anyenv.text_sharing.opencode import OpenCodeSharer
 from anyenv.text_sharing.paste_rs import PasteRsSharer
 from anyenv.text_sharing.pastebin import PastebinSharer
 
 
-TextSharerStr = Literal["gist", "pastebin", "paste_rs"]
+TextSharerStr = Literal["gist", "pastebin", "paste_rs", "opencode"]
 
 
 @overload
@@ -33,6 +34,14 @@ def get_sharer(
 def get_sharer(
     provider: Literal["paste_rs"],
 ) -> PasteRsSharer: ...
+
+
+@overload
+def get_sharer(
+    provider: Literal["opencode"],
+    *,
+    api_url: str | None = None,
+) -> OpenCodeSharer: ...
 
 
 def get_sharer(
@@ -64,6 +73,12 @@ def get_sharer(
 
         # paste.rs (no auth needed)
         sharer = get_sharer("paste_rs")
+
+        # OpenCode (no auth needed)
+        sharer = get_sharer("opencode")
+
+        # OpenCode with custom API URL
+        sharer = get_sharer("opencode", api_url="https://api.dev.opencode.ai")
         ```
     """
     match provider:
@@ -73,12 +88,15 @@ def get_sharer(
             return PastebinSharer(**kwargs)  # type: ignore[arg-type]
         case "paste_rs":
             return PasteRsSharer()
+        case "opencode":
+            return OpenCodeSharer(**kwargs)  # type: ignore[arg-type]
         case _ as unreachable:
             assert_never(unreachable)
 
 
 __all__ = [
     "GistSharer",
+    "OpenCodeSharer",
     "PasteRsSharer",
     "PastebinSharer",
     "ShareResult",
