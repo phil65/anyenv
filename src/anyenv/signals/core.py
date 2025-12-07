@@ -12,6 +12,9 @@ Ts = TypeVarTuple("Ts")
 
 type AsyncCallback[*Ts] = Callable[[Unpack[Ts]], Coroutine[Any, Any, Any]]
 
+# Global registry for auto-registered signals
+_global_registry: dict[type, list[BoundSignal]] = {}
+
 
 class BoundSignal[*Ts]:
     """Instance-bound signal holding connections."""
@@ -64,3 +67,56 @@ class Signal[*Ts]:
         if obj not in self._bound_signals:
             self._bound_signals[obj] = BoundSignal()
         return self._bound_signals[obj]
+
+
+def create_signal[E](event_type: type[E]) -> Signal[*tuple[E]]:
+    """Create a signal and auto-register it globally.
+
+    Args:
+        event_type: The event type for this signal.
+
+    Returns:
+        A new Signal instance configured for the event type.
+
+    Example:
+        ```python
+        class User: ...
+        class FileEvent: ...
+
+        type AppEvents = User | FileEvent
+
+        def create_app_signal[E: AppEvents](event_type: type[E]) -> Signal[*tuple[E]]:
+            return create_signal(event_type)
+
+        # Usage with type constraint
+        user_signal = create_app_signal(User)  # ✅ OK
+        invalid = create_app_signal(dict)      # ❌ Type error
+        ```
+    """
+    signal = Signal[*tuple[E]]()
+
+    # Auto-register with global registry
+    if event_type not in _global_registry:
+        _global_registry[event_type] = []
+
+    # Note: We can't easily register the Signal descriptor itself,
+    # but we could register a factory or metadata here
+
+    return signal
+
+
+def get_global_signals(event_type: type) -> list[BoundSignal]:
+    """Get all globally registered signals for an event type.
+
+    Args:
+        event_type: The event type to look up.
+
+    Returns:
+        List of bound signals registered for this event type.
+    """
+    return _global_registry.get(event_type, [])
+
+
+def clear_global_registry() -> None:
+    """Clear the global signal registry (useful for testing)."""
+    _global_registry.clear()

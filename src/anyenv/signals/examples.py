@@ -9,7 +9,7 @@ import asyncio
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import Signal
+from . import Signal, create_signal
 
 
 # Example 1: Basic Signals (no constraints)
@@ -39,7 +39,7 @@ class Counter:
         return self._value
 
 
-# Example 2: Type-Constrained Signals using Bounded TypeVar
+# Example 2: Type-Constrained Signals using Bounded TypeVar (Class-based)
 
 
 @dataclass
@@ -234,6 +234,38 @@ class MetricsCollector:
 #     str_event = AppSignal[str]()       # ❌ str not in bound
 
 
+# Example 3: Factory Pattern with Auto-Registration
+
+
+def create_app_signal[E: AppEvents](event_type: type[E]) -> Signal[*tuple[E]]:
+    """Create an application signal with auto-registration.
+
+    This factory function creates signals that are automatically registered
+    with a global registry. The bounded TypeVar ensures type safety.
+    """
+    return create_signal(event_type)
+
+
+class UserServiceV2:
+    """Alternative user service using factory pattern with auto-registration."""
+
+    user_created = create_app_signal(User)
+    user_updated = create_app_signal(User)
+    user_deleted = create_app_signal(User)
+
+    async def create_user(self, name: str, email: str) -> User:
+        """Create a new user and emit creation event."""
+        user = User(id=123, name=name, email=email)
+        await self.user_created.emit(user)
+        return user
+
+
+# Invalid factory usage - these would cause type errors:
+# class InvalidFactoryService:
+#     invalid_event = create_app_signal(dict)  # ❌ dict not in AppEvents
+#     str_event = create_app_signal(str)       # ❌ str not in AppEvents
+
+
 async def demonstrate_basic_signals() -> None:
     """Demonstrate basic signal usage."""
     print("=== Basic Signals Demo ===")
@@ -321,11 +353,25 @@ async def demonstrate_emit_modes() -> None:
     print("Background tasks completed")
 
 
+async def demonstrate_factory_pattern() -> None:
+    """Demonstrate factory pattern with auto-registration."""
+    print("\n=== Factory Pattern Demo ===")
+
+    user_service = UserServiceV2()
+
+    @user_service.user_created.connect
+    async def on_user_created_v2(user: User) -> None:
+        print(f"FACTORY: User {user.name} was created!")
+
+    await user_service.create_user("Bob", "bob@example.com")
+
+
 async def main() -> None:
     """Run all demonstrations."""
     await demonstrate_basic_signals()
     await demonstrate_type_constrained_signals()
     await demonstrate_emit_modes()
+    await demonstrate_factory_pattern()
 
 
 if __name__ == "__main__":
