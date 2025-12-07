@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, ClassVar, Literal
 
 
 if TYPE_CHECKING:
-    from fsspec.asyn import AsyncFileSystem
+    from fsspec.asyn import AsyncFileSystem  # type: ignore[import-untyped]
 
     from anyenv.code_execution import ExecutionEnvironment
 

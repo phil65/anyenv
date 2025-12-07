@@ -15,8 +15,10 @@ from anyenv.process_manager.process_manager import BaseTerminal
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from e2b import AsyncSandbox
-    from e2b.sandbox_async.commands.command_handle import AsyncCommandHandle
+    from e2b import AsyncSandbox  # type: ignore[import-untyped]
+    from e2b.sandbox_async.commands.command_handle import (  # type: ignore[import-untyped]
+        AsyncCommandHandle,
+    )
 
 
 logger = get_logger(__name__)

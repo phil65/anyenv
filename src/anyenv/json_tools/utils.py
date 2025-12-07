@@ -52,7 +52,7 @@ def prepare_numpy_arrays(data: Any) -> Any:
     if not numpy_available:
         return data
 
-    import numpy as np  # pyright: ignore
+    import numpy as np  # type: ignore[import-not-found]
 
     # Define a recursive conversion function
     def _convert(obj: Any) -> Any:  # noqa: PLR0911

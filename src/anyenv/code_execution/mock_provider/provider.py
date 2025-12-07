@@ -5,8 +5,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 import uuid
 
-from fsspec.implementations.asyn_wrapper import AsyncFileSystemWrapper
-from fsspec.implementations.memory import MemoryFileSystem
+from fsspec.implementations.asyn_wrapper import (  # type: ignore[import-untyped]
+    AsyncFileSystemWrapper,
+)
+from fsspec.implementations.memory import MemoryFileSystem  # type: ignore[import-untyped]
 
 from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.code_execution.events import (
@@ -21,7 +23,7 @@ from anyenv.code_execution.models import ExecutionResult
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
-    from fsspec.asyn import AsyncFileSystem
+    from fsspec.asyn import AsyncFileSystem  # type: ignore[import-untyped]
 
     from anyenv.code_execution.events import ExecutionEvent
     from anyenv.process_manager.models import ProcessOutput

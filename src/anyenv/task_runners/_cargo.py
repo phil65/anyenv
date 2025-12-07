@@ -11,7 +11,7 @@ from anyenv.task_runners._base import TaskInfo, TaskRunner
 
 
 if TYPE_CHECKING:
-    from fsspec.asyn import AsyncFileSystem
+    from fsspec.asyn import AsyncFileSystem  # type: ignore[import-untyped]
 
 _ALIAS_PATTERN = re.compile(r"^([a-zA-Z_][a-zA-Z0-9_-]*)\s*=\s*(.+)$")
 

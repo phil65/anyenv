@@ -193,7 +193,7 @@ class HttpBackend(abc.ABC):
             cache_ttl: Time-to-live for cached responses in seconds or as a
                         time period string (e.g. "1h", "2d", "1w 2d").
         """
-        from appdirs import user_cache_dir
+        from appdirs import user_cache_dir  # type: ignore[import-untyped]
 
         if isinstance(cache_ttl, str):
             from anyenv.parse_time import parse_time_period

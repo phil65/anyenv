@@ -18,8 +18,8 @@ from anyenv.process_manager.process_manager import BaseTerminal
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from beam import SandboxInstance
-    from beta9 import SandboxProcess
+    from beam import SandboxInstance  # type: ignore[import-untyped]
+    from beta9 import SandboxProcess  # type: ignore[import-untyped]
 
 
 logger = get_logger(__name__)

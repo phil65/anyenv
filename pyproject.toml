@@ -77,6 +77,7 @@ lint = [
   "mypy; python_version >= '3.14'",
   "mypy[faster-cache]; python_version < '3.14'",
   "ruff",
+  "types-Pygments",
   "types-pyyaml>=6.0.12.20250915",
   # Only add below (Copier)
 ]
@@ -108,7 +109,6 @@ docstring-style = "google"
 
 [tool.mypy]
 python_version = "3.13"
-disable_error_code = ["import"]
 pretty = true
 check_untyped_defs = true
 exclude = ["venv/", ".venv/", "tests/"]

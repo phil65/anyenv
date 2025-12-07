@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
     import os
 
-    from fsspec.asyn import AsyncFileSystem
+    from fsspec.asyn import AsyncFileSystem  # type: ignore[import-untyped]
 
 
 @dataclass

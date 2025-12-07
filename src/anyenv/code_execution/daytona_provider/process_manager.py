@@ -17,7 +17,7 @@ from anyenv.process_manager.process_manager import BaseTerminal
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from daytona._async.sandbox import AsyncSandbox
+    from daytona._async.sandbox import AsyncSandbox  # type: ignore[import-untyped]
 
 
 logger = get_logger(__name__)
@@ -80,7 +80,7 @@ class DaytonaTerminalManager(ProcessManagerProtocol):
 
         try:
             await self.sandbox.process.create_session(session_id)
-            from daytona.common.process import SessionExecuteRequest
+            from daytona.common.process import SessionExecuteRequest  # type: ignore[import-untyped]
 
             request = SessionExecuteRequest(command=full_command, runAsync=True)
             response = await self.sandbox.process.execute_session_command(session_id, request)

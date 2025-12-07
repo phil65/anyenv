@@ -10,7 +10,7 @@ class JSTransport(httpx.AsyncBaseTransport):
 
     async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
         """Handle an asynchronous HTTP request using the Pyodide fetch API."""
-        import js  # pyright: ignore
+        import js  # type: ignore[import-not-found]
 
         body = await request.aread()
         headers = dict(request.headers)

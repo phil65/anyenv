@@ -12,7 +12,7 @@ from anyenv.task_runners._base import TaskInfo, TaskRunner
 
 
 if TYPE_CHECKING:
-    from fsspec.asyn import AsyncFileSystem
+    from fsspec.asyn import AsyncFileSystem  # type: ignore[import-untyped]
 
 
 @dataclass

@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 from typing import TYPE_CHECKING, Any, Literal, overload
 
-from fsspec.asyn import AsyncFileSystem, sync_wrapper
+from fsspec.asyn import AsyncFileSystem, sync_wrapper  # type: ignore[import-untyped]
 
 
 if TYPE_CHECKING:

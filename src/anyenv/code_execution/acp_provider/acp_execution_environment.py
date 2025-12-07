@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from contextlib import AbstractAsyncContextManager
 
     from acp.acp_requests import ACPRequests
-    from fsspec.asyn import AsyncFileSystem
+    from fsspec.asyn import AsyncFileSystem  # type: ignore[import-untyped]
 
     from anyenv.code_execution.events import ExecutionEvent
     from anyenv.code_execution.models import ServerInfo

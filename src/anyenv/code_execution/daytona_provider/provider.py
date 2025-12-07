@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from contextlib import AbstractAsyncContextManager
     from types import TracebackType
 
-    from daytona._async.sandbox import AsyncSandbox
+    from daytona._async.sandbox import AsyncSandbox  # type: ignore[import-untyped]
     from upathtools.filesystems import DaytonaFS
 
     from anyenv.code_execution.events import ExecutionEvent
@@ -58,7 +58,7 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
             keep_alive: Keep sandbox running after execution
             language: Programming language to use for execution
         """
-        from daytona import AsyncDaytona, DaytonaConfig
+        from daytona import AsyncDaytona, DaytonaConfig  # type: ignore[import-untyped]
 
         super().__init__(lifespan_handler=lifespan_handler, dependencies=dependencies)
         self.image = image
@@ -78,7 +78,9 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
     async def __aenter__(self) -> Self:
         """Setup Daytona client and create sandbox."""
         await super().__aenter__()
-        from daytona.common.daytona import CreateSandboxFromImageParams
+        from daytona.common.daytona import (  # type: ignore[import-untyped]
+            CreateSandboxFromImageParams,
+        )
 
         language = convert_language(self.language)
         params = CreateSandboxFromImageParams(image=self.image, language=language)
