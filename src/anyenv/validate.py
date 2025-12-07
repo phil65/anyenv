@@ -42,7 +42,7 @@ def validate_json_data[T](data: Any, return_type: type[T] | None = None) -> T:  
 
     if return_type in simple_types and not hasattr(return_type, "__origin__"):
         if isinstance(data, return_type):
-            return cast(T, data)
+            return data
         error_msg = f"Expected {return_type.__name__}, got {type(data).__name__}"
         raise TypeError(error_msg)
 

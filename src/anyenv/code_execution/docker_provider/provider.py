@@ -326,7 +326,7 @@ def get_execution_command(language: Language) -> str:
 if __name__ == "__main__":
     import asyncio
 
-    async def main():
+    async def main() -> None:
         """Example."""
         async with DockerExecutionEnvironment() as provider:
             await provider.execute_command("mkdir test")

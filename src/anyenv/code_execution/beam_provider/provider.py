@@ -238,7 +238,7 @@ class BeamExecutionEnvironment(ExecutionEnvironment):
 if __name__ == "__main__":
     import asyncio
 
-    async def main():
+    async def main() -> None:
         """Example."""
         async with BeamExecutionEnvironment() as provider:
             result = await provider.execute("""

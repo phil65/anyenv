@@ -470,7 +470,7 @@ if __name__ == "__main__":
 
     provider = LocalExecutionEnvironment()
 
-    async def main():
+    async def main() -> None:
         """Example."""
         async for line in provider.execute_command_stream("ls -l"):
             print(line)

@@ -167,9 +167,9 @@ class AsyncExecutor[**P, T]:
         if isinstance(event_types, types.UnionType):
             # Python 3.10+ union syntax: X | Y
             type_tuple = event_types.__args__
-        elif get_origin(event_types) is Union:  # type: ignore[arg-type]
+        elif get_origin(event_types) is Union:
             # typing.Union syntax: Union[X, Y]
-            type_tuple = get_args(event_types)  # type: ignore[assignment]
+            type_tuple = get_args(event_types)
         else:
             # Single type
             type_tuple = (event_types,)
@@ -347,7 +347,7 @@ class AsyncIteratorExecutor[**P, T]:
                     raise item
                 return item  # pyright: ignore[reportReturnType]
 
-        return LazyAsyncIterator(lambda: self(*args, **kwargs))  # type: ignore[return-value]
+        return LazyAsyncIterator(lambda: self(*args, **kwargs))
 
     def task(self, *args: P.args, **kwargs: P.kwargs) -> asyncio.Task[list[T]]:
         """Create a Task that collects all values into a list."""
@@ -455,9 +455,9 @@ class AsyncIteratorExecutor[**P, T]:
         if isinstance(event_types, types.UnionType):
             # Python 3.10+ union syntax: X | Y
             type_tuple = event_types.__args__
-        elif get_origin(event_types) is Union:  # type: ignore[arg-type]
+        elif get_origin(event_types) is Union:
             # typing.Union syntax: Union[X, Y]
-            type_tuple = get_args(event_types)  # type: ignore[assignment]
+            type_tuple = get_args(event_types)
         else:
             # Single type
             type_tuple = (event_types,)

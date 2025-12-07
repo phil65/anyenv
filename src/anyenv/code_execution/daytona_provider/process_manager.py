@@ -144,7 +144,7 @@ class DaytonaTerminalManager(ProcessManagerProtocol):
 
         return ProcessOutput(stdout=output, stderr="", combined=output, exit_code=exit_code)
 
-    def get_terminal(self, terminal_id: str):
+    def get_terminal(self, terminal_id: str) -> DaytonaTerminal:
         """Get terminal by ID."""
         if terminal_id not in self._terminals:
             msg = f"Process {terminal_id} not found"

@@ -170,7 +170,7 @@ class E2BTerminalManager(ProcessManagerProtocol):
     #         for terminal_id in self._terminals
     #     }
 
-    def get_terminal(self, terminal_id: str):
+    def get_terminal(self, terminal_id: str) -> E2BTerminal:
         """Get terminal by ID."""
         if terminal_id not in self._terminals:
             msg = f"Process {terminal_id} not found"
