@@ -252,7 +252,7 @@ class PyodideExecutionEnvironment(ExecutionEnvironment):
                 msg = f"{error.get('type', 'Error')}: {error.get('message', 'Unknown')}"
                 raise RuntimeError(msg)
 
-            return response.get("result", {})
+            return response.get("result", {})  # type: ignore[no-any-return]
 
     async def _stream_request(
         self,

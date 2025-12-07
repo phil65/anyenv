@@ -23,7 +23,17 @@ class PyodideFileInfo(TypedDict):
     mtime: float | None
 
 
-class PyodideFS(AsyncFileSystem):
+def _to_file_info(data: dict[str, Any]) -> PyodideFileInfo:
+    """Convert a dict to PyodideFileInfo."""
+    return PyodideFileInfo(
+        name=data["name"],
+        size=data["size"],
+        type=data["type"],
+        mtime=data.get("mtime"),
+    )
+
+
+class PyodideFS(AsyncFileSystem):  # type: ignore[misc]
     """Async filesystem for Pyodide environments.
 
     This filesystem provides access to files within the Pyodide WASM environment's
@@ -81,7 +91,7 @@ class PyodideFS(AsyncFileSystem):
         try:
             entries = await self._fs_request("fs_ls", {"path": path})
             if detail:
-                return [PyodideFileInfo(e) for e in entries]
+                return [_to_file_info(e) for e in entries]
             return [e["name"] for e in entries]
         except RuntimeError as e:
             if "No such file or directory" in str(e) or "FileNotFoundError" in str(e):
@@ -159,13 +169,14 @@ class PyodideFS(AsyncFileSystem):
 
     async def _exists(self, path: str, **kwargs: Any) -> bool:
         """Check if path exists."""
-        return await self._fs_request("fs_exists", {"path": path})
+        result = await self._fs_request("fs_exists", {"path": path})
+        return bool(result)
 
     async def _info(self, path: str, **kwargs: Any) -> PyodideFileInfo:
         """Get file/directory info."""
         try:
             result = await self._fs_request("fs_stat", {"path": path})
-            return PyodideFileInfo(result)
+            return _to_file_info(result)
         except RuntimeError as e:
             if "No such file or directory" in str(e) or "FileNotFoundError" in str(e):
                 msg = f"Path not found: {path}"

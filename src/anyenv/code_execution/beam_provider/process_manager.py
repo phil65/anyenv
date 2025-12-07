@@ -43,7 +43,7 @@ class BeamTerminal(BaseTerminal):
             except Exception:  # noqa: BLE001
                 return False
             else:
-                return exit_code < 0  # Beam uses -1 for running processes
+                return bool(exit_code < 0)  # Beam uses -1 for running processes
 
         return False
 

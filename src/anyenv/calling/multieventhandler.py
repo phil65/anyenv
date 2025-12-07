@@ -134,7 +134,7 @@ class MultiEventHandler[HandlerT, Mode: ExecutionMode = DefaultMode]:
             return await self._execute_handlers(mode, *args, **kwargs)
 
         self._debounce_task = asyncio.create_task(debounced_execution())
-        return await self._debounce_task
+        return await self._debounce_task  # type: ignore[no-any-return]
 
     async def _execute_handlers(
         self, mode: ExecutionMode, *args: Any, **kwargs: Any
