@@ -86,7 +86,7 @@ class PyodideSession(Session):
         cache: bool = False,
     ) -> HttpResponse:
         """Make a request using Pyodide's fetch."""
-        from js import Array, Blob, FormData  # pyright: ignore
+        from js import Array, Blob, FormData  # type: ignore[import-not-found]
         from pyodide.http import pyfetch  # pyright:ignore[reportMissingImports]
 
         from anyenv import dump_json

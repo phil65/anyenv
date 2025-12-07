@@ -6,10 +6,12 @@ from typing import TYPE_CHECKING, assert_never
 
 
 if TYPE_CHECKING:
+    from daytona.common.daytona import CodeLanguage  # type: ignore[import-untyped]
+
     from anyenv.code_execution.parse_output import Language
 
 
-def convert_language(language: Language):
+def convert_language(language: Language) -> CodeLanguage:
     """Converts the given language to the corresponding CodeLanguage enum."""
     from daytona.common.daytona import CodeLanguage
 

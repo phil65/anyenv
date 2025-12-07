@@ -162,7 +162,7 @@ class SshExecutionEnvironment(ExecutionEnvironment):
         import asyncio
         from contextlib import AsyncExitStack
 
-        from sshfs import SSHFileSystem
+        from sshfs import SSHFileSystem  # type: ignore[import-untyped]
         from sshfs.pools import SFTPSoftChannelPool
         from upathtools.filesystems.base.wrapper import WrapperFileSystem
 

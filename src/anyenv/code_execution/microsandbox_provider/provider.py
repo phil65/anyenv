@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from contextlib import AbstractAsyncContextManager
     from types import TracebackType
 
-    from microsandbox import NodeSandbox, PythonSandbox
+    from microsandbox import NodeSandbox, PythonSandbox  # type: ignore[import-untyped]
     from upathtools.filesystems import MicrosandboxFS
 
     from anyenv.code_execution.events import ExecutionEvent
@@ -99,7 +99,7 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
                 sandbox_class = PythonSandbox
         # Create sandbox with context manager
         self.sandbox = await sandbox_class.create(
-            server_url=self.server_url,  # type: ignore
+            server_url=self.server_url,
             namespace=self.namespace,
             api_key=self.api_key,
         ).__aenter__()

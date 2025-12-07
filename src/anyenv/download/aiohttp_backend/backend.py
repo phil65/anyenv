@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, assert_never
 
 from anyenv import dump_json, load_json
-from anyenv.anypath import Path
 from anyenv.download.base import HttpBackend, HttpResponse, Session
 from anyenv.download.exceptions import RequestError, ResponseError, check_response
 
@@ -26,7 +26,11 @@ def get_storage(
     cache_ttl: int,
 ) -> CacheBackend:
     """Get storage backend."""
-    from aiohttp_client_cache import CacheBackend, FileBackend, SQLiteBackend
+    from aiohttp_client_cache import (  # type: ignore[attr-defined]
+        CacheBackend,
+        FileBackend,
+        SQLiteBackend,
+    )
 
     match cache_backend:
         case "sqlite":
@@ -247,7 +251,7 @@ class AiohttpBackend(HttpBackend):
             # Check for HTTP status errors
             return check_response(aiohttp_response)
         finally:
-            await session.close()
+            await session.close()  # type: ignore[no-untyped-call]
 
     async def download(
         self,
@@ -284,7 +288,7 @@ class AiohttpBackend(HttpBackend):
                 error_msg = f"Download failed: {exc!s}"
                 raise RequestError(error_msg) from exc
         finally:
-            await session.close()
+            await session.close()  # type: ignore[no-untyped-call]
 
     async def create_session(
         self,

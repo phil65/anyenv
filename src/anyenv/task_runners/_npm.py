@@ -40,7 +40,7 @@ MANAGER_RUN_CMD: dict[PackageManagerStr, list[str]] = {
 class PackageJsonRunner(TaskRunner):
     """Task runner for package.json scripts."""
 
-    id: ClassVar[Literal["npm"]] = "npm"  # type: ignore[assignment]
+    id: ClassVar[Literal["npm"]] = "npm"
     website: ClassVar[str] = "https://docs.npmjs.com/cli/v10/using-npm/scripts"
     filenames: ClassVar[list[str]] = ["package.json"]
     help_cmd: ClassVar[list[str]] = ["npm", "run"]
@@ -84,7 +84,7 @@ class PackageJsonRunner(TaskRunner):
         # Check what's available on the system (prefer faster ones)
         for manager in ("bun", "pnpm", "yarn", "npm"):
             if shutil.which(manager):
-                return manager  # type: ignore[return-value]
+                return manager
 
         return "npm"
 

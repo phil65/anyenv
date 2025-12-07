@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
     from contextlib import AbstractAsyncContextManager
 
+    from acp import TerminalHandle
     from acp.acp_requests import ACPRequests
     from fsspec.asyn import AsyncFileSystem  # type: ignore[import-untyped]
 
@@ -150,7 +151,7 @@ class ACPExecutionEnvironment(ExecutionEnvironment):
         except Exception as e:  # noqa: BLE001
             yield ProcessErrorEvent.failed(e, process_id=process_id, exit_code=1)
 
-    async def _create_terminal(self, cmd: str, args: list[str]):
+    async def _create_terminal(self, cmd: str, args: list[str]) -> TerminalHandle:
         """Create a terminal session with the given command and arguments."""
         return await self._requests.create_terminal(cmd, args=args, output_byte_limit=1048576)
 

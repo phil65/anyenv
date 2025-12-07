@@ -83,9 +83,9 @@ def get_sharer(
     """
     match provider:
         case "gist":
-            return GistSharer(**kwargs)  # type: ignore[arg-type]
+            return GistSharer(**kwargs)
         case "pastebin":
-            return PastebinSharer(**kwargs)  # type: ignore[arg-type]
+            return PastebinSharer(**kwargs)
         case "paste_rs":
             return PasteRsSharer()
         case "opencode":

@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from contextlib import AbstractAsyncContextManager
     from types import TracebackType
 
-    from fsspec.implementations.dirfs import DirFileSystem
+    from fsspec.implementations.dirfs import DirFileSystem  # type: ignore[import-untyped]
     from testcontainers.core.container import DockerContainer
 
     from anyenv.code_execution.events import ExecutionEvent
