@@ -218,7 +218,7 @@ class MultiEventHandler[HandlerT, Mode: ExecutionMode = DefaultMode]:
         """Wrap a synchronous handler to work with async interface."""
 
         async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
-            return handler(*args, **kwargs)  # type: ignore[misc,operator]
+            return handler(*args, **kwargs)  # type: ignore[operator]
 
         # Store reference to original handler for removal
         async_wrapper._original_handler = handler  # type: ignore[attr-defined]  # noqa: SLF001

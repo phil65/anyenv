@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import base64
-from typing import TYPE_CHECKING, Any, Literal, overload
+from typing import TYPE_CHECKING, Any, Literal, TypedDict, overload
 
 from fsspec.asyn import AsyncFileSystem, sync_wrapper  # type: ignore[import-untyped]
 
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     )
 
 
-class PyodideFileInfo(dict):
+class PyodideFileInfo(TypedDict):
     """Info dict for Pyodide filesystem paths."""
 
     name: str
@@ -51,7 +51,7 @@ class PyodideFS(AsyncFileSystem):
         super().__init__(**kwargs)
         self._env = environment
 
-    async def _fs_request(self, method: str, params: dict) -> Any:
+    async def _fs_request(self, method: str, params: dict[str, Any]) -> Any:
         """Send a filesystem request to the Pyodide server."""
         return await self._env._send_request(method, params)  # noqa: SLF001
 
@@ -196,7 +196,7 @@ class PyodideFS(AsyncFileSystem):
     async def _modified(self, path: str, **kwargs: Any) -> float:
         """Get file modification time."""
         info = await self._info(path)
-        return info.get("mtime", 0.0)
+        return info.get("mtime") or 0.0
 
     # Sync wrapper methods
     ls = sync_wrapper(_ls)

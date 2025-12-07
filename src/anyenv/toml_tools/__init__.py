@@ -114,7 +114,7 @@ def load_toml[T](
         from anyenv.validate import validate_json_data
 
         return validate_json_data(parsed_data, return_type)
-    return parsed_data
+    return parsed_data  # type: ignore[no-any-return]
 
 
 def dump_toml(

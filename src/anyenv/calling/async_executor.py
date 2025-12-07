@@ -70,7 +70,7 @@ class AsyncExecutor[**P, T]:
             # already initialized by __init__)
             instance._async_executor_cache[cache_key] = bound  # noqa: SLF001
 
-        return instance._async_executor_cache[cache_key]  # noqa: SLF001
+        return instance._async_executor_cache[cache_key]  # type: ignore[no-any-return] # noqa: SLF001
 
     async def __call__(self, *args: P.args, **kwargs: P.kwargs) -> T:
         """Async call - normal behavior."""
@@ -276,7 +276,7 @@ class AsyncIteratorExecutor[**P, T]:
             # initialized by __init__)
             instance._async_executor_cache[cache_key] = bound  # noqa: SLF001
 
-        return instance._async_executor_cache[cache_key]  # noqa: SLF001
+        return instance._async_executor_cache[cache_key]  # type: ignore[no-any-return]  # noqa: SLF001
 
     async def __call__(self, *args: P.args, **kwargs: P.kwargs) -> AsyncIterator[T]:
         """Return the async iterator with observer emission."""

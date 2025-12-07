@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     import os
 
     import aiohttp
-    from aiohttp_client_cache import CacheBackend, CachedSession
+    from aiohttp_client_cache import CacheBackend, CachedSession  # type: ignore[attr-defined]
 
     from anyenv.download.base import Method, ProgressCallback, StrPath
     from anyenv.download.http_types import CacheType, FilesType, HeaderType, ParamsType
@@ -158,7 +158,7 @@ class AiohttpSession(Session):
 
     async def close(self) -> None:
         """Close the session."""
-        await self._session.close()
+        await self._session.close()  # type: ignore[no-untyped-call]
 
 
 class AiohttpBackend(HttpBackend):
@@ -171,11 +171,11 @@ class AiohttpBackend(HttpBackend):
         headers: HeaderType | None = None,
         cache_backend: CacheType = "file",
     ) -> CachedSession:
-        from aiohttp_client_cache import CachedSession
+        from aiohttp_client_cache import CachedSession  # type: ignore[attr-defined]
 
         if cache:
             cache_client = get_storage(cache_backend, self.cache_dir, self.cache_ttl)
-            return CachedSession(
+            return CachedSession(  # type: ignore[no-any-return]
                 cache=cache_client,
                 headers=headers,
                 base_url=base_url,
@@ -183,7 +183,7 @@ class AiohttpBackend(HttpBackend):
             )
 
         # Even when not caching, we use CachedSession for consistent interface
-        return CachedSession(
+        return CachedSession(  # type: ignore[no-any-return]
             expire_after=0,
             headers=headers,
             base_url=base_url,

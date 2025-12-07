@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import types
 
-from anyenv.anypath import Path
+from anyenv.anypath import AnyPath
 
 
 def open_in_playground(
@@ -38,7 +38,7 @@ def open_in_playground(
             content = inspect.getsource(file)
             filename = f"{file.__name__}.py"
         case str() | os.PathLike():
-            file_path = Path(file)
+            file_path = AnyPath(file)
             content = file_path.read_text("utf-8")
             filename = file_path.name
         case _:

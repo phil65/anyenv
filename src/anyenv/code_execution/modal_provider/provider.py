@@ -60,7 +60,7 @@ class ModalExecutionEnvironment(ExecutionEnvironment):
         app_name: str | None = None,
         image: Image | None = None,
         volumes: dict[
-            str | os.PathLike, modal.volume.Volume | modal.cloud_bucket_mount.CloudBucketMount
+            str | os.PathLike[str], modal.volume.Volume | modal.cloud_bucket_mount.CloudBucketMount
         ]
         | None = None,
         secrets: Collection[modal.secret.Secret] | None = None,

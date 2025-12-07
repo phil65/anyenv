@@ -254,14 +254,14 @@ def create_remote_callable[R, **CallableP, **EnvP](
             if return_type is not None:
                 try:
                     result_str = result.stdout or "null"
-                    return anyenv.load_json(result_str, return_type=return_type)
+                    return anyenv.load_json(result_str, return_type=return_type)  # type: ignore[no-any-return]
                 except TypeError:
                     # Fallback: if type validation fails, try reconstructing from dict
                     data = anyenv.load_json(result.stdout or "null")
                     if hasattr(return_type, "model_validate") and isinstance(data, dict):
-                        return return_type.model_validate(data)
-                    return data
-            return anyenv.load_json(result.stdout or "null")
+                        return return_type.model_validate(data)  # type: ignore[no-any-return]
+                    return data  # type: ignore[no-any-return]
+            return anyenv.load_json(result.stdout or "null")  # type: ignore[no-any-return]
 
     return remote_wrapper
 

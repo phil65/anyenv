@@ -24,7 +24,7 @@ if TYPE_CHECKING:
     from contextlib import AbstractAsyncContextManager
     from types import TracebackType
 
-    from beam import SandboxInstance
+    from beam import SandboxInstance  # type: ignore[import-untyped]
     from upathtools.filesystems import BeamFS
 
     from anyenv.code_execution.events import ExecutionEvent

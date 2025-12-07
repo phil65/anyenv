@@ -159,7 +159,7 @@ async def execute[T](
 ) -> T:
     """Execute callable, handling both sync and async cases."""
     if inspect.iscoroutinefunction(func):
-        return await func(*args, **kwargs)
+        return await func(*args, **kwargs)  # type: ignore[no-any-return]
 
     if use_thread:
         return await asyncio.to_thread(func, *args, **kwargs)  # type: ignore

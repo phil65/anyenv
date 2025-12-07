@@ -122,7 +122,7 @@ def validate_json_data[T](data: Any, return_type: type[T] | None = None) -> T:  
 
     # Last resort - simple isinstance check
     if isinstance(data, return_type):
-        return cast(T, data)
+        return data
     expected = get_object_name(return_type, str(return_type))
     error_msg = f"Expected {expected}, got {type(data).__name__}"
     raise TypeError(error_msg)

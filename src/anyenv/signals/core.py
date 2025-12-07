@@ -13,7 +13,7 @@ Ts = TypeVarTuple("Ts")
 type AsyncCallback[*Ts] = Callable[[Unpack[Ts]], Coroutine[Any, Any, Any]]
 
 # Global registry for auto-registered signals
-_global_registry: dict[type, list[BoundSignal]] = {}
+_global_registry: dict[type, list[BoundSignal]] = {}  # type: ignore[type-arg]
 
 
 class BoundSignal[*Ts]:
@@ -105,7 +105,7 @@ def create_signal[E](event_type: type[E]) -> Signal[*tuple[E]]:
     return signal
 
 
-def get_global_signals(event_type: type) -> list[BoundSignal]:
+def get_global_signals(event_type: type) -> list[BoundSignal]:  # type: ignore[type-arg]
     """Get all globally registered signals for an event type.
 
     Args:

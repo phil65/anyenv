@@ -163,7 +163,7 @@ class SshExecutionEnvironment(ExecutionEnvironment):
         from contextlib import AsyncExitStack
 
         from sshfs import SSHFileSystem  # type: ignore[import-untyped]
-        from sshfs.pools import SFTPSoftChannelPool
+        from sshfs.pools import SFTPSoftChannelPool  # type: ignore[import-untyped]
         from upathtools.filesystems.base.wrapper import WrapperFileSystem
 
         # SSH filesystem doesnt work with existing connections, so we hack around it.

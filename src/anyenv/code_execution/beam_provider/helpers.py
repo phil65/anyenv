@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 
 if TYPE_CHECKING:
-    from beam import Image
+    from beam import Image  # type: ignore[import-untyped]
 
     from anyenv.code_execution.parse_output import Language
 

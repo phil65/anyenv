@@ -281,7 +281,7 @@ class LSPServerInfo:
                 full_pattern = posixpath.join(current, pattern)
                 try:
                     if matches := await fs._glob(full_pattern):  # noqa: SLF001
-                        return matches[0]  # pyright: ignore[reportArgumentType, reportReturnType]
+                        return matches[0]  # type: ignore[no-any-return] # pyright: ignore[reportArgumentType]
                 except Exception:  # noqa: BLE001
                     # Filesystem might not support glob, try exists
                     try:

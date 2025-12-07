@@ -13,7 +13,7 @@ from anyenv.download.exceptions import RequestError, ResponseError, check_respon
 if TYPE_CHECKING:
     import os
 
-    from pyodide.http import FetchResponse  # pyright:ignore[reportMissingImports]
+    from pyodide.http import FetchResponse  # type: ignore[import-not-found]
 
     from anyenv.download.base import Method, ProgressCallback
     from anyenv.download.http_types import CacheType, FilesType, HeaderType, ParamsType
@@ -28,6 +28,7 @@ class PyodideResponse(HttpResponse):
     @property
     def status_code(self) -> int:
         """Status code implementation for PyodideResponse."""
+        assert isinstance(self._response.status, int)
         return self._response.status
 
     @property
@@ -39,7 +40,7 @@ class PyodideResponse(HttpResponse):
     @property
     def url(self) -> str:
         """URL of the response."""
-        return self._response.url
+        return self._response.url  # type: ignore[no-any-return]
 
     @property
     def headers(self) -> dict[str, str]:
@@ -48,7 +49,7 @@ class PyodideResponse(HttpResponse):
 
     async def text(self) -> str:
         """Text implementation for PyodideResponse."""
-        return await self._response.text()
+        return await self._response.text()  # type: ignore[no-any-return]
 
     async def json(self) -> Any:
         """JSON implementation for PyodideResponse."""
@@ -58,7 +59,7 @@ class PyodideResponse(HttpResponse):
 
     async def bytes(self) -> bytes:
         """Bytes implementation for PyodideResponse."""
-        return await self._response.bytes()
+        return await self._response.bytes()  # type: ignore[no-any-return]
 
 
 class PyodideSession(Session):

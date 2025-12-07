@@ -223,8 +223,8 @@ class PyodideExecutionEnvironment(ExecutionEnvironment):
     async def _send_request(
         self,
         method: str,
-        params: dict,
-    ) -> dict:
+        params: dict[str, Any],
+    ) -> dict[str, Any]:
         """Send a JSON-RPC request and wait for response."""
         async with self._lock:
             if not self._process or not self._process.stdin:
@@ -257,7 +257,7 @@ class PyodideExecutionEnvironment(ExecutionEnvironment):
     async def _stream_request(
         self,
         method: str,
-        params: dict,
+        params: dict[str, Any],
     ) -> AsyncIterator[dict[str, Any]]:
         """Send a streaming request and yield events."""
         async with self._lock:

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -59,7 +61,7 @@ class SandboxConfig(BaseModel):
     )
     """Paths denied within allowed write paths."""
 
-    def to_srt_settings(self) -> dict:
+    def to_srt_settings(self) -> dict[str, dict[str, Any]]:
         """Convert to srt-settings.json format."""
         return {
             "network": {

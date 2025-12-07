@@ -4,6 +4,8 @@ from __future__ import annotations
 
 
 try:
-    from upath import UPath as Path
+    from upath import UPath as AnyPath
 except ImportError:
-    from pathlib import Path  # type: ignore[assignment]  # noqa: F401
+    from pathlib import Path as AnyPath  # type: ignore[assignment]
+
+__all__ = ["AnyPath"]

@@ -110,6 +110,7 @@ class DaytonaExecutionEnvironment(ExecutionEnvironment):
     async def get_domain(self, port: int) -> str:
         """Return the domain name for the sandbox."""
         info = await self.sandbox.get_preview_link(port)
+        assert isinstance(info.url, str)
         return info.url
 
     def get_fs(self) -> DaytonaFS:
