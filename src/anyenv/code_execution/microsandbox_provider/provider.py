@@ -99,7 +99,7 @@ class MicrosandboxExecutionEnvironment(ExecutionEnvironment):
                 sandbox_class = PythonSandbox
         # Create sandbox with context manager
         self.sandbox = await sandbox_class.create(
-            server_url=self.server_url,
+            server_url=self.server_url,  # pyright: ignore[reportArgumentType]
             namespace=self.namespace,
             api_key=self.api_key,
         ).__aenter__()
