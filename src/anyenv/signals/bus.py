@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
-from typing import TypeVarTuple
+from typing import TYPE_CHECKING, Any, TypeVarTuple
 
-from .core import AsyncCallback, Signal
+from .core import Signal
+
+
+if TYPE_CHECKING:
+    from .core import AsyncCallback
 
 
 Ts = TypeVarTuple("Ts")
@@ -25,14 +29,13 @@ class SignalFactory[T]:
         """
 
         def create_signal() -> Signal:
-            signal = Signal()
+            return Signal()
             # TODO: Auto-register signal with global listeners from self._bus
-            return signal
 
         return create_signal
 
 
-class GlobalEventBus[T]:
+class GlobalEventBus[T = Any]:
     """Global event bus constrained to specific event types.
 
     Example:

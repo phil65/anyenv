@@ -24,15 +24,18 @@ class Counter:
         self._value = initial
 
     def increment(self) -> None:
+        """Increment the counter and emit the incremented signal."""
         self._value += 1
-        asyncio.create_task(self.incremented.emit(self._value))
+        asyncio.create_task(self.incremented.emit(self._value))  # noqa: RUF006
 
     def reset_counter(self) -> None:
+        """Reset the counter to zero."""
         self._value = 0
-        asyncio.create_task(self.reset.emit())
+        asyncio.create_task(self.reset.emit())  # noqa: RUF006
 
     @property
     def value(self) -> int:
+        """Return the current value of the counter."""
         return self._value
 
 
@@ -151,12 +154,15 @@ class AuditLogger:
         user_service.user_deleted.connect(self.on_user_deleted)
 
     async def on_user_created(self, user: User) -> None:
+        """Handle user creation events."""
         print(f"AUDIT: User created - ID: {user.id}, Name: {user.name}")
 
     async def on_user_updated(self, user: User) -> None:
+        """Handle user update events."""
         print(f"AUDIT: User updated - ID: {user.id}, Name: {user.name}")
 
     async def on_user_deleted(self, user: User) -> None:
+        """Handle user deletion events."""
         print(f"AUDIT: User deleted - ID: {user.id}, Name: {user.name}")
 
 
@@ -168,9 +174,11 @@ class NotificationService:
         file_service.file_created.connect(self.on_file_created)
 
     async def on_user_created(self, user: User) -> None:
+        """Handle user creation events."""
         print(f"NOTIFICATION: Welcome {user.name}! Check your email at {user.email}")
 
     async def on_file_created(self, event: FileEvent) -> None:
+        """Handle file creation events."""
         print(f"NOTIFICATION: New file created: {event.path} ({event.size} bytes)")
 
 
@@ -192,18 +200,23 @@ class MetricsCollector:
         system_service.error_occurred.connect(self.on_error)
 
     async def on_user_created(self, user: User) -> None:
+        """Handle user creation events."""
         print("METRICS: user_created_total++")
 
     async def on_user_deleted(self, user: User) -> None:
+        """Handle user deletion events."""
         print("METRICS: user_deleted_total++")
 
     async def on_file_created(self, event: FileEvent) -> None:
+        """Handle file creation events."""
         print(f"METRICS: file_created_total++, bytes_written+={event.size}")
 
     async def on_file_modified(self, event: FileEvent) -> None:
+        """Handle file modification events."""
         print(f"METRICS: file_modified_total++, bytes_written+={event.size}")
 
     async def on_error(self, event: SystemEvent) -> None:
+        """Handle error events."""
         print(f"METRICS: error_total++ (level: {event.level})")
 
 
@@ -252,9 +265,9 @@ async def demonstrate_global_event_bus() -> None:
     system_service = SystemService()
 
     # Create cross-cutting services
-    audit_logger = AuditLogger(user_service)
-    notification_service = NotificationService(user_service, file_service)
-    metrics_collector = MetricsCollector(user_service, file_service, system_service)
+    AuditLogger(user_service)
+    NotificationService(user_service, file_service)
+    MetricsCollector(user_service, file_service, system_service)
 
     # Perform some operations
     print("\n--- Creating user ---")
