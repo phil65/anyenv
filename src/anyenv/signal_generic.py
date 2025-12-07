@@ -66,9 +66,7 @@ class Signal[*Ts]:
 
     def __init__(self) -> None:
         self._name: str = ""
-        self._bound_signals: WeakKeyDictionary[object, BoundSignal[*Ts]] = (
-            WeakKeyDictionary()
-        )
+        self._bound_signals: WeakKeyDictionary[object, BoundSignal[*Ts]] = WeakKeyDictionary()
 
     def __set_name__(self, owner: type, name: str) -> None:
         self._name = name
@@ -82,12 +80,58 @@ class Signal[*Ts]:
         return self._bound_signals[obj]
 
 
-if __name__ == "__main__":
+class SignalFactory:
+    """Factory class that supports generic syntax Signal[Type]()."""
 
+    __slots__ = ("_bus",)
+
+    def __init__(self, bus: GlobalEventBus) -> None:
+        self._bus = bus
+
+    def __getitem__(self, types):
+        """Support Signal[Type]() syntax."""
+        if not isinstance(types, tuple):
+            types = (types,)
+
+        def create_signal() -> Signal:
+            signal = Signal()
+            # TODO: Auto-register signal with global listeners from self._bus
+            return signal
+
+        return create_signal
+
+
+class GlobalEventBus:
+    """Global event bus that provides Signal factory with auto-registration."""
+
+    __slots__ = ("Signal", "_global_listeners", "_name")
+
+    def __init__(self, name: str = "default") -> None:
+        self._name = name
+        self._global_listeners: dict[type, list[AsyncCallback]] = {}
+        self.Signal = SignalFactory(self)
+
+    def connect_global[*Ts](self, callback: AsyncCallback[*Ts]) -> AsyncCallback[*Ts]:
+        """Connect a callback to receive ALL events of matching signature from this bus."""
+        # TODO: Implementation for global cross-cutting listeners
+        return callback
+
+
+# Default global event bus instance
+default_bus = GlobalEventBus("default")
+
+
+if __name__ == "__main__":
+    # Test regular signals
     class Counter:
         incremented = Signal[int]()
         reset = Signal[()]()
         pair_updated = Signal[str, int]()
+
+    # Test global event bus
+    class GlobalCounter:
+        incremented = default_bus.Signal[int]()
+        pair_updated = default_bus.Signal[str, int]()
 
     async def main() -> None:
         counter = Counter()
@@ -121,5 +165,15 @@ if __name__ == "__main__":
         counter2 = Counter()
         await counter2.incremented.emit(999)  # Should print nothing
         print("(nothing printed = isolation works)")
+
+        # Test global event bus
+        print("\nTesting global event bus:")
+        global_counter = GlobalCounter()
+
+        @global_counter.incremented.connect
+        async def on_global_increment(value: int) -> None:
+            print(f"Global counter: {value}")
+
+        await global_counter.incremented.emit(777)
 
     asyncio.run(main())
