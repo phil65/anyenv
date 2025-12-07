@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import sys
 from typing import TYPE_CHECKING, Literal
 
 
@@ -62,3 +63,53 @@ async def create_shell_process(
         cwd=cwd,
         env=env,
     )
+
+
+async def hard_kill(
+    process: Process,
+    *,
+    graceful_timeout: float = 5.0,
+    force_timeout: float = 2.0,
+) -> None:
+    """Kill a process with graceful termination followed by force kill if needed.
+
+    Args:
+        process: The subprocess to terminate
+        graceful_timeout: Timeout for graceful termination (default: 5.0s)
+        force_timeout: Timeout for force kill (default: 2.0s)
+
+    This function handles cross-platform process termination:
+    - Windows: Uses terminate() then kill() as fallback
+    - Unix: Uses process group kill to terminate child processes too
+    """
+    if process.returncode is not None:
+        # Process already terminated
+        return
+
+    try:
+        if sys.platform == "win32":
+            # On Windows, terminate the process directly
+            process.terminate()
+            try:
+                # Wait with timeout, then force kill if needed
+                await asyncio.wait_for(process.wait(), timeout=graceful_timeout)
+            except TimeoutError:
+                # Force kill if graceful termination failed
+                process.kill()
+                await asyncio.wait_for(process.wait(), timeout=force_timeout)
+        else:
+            # On Unix-like systems, kill entire process group to handle children
+            import os
+            import signal
+
+            try:
+                os.killpg(os.getpgid(process.pid), signal.SIGKILL)
+                await asyncio.wait_for(process.wait(), timeout=force_timeout)
+            except ProcessLookupError:
+                # Process group doesn't exist, try direct kill
+                process.kill()
+                await asyncio.wait_for(process.wait(), timeout=force_timeout)
+
+    except (TimeoutError, ProcessLookupError, OSError):
+        # Process already dead or force kill timed out
+        pass
