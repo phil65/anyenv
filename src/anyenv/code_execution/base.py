@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from types import TracebackType
     from typing import Any
 
-    from fsspec.asyn import AsyncFileSystem
+    from fsspec.asyn import AsyncFileSystem  # type: ignore[import-untyped]
 
     from anyenv.code_execution.events import ExecutionEvent
     from anyenv.code_execution.models import ExecutionResult, ServerInfo
@@ -101,7 +101,7 @@ class ExecutionEnvironment(ABC):
         Returns:
             File content as bytes
         """
-        return await self.get_fs()._cat_file(path)  # noqa: SLF001
+        return await self.get_fs()._cat_file(path)  # type: ignore[no-any-return] # noqa: SLF001
 
     @abstractmethod
     def stream_code(self, code: str) -> AsyncIterator[ExecutionEvent]:
