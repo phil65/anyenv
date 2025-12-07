@@ -148,12 +148,7 @@ class ACPExecutionEnvironment(ExecutionEnvironment):
                 )
 
         except Exception as e:  # noqa: BLE001
-            yield ProcessErrorEvent(
-                process_id=process_id,
-                error=f"Error executing code via ACP: {e}",
-                error_type=type(e).__name__,
-                exit_code=1,
-            )
+            yield ProcessErrorEvent.failed(e, process_id=process_id, exit_code=1)
 
     async def _create_terminal(self, cmd: str, args: list[str]):
         """Create a terminal session with the given command and arguments."""
@@ -228,12 +223,7 @@ class ACPExecutionEnvironment(ExecutionEnvironment):
                 )
 
         except Exception as e:  # noqa: BLE001
-            yield ProcessErrorEvent(
-                process_id=process_id,
-                error=f"Error executing command via ACP: {e}",
-                error_type=type(e).__name__,
-                exit_code=1,
-            )
+            yield ProcessErrorEvent.failed(e, process_id=process_id, exit_code=1)
 
     # -------------------------------------------------------------------------
     # Polling-based streaming implementation (experimental)
@@ -350,12 +340,7 @@ class ACPExecutionEnvironment(ExecutionEnvironment):
     #         await self._requests.release_terminal(terminal_id)
     #
     #     except Exception as e:
-    #         yield ProcessErrorEvent(
-    #             process_id=process_id,
-    #             error=f"Error executing command via ACP: {e}",
-    #             error_type=type(e).__name__,
-    #             exit_code=1,
-    #         )
+    #         yield ProcessErrorEvent.failed(e, process_id=process_id, exit_code=1)
     #
     # async def stream_code_polling(
     #     self,
@@ -396,9 +381,4 @@ class ACPExecutionEnvironment(ExecutionEnvironment):
     #             await self._fs._rm(script_name)
     #
     #     except Exception as e:
-    #         yield ProcessErrorEvent(
-    #             process_id=process_id,
-    #             error=f"Error executing code via ACP: {e}",
-    #             error_type=type(e).__name__,
-    #             exit_code=1,
-    #         )
+    #         yield ProcessErrorEvent.failed(e, process_id=process_id, exit_code=1)
