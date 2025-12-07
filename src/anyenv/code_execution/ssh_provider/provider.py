@@ -234,9 +234,10 @@ class SshExecutionEnvironment(ExecutionEnvironment):
 
     async def run_in_working_dir(self, cmd: str, timeout: bool = False) -> SSHCompletedProcess:
         """Run a command in the working directory."""
-        cmd = f"cd {self._remote_work_dir} && {cmd}"
         if timeout:
-            cmd = f"{cmd}timeout {self.timeout} "
+            cmd = f"cd {self._remote_work_dir} && timeout {self.timeout} {cmd}"
+        else:
+            cmd = f"cd {self._remote_work_dir} && {cmd}"
         return await self.run(cmd)
 
     async def _execute_python(self, code: str) -> SSHCompletedProcess:
