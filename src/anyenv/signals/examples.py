@@ -9,10 +9,10 @@ import asyncio
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import GlobalEventBus, Signal
+from . import Signal
 
 
-# Example 1: Basic Signals
+# Example 1: Basic Signals (no constraints)
 class Counter:
     """Simple counter with signals for state changes."""
 
@@ -39,7 +39,7 @@ class Counter:
         return self._value
 
 
-# Example 2: Global Event Bus with Type Constraints
+# Example 2: Type-Constrained Signals using Bounded TypeVar
 
 
 @dataclass
@@ -69,19 +69,25 @@ class SystemEvent:
     timestamp: float
 
 
-# Define allowed event types for our application
-AppEvents = User | FileEvent | SystemEvent
+# Define allowed event types for our application and create bounded Signal subclass
+type AppEvents = User | FileEvent | SystemEvent
 
-# Create type-constrained event bus
-app_bus = GlobalEventBus[AppEvents]("application")
+
+class AppSignal[E: User | FileEvent | SystemEvent](Signal[E]):
+    """Application-specific signal constrained to allowed event types.
+
+    Using a bounded TypeVar ensures that only User, FileEvent, or SystemEvent
+    can be used as the signal's event type. The type checker will reject
+    any other types at static analysis time.
+    """
 
 
 class UserService:
     """Service handling user operations with type-safe events."""
 
-    user_created = app_bus.Signal[User]()
-    user_updated = app_bus.Signal[User]()
-    user_deleted = app_bus.Signal[User]()
+    user_created = AppSignal[User]()
+    user_updated = AppSignal[User]()
+    user_deleted = AppSignal[User]()
 
     async def create_user(self, name: str, email: str) -> User:
         """Create a new user and emit creation event."""
@@ -104,9 +110,9 @@ class UserService:
 class FileService:
     """Service handling file operations with type-safe events."""
 
-    file_created = app_bus.Signal[FileEvent]()
-    file_modified = app_bus.Signal[FileEvent]()
-    file_deleted = app_bus.Signal[FileEvent]()
+    file_created = AppSignal[FileEvent]()
+    file_modified = AppSignal[FileEvent]()
+    file_deleted = AppSignal[FileEvent]()
 
     async def create_file(self, path: Path, content: str) -> None:
         """Create file and emit creation event."""
@@ -124,8 +130,8 @@ class FileService:
 class SystemService:
     """Service handling system events."""
 
-    error_occurred = app_bus.Signal[SystemEvent]()
-    info_logged = app_bus.Signal[SystemEvent]()
+    error_occurred = AppSignal[SystemEvent]()
+    info_logged = AppSignal[SystemEvent]()
 
     async def log_error(self, message: str) -> None:
         """Log system error."""
@@ -220,11 +226,12 @@ class MetricsCollector:
         print(f"METRICS: error_total++ (level: {event.level})")
 
 
-# Example with invalid usage (these would cause type errors):
+# Example with invalid usage - uncomment to see type errors from pyright:
 # class InvalidService:
-#     # These should cause type errors when type-checked:
-#     invalid_event = app_bus.Signal[dict]()  # dict not in AppEvents union
-#     str_event = app_bus.Signal[str]()       # str not in AppEvents union
+#     """Invalid service class - these lines would cause type errors."""
+#
+#     invalid_event = AppSignal[dict]()  # ❌ dict not in bound
+#     str_event = AppSignal[str]()       # ❌ str not in bound
 
 
 async def demonstrate_basic_signals() -> None:
@@ -255,9 +262,9 @@ async def demonstrate_basic_signals() -> None:
     await asyncio.sleep(0.1)
 
 
-async def demonstrate_global_event_bus() -> None:
-    """Demonstrate global event bus with cross-cutting concerns."""
-    print("\n=== Global Event Bus Demo ===")
+async def demonstrate_type_constrained_signals() -> None:
+    """Demonstrate type-constrained signals with cross-cutting concerns."""
+    print("\n=== Type-Constrained Signals Demo ===")
 
     # Create services
     user_service = UserService()
@@ -317,7 +324,7 @@ async def demonstrate_emit_modes() -> None:
 async def main() -> None:
     """Run all demonstrations."""
     await demonstrate_basic_signals()
-    await demonstrate_global_event_bus()
+    await demonstrate_type_constrained_signals()
     await demonstrate_emit_modes()
 
 
