@@ -80,18 +80,19 @@ class Signal[*Ts]:
         return self._bound_signals[obj]
 
 
-class SignalFactory:
-    """Factory class that supports generic syntax Signal[Type]()."""
+class SignalFactory[T]:
+    """Factory class that supports generic syntax Signal[Type]() with type constraints."""
 
     __slots__ = ("_bus",)
 
-    def __init__(self, bus: GlobalEventBus) -> None:
+    def __init__(self, bus: GlobalEventBus[T]) -> None:
         self._bus = bus
 
-    def __getitem__(self, types):
-        """Support Signal[Type]() syntax."""
-        if not isinstance(types, tuple):
-            types = (types,)
+    def __getitem__(self, typ: type[T]):
+        """Support Signal[Type]() syntax with type constraint enforcement.
+
+        Only accepts types that are members of the union T.
+        """
 
         def create_signal() -> Signal:
             signal = Signal()
@@ -101,15 +102,15 @@ class SignalFactory:
         return create_signal
 
 
-class GlobalEventBus:
-    """Global event bus that provides Signal factory with auto-registration."""
+class GlobalEventBus[T]:
+    """Global event bus constrained to specific event types."""
 
     __slots__ = ("Signal", "_global_listeners", "_name")
 
     def __init__(self, name: str = "default") -> None:
         self._name = name
         self._global_listeners: dict[type, list[AsyncCallback]] = {}
-        self.Signal = SignalFactory(self)
+        self.Signal = SignalFactory[T](self)
 
     def connect_global[*Ts](self, callback: AsyncCallback[*Ts]) -> AsyncCallback[*Ts]:
         """Connect a callback to receive ALL events of matching signature from this bus."""
@@ -117,7 +118,7 @@ class GlobalEventBus:
         return callback
 
 
-# Default global event bus instance
+# Default global event bus instance (unconstrained)
 default_bus = GlobalEventBus("default")
 
 
@@ -128,7 +129,45 @@ if __name__ == "__main__":
         reset = Signal[()]()
         pair_updated = Signal[str, int]()
 
-    # Test global event bus
+    # Define allowed event types for type-safe event bus
+    class User:
+        def __init__(self, name: str):
+            self.name = name
+
+    class FileEvent:
+        def __init__(self, path: str):
+            self.path = path
+
+    class SystemEvent:
+        def __init__(self, message: str):
+            self.message = message
+
+    # Create type-constrained event bus
+    AllowedEvents = User | FileEvent | SystemEvent
+    type_safe_bus = GlobalEventBus[AllowedEvents]("app_events")
+
+    # Valid usage - these types are in the union
+    class AppService:
+        user_login = type_safe_bus.Signal[User]()
+        file_saved = type_safe_bus.Signal[FileEvent]()
+        system_error = type_safe_bus.Signal[SystemEvent]()
+
+    # Invalid usage - this would cause a type error
+    # Uncomment the following lines to see type checker errors:
+
+    # class InvalidType:
+    #     def __init__(self, data: str):
+    #         self.data = data
+
+    # class BadService:
+    #     # This should cause type error - InvalidType not in AllowedEvents union
+    #     invalid_event = type_safe_bus.Signal[InvalidType]()
+    #     # This should also cause type error - dict not in AllowedEvents union
+    #     dict_event = type_safe_bus.Signal[dict]()
+    #     # This should also cause type error - str not in AllowedEvents union
+    #     str_event = type_safe_bus.Signal[str]()
+
+    # Test unconstrained global event bus
     class GlobalCounter:
         incremented = default_bus.Signal[int]()
         pair_updated = default_bus.Signal[str, int]()
@@ -175,5 +214,20 @@ if __name__ == "__main__":
             print(f"Global counter: {value}")
 
         await global_counter.incremented.emit(777)
+
+        # Test type-constrained event bus
+        print("\nTesting type-constrained event bus:")
+        app_service = AppService()
+
+        @app_service.user_login.connect
+        async def on_user_login(user: User) -> None:
+            print(f"User {user.name} logged in")
+
+        @app_service.file_saved.connect
+        async def on_file_saved(event: FileEvent) -> None:
+            print(f"File saved: {event.path}")
+
+        await app_service.user_login.emit(User("Alice"))
+        await app_service.file_saved.emit(FileEvent("/tmp/test.txt"))
 
     asyncio.run(main())
