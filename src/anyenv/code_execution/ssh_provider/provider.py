@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
     from asyncssh import SSHClientConnection, SSHCompletedProcess
     from asyncssh.misc import _ACMWrapper
-    from sshfs import SSHFileSystem
+    from upathtools.filesystems.base.wrapper import WrapperFileSystem
 
     from anyenv.code_execution.events import ExecutionEvent
     from anyenv.code_execution.models import Language, ServerInfo
@@ -75,6 +75,7 @@ class SshExecutionEnvironment(ExecutionEnvironment):
         self._connection_cm: _ACMWrapper[SSHClientConnection] | None = None
         self.connection: SSHClientConnection | None = None
         self._remote_work_dir: str | None = None
+        self._fs: WrapperFileSystem | None = None
 
     def _ensure_connected(self) -> SSHClientConnection:
         """Validate that SSH connection is established.
@@ -137,6 +138,8 @@ class SshExecutionEnvironment(ExecutionEnvironment):
         await self._verify_tools()
         if self.dependencies:  # Install dependencies if specified
             await self._install_dependencies()
+        # Create filesystem with proper event loop
+        self._fs = await self._create_fs()
         return self
 
     async def __aexit__(
@@ -154,12 +157,38 @@ class SshExecutionEnvironment(ExecutionEnvironment):
             await self._connection_cm.__aexit__(exc_type, exc_val, exc_tb)
         await super().__aexit__(exc_type, exc_val, exc_tb)
 
-    def get_fs(self) -> SSHFileSystem:
-        """Return a SSHFileSystem instance for the remote machine."""
-        from sshfs import SSHFileSystem
+    async def _create_fs(self) -> WrapperFileSystem:
+        """Create SSHFileSystem with proper event loop integration."""
+        import asyncio
+        from contextlib import AsyncExitStack
 
-        self._ensure_connected()
-        return SSHFileSystem(**self.connect_kwargs)
+        from sshfs import SSHFileSystem
+        from sshfs.pools import SFTPSoftChannelPool
+        from upathtools.filesystems.base.wrapper import WrapperFileSystem
+
+        # SSH filesystem doesnt work with existing connections, so we hack around it.
+        loop = asyncio.get_running_loop()
+        fs = SSHFileSystem.__new__(SSHFileSystem)
+        fs._loop = loop  # noqa: SLF001
+        fs._intrans = False  # noqa: SLF001
+        fs._transaction = None  # noqa: SLF001
+        fs.dircache = {}  # pyright: ignore[reportAttributeAccessIssue]
+        fs._stack = AsyncExitStack()  # noqa: SLF001
+        fs.active_executors = 0
+        fs._client, fs._pool = await fs._connect(  # noqa: SLF001
+            self.connect_kwargs["host"],
+            SFTPSoftChannelPool,
+            max_sftp_channels=8,
+            **{k: v for k, v in self.connect_kwargs.items() if k != "host"},
+        )
+        return WrapperFileSystem(fs)
+
+    def get_fs(self) -> WrapperFileSystem:
+        """Return a SSHFileSystem instance for the remote machine."""
+        if self._fs is None:
+            msg = "Filesystem not available. Use 'async with' context manager first."
+            raise RuntimeError(msg)
+        return self._fs
 
     async def _verify_tools(self) -> None:
         """Verify that required tools are available on the remote machine."""
@@ -390,8 +419,8 @@ if __name__ == "__main__":
 
     async def _main() -> None:
         async with SshExecutionEnvironment("91.99.102.138", "root") as sandbox:
-            result = await sandbox.execute_command("ls")
-            print(result)
+            fs = sandbox.get_fs()
+            print(await fs._ls("/"))  # noqa: SLF001
 
     import asyncio
 
