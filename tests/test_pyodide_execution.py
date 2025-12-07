@@ -61,7 +61,7 @@ async def test_pyodide_execution_error_handling():
 
     assert result.success is False
     assert result.error is not None
-    assert "SyntaxError" in result.stderr or "SyntaxError" in result.error
+    assert "SyntaxError" in str(result.stderr) or "SyntaxError" in result.error
 
 
 async def test_pyodide_execution_runtime_error():
@@ -73,7 +73,7 @@ async def test_pyodide_execution_runtime_error():
 
     assert result.success is False
     assert result.error is not None
-    assert "NameError" in result.stderr or "NameError" in result.error
+    assert "NameError" in str(result.stderr) or "NameError" in result.error
 
 
 async def test_pyodide_execution_division_by_zero():
@@ -85,7 +85,7 @@ async def test_pyodide_execution_division_by_zero():
 
     assert result.success is False
     assert result.error is not None
-    assert "ZeroDivisionError" in result.stderr or "ZeroDivisionError" in result.error
+    assert "ZeroDivisionError" in str(result.stderr) or "ZeroDivisionError" in result.error
 
 
 async def test_pyodide_auto_install_package():

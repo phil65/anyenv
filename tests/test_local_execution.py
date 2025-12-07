@@ -53,7 +53,7 @@ async def main():
     assert result.success is False
     assert result.result is None
     assert result.duration >= 0
-    assert "Test error message" in result.error  # pyright: ignore[reportOperatorIssue]
+    assert "Test error message" in str(result.error)
     assert result.error_type == "ValueError"
 
 
