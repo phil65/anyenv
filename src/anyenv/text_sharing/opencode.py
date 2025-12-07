@@ -65,43 +65,26 @@ class OpenCodeSharer(TextSharer):
         """
         try:
             # Step 1: Create a temporary session with the content
-            session_data = {
-                "title": title or "Shared Content",
-                "content": content,
-                "language": syntax or "text",
-            }
-
+            title = title or "Shared Content"
+            session_data = {"title": title, "content": content, "language": syntax or "text"}
             # Create session (this is a simplified version - real OpenCode API might differ)
-            session_response = await self._client.post(
-                f"{self.api_url}/session/create",
-                json=session_data,
-            )
+            url = f"{self.api_url}/session/create"
+            session_response = await self._client.post(url, json=session_data)
             session_response.raise_for_status()
             session_info = session_response.json()
             session_id = session_info["sessionID"]
-
             # Step 2: Create a share for the session
-            share_response = await self._client.post(
-                f"{self.api_url}/share_create",
-                json={"sessionID": session_id},
-            )
+            url = f"{self.api_url}/share_create"
+            share_response = await self._client.post(url, json={"sessionID": session_id})
             share_response.raise_for_status()
             share_data = share_response.json()
-
             share_url = share_data["url"]
             secret = share_data.get("secret")
-
-            # Construct URLs
             delete_url = None
             if secret:
                 delete_url = f"{self.api_url}/share_delete?sessionID={session_id}&secret={secret}"
 
-            return ShareResult(
-                url=share_url,
-                raw_url=None,  # OpenCode doesn't provide raw URLs
-                delete_url=delete_url,
-                id=session_id,
-            )
+            return ShareResult(url=share_url, raw_url=None, delete_url=delete_url, id=session_id)
 
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:  # noqa: PLR2004
@@ -130,10 +113,9 @@ class OpenCodeSharer(TextSharer):
             True if deletion was successful
         """
         try:
-            response = await self._client.post(
-                f"{self.api_url}/share_delete",
-                json={"sessionID": session_id, "secret": secret},
-            )
+            url = f"{self.api_url}/share_delete"
+            payload = {"sessionID": session_id, "secret": secret}
+            response = await self._client.post(url, json=payload)
             response.raise_for_status()
         except httpx.HTTPError:
             return False
