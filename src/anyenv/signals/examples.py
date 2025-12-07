@@ -73,7 +73,7 @@ class SystemEvent:
 type AppEvents = User | FileEvent | SystemEvent
 
 
-class AppSignal[E: User | FileEvent | SystemEvent](Signal[E]):
+class AppSignal[E: AppEvents](Signal[E]):
     """Application-specific signal constrained to allowed event types.
 
     Using a bounded TypeVar ensures that only User, FileEvent, or SystemEvent
