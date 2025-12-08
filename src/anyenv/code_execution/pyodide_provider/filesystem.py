@@ -3,13 +3,25 @@
 from __future__ import annotations
 
 import base64
-from typing import TYPE_CHECKING, Any, Literal, TypedDict, overload
+from collections.abc import Awaitable, Callable
+from typing import Any, Literal, TypedDict, overload
 
 from fsspec.asyn import AsyncFileSystem, sync_wrapper  # type: ignore[import-untyped]
 
 
-if TYPE_CHECKING:
-    from anyenv.code_execution.pyodide_provider.provider import PyodideExecutionEnvironment
+PyodideMethod = Literal[
+    "fs_ls",
+    "fs_cat",
+    "fs_write",
+    "fs_mkdir",
+    "fs_rm",
+    "fs_rmdir",
+    "fs_stat",
+    "fs_exists",
+]
+
+# Type alias for filesystem request callback
+PyodideFilesystemCallback = Callable[[PyodideMethod, dict[str, Any]], Awaitable[Any]]
 
 
 class PyodideFileInfo(TypedDict):
@@ -47,21 +59,21 @@ class PyodideFS(AsyncFileSystem):  # type: ignore[misc]
 
     def __init__(
         self,
-        environment: PyodideExecutionEnvironment,
+        request_callback: PyodideFilesystemCallback,
         **kwargs: Any,
     ) -> None:
         """Initialize Pyodide filesystem.
 
         Args:
-            environment: The PyodideExecutionEnvironment to use for operations
+            request_callback: Async callback for sending filesystem requests
             **kwargs: Additional filesystem arguments
         """
         super().__init__(**kwargs)
-        self._env = environment
+        self._request_callback = request_callback
 
-    async def _fs_request(self, method: str, params: dict[str, Any]) -> Any:
-        """Send a filesystem request to the Pyodide server."""
-        return await self._env._send_request(method, params)  # noqa: SLF001
+    async def _fs_request(self, method: PyodideMethod, params: dict[str, Any]) -> Any:
+        """Send a filesystem request via the injected callback."""
+        return await self._request_callback(method, params)
 
     @overload
     async def _ls(
@@ -128,12 +140,7 @@ class PyodideFS(AsyncFileSystem):  # type: ignore[misc]
         content_b64 = base64.b64encode(value).decode("ascii")
         await self._fs_request("fs_write", {"path": path, "content": content_b64})
 
-    async def _mkdir(
-        self,
-        path: str,
-        create_parents: bool = True,
-        **kwargs: Any,
-    ) -> None:
+    async def _mkdir(self, path: str, create_parents: bool = True, **kwargs: Any) -> None:
         """Create directory."""
         await self._fs_request("fs_mkdir", {"path": path, "recursive": create_parents})
 
@@ -145,12 +152,7 @@ class PyodideFS(AsyncFileSystem):  # type: ignore[misc]
         """Remove directory."""
         await self._fs_request("fs_rmdir", {"path": path, "recursive": False})
 
-    async def _rm(
-        self,
-        path: str,
-        recursive: bool = False,
-        **kwargs: Any,
-    ) -> None:
+    async def _rm(self, path: str, recursive: bool = False, **kwargs: Any) -> None:
         """Remove file or directory."""
         if recursive:
             await self._fs_request("fs_rmdir", {"path": path, "recursive": True})

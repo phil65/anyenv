@@ -28,6 +28,7 @@ if TYPE_CHECKING:
 
     from anyenv.code_execution.events import ExecutionEvent
     from anyenv.code_execution.models import ServerInfo
+    from anyenv.code_execution.pyodide_provider.filesystem import PyodideMethod
 
 
 # Path to the TypeScript server relative to this file
@@ -449,4 +450,9 @@ result.returncode
 
     def get_fs(self) -> PyodideFS:
         """Return a PyodideFS instance for the sandbox."""
-        return PyodideFS(environment=self)
+
+        async def fs_callback(method: PyodideMethod, params: dict[str, Any]) -> Any:
+            """Filesystem-specific callback wrapper."""
+            return await self._send_request(method, params)
+
+        return PyodideFS(request_callback=fs_callback)
