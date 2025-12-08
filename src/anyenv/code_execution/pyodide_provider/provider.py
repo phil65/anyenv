@@ -141,13 +141,15 @@ class PyodideExecutionEnvironment(ExecutionEnvironment):
 
     async def __aenter__(self) -> Self:
         """Start the Deno/Pyodide server process."""
+        import anyenv
+
         await super().__aenter__()
         cmd = self._build_command()
         self._process = await create_process(*cmd, stdin="pipe", stdout="pipe", stderr="pipe")
         # Wait for ready signal
         try:
             ready_line = await asyncio.wait_for(self._read_line(), timeout=self.startup_timeout)
-            ready_msg = json.loads(ready_line)
+            ready_msg = anyenv.load_json(ready_line, return_type=dict)
             if not ready_msg.get("ready"):
                 msg = f"Unexpected startup message: {ready_msg}"
                 raise RuntimeError(msg)  # noqa: TRY301
@@ -207,12 +209,10 @@ class PyodideExecutionEnvironment(ExecutionEnvironment):
 
         return line.decode().strip()
 
-    async def _send_request(
-        self,
-        method: str,
-        params: dict[str, Any],
-    ) -> dict[str, Any]:
+    async def _send_request(self, method: str, params: dict[str, Any]) -> dict[str, Any]:
         """Send a JSON-RPC request and wait for response."""
+        import anyenv
+
         async with self._lock:
             if not self._process or not self._process.stdin:
                 msg = "Process not running"
@@ -220,15 +220,12 @@ class PyodideExecutionEnvironment(ExecutionEnvironment):
 
             self._request_id += 1
             request = {"id": self._request_id, "method": method, "params": params}
-            # Send request
-            request_line = json.dumps(request) + "\n"
-            self._process.stdin.write(request_line.encode())
+            request_line = anyenv.dump_json(request) + "\n"
+            self._process.stdin.write(request_line.encode())  # Send request
             await self._process.stdin.drain()
-            # Read response
-            response_line = await self._read_line()
-            response = json.loads(response_line)
-            if "error" in response:
-                error = response["error"]
+            response_line = await self._read_line()  # Read response
+            response = anyenv.load_json(response_line, return_type=dict)
+            if error := response.get("error"):
                 msg = f"{error.get('type', 'Error')}: {error.get('message', 'Unknown')}"
                 raise RuntimeError(msg)
             return response.get("result", {})  # type: ignore[no-any-return]
