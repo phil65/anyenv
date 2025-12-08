@@ -9,9 +9,7 @@ from fsspec.asyn import AsyncFileSystem, sync_wrapper  # type: ignore[import-unt
 
 
 if TYPE_CHECKING:
-    from anyenv.code_execution.pyodide_provider.provider import (
-        PyodideExecutionEnvironment,
-    )
+    from anyenv.code_execution.pyodide_provider.provider import PyodideExecutionEnvironment
 
 
 class PyodideFileInfo(TypedDict):

@@ -30,6 +30,7 @@ async def create_process(
     limit: int = 10 * 1024 * 1024,
     env: dict[str, str] | None = None,
     cwd: str | os.PathLike[str] | None = None,
+    start_new_session: bool = False,
 ) -> Process:
     """Small create_subprocess_exec wrapper."""
     return await asyncio.create_subprocess_exec(
@@ -41,6 +42,7 @@ async def create_process(
         limit=limit,
         cwd=cwd,
         env=env,
+        start_new_session=start_new_session,
     )
 
 
@@ -52,6 +54,7 @@ async def create_shell_process(
     limit: int = 10 * 1024 * 1024,
     cwd: str | os.PathLike[str] | None = None,
     env: dict[str, str] | None = None,
+    start_new_session: bool = False,
 ) -> Process:
     """Small create_subprocess_shell wrapper."""
     return await asyncio.create_subprocess_shell(
@@ -62,6 +65,7 @@ async def create_shell_process(
         limit=limit,
         cwd=cwd,
         env=env,
+        start_new_session=start_new_session,
     )
 
 
