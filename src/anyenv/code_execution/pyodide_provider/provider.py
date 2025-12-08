@@ -19,6 +19,7 @@ from anyenv.code_execution.events import (
 )
 from anyenv.code_execution.models import ExecutionResult
 from anyenv.code_execution.pyodide_provider.filesystem import PyodideFS
+from anyenv.processes import create_process
 
 
 if TYPE_CHECKING:
@@ -141,22 +142,11 @@ class PyodideExecutionEnvironment(ExecutionEnvironment):
     async def __aenter__(self) -> Self:
         """Start the Deno/Pyodide server process."""
         await super().__aenter__()
-
         cmd = self._build_command()
-
-        self._process = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdin=asyncio.subprocess.PIPE,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
-        )
-
+        self._process = await create_process(*cmd, stdin="pipe", stdout="pipe", stderr="pipe")
         # Wait for ready signal
         try:
-            ready_line = await asyncio.wait_for(
-                self._read_line(),
-                timeout=self.startup_timeout,
-            )
+            ready_line = await asyncio.wait_for(self._read_line(), timeout=self.startup_timeout)
             ready_msg = json.loads(ready_line)
             if not ready_msg.get("ready"):
                 msg = f"Unexpected startup message: {ready_msg}"
@@ -168,7 +158,6 @@ class PyodideExecutionEnvironment(ExecutionEnvironment):
         except Exception:
             await self._kill_process()
             raise
-
         # Pre-install dependencies if specified
         if self.dependencies:
             await self._send_request("install", {"packages": self.dependencies})
@@ -184,10 +173,7 @@ class PyodideExecutionEnvironment(ExecutionEnvironment):
         """Shutdown the Deno/Pyodide server."""
         if self._process and self._process.returncode is None:
             with contextlib.suppress(Exception):
-                await asyncio.wait_for(
-                    self._send_request("shutdown", {}),
-                    timeout=5.0,
-                )
+                await asyncio.wait_for(self._send_request("shutdown", {}), timeout=5.0)
             await self._kill_process()
 
         await super().__aexit__(exc_type, exc_val, exc_tb)
@@ -233,26 +219,18 @@ class PyodideExecutionEnvironment(ExecutionEnvironment):
                 raise RuntimeError(msg)
 
             self._request_id += 1
-            request = {
-                "id": self._request_id,
-                "method": method,
-                "params": params,
-            }
-
+            request = {"id": self._request_id, "method": method, "params": params}
             # Send request
             request_line = json.dumps(request) + "\n"
             self._process.stdin.write(request_line.encode())
             await self._process.stdin.drain()
-
             # Read response
             response_line = await self._read_line()
             response = json.loads(response_line)
-
             if "error" in response:
                 error = response["error"]
                 msg = f"{error.get('type', 'Error')}: {error.get('message', 'Unknown')}"
                 raise RuntimeError(msg)
-
             return response.get("result", {})  # type: ignore[no-any-return]
 
     async def _stream_request(
@@ -268,22 +246,15 @@ class PyodideExecutionEnvironment(ExecutionEnvironment):
 
             self._request_id += 1
             request_id = self._request_id
-            request = {
-                "id": request_id,
-                "method": method,
-                "params": params,
-            }
-
+            request = {"id": request_id, "method": method, "params": params}
             # Send request
             request_line = json.dumps(request) + "\n"
             self._process.stdin.write(request_line.encode())
             await self._process.stdin.drain()
-
             # Read events until completion or error
             while True:
                 response_line = await self._read_line()
                 response = json.loads(response_line)
-
                 if "error" in response:
                     error = response["error"]
                     yield {
@@ -292,7 +263,6 @@ class PyodideExecutionEnvironment(ExecutionEnvironment):
                         "error_type": error.get("type", "Error"),
                     }
                     break
-
                 if "event" in response:
                     event = response["event"]
                     yield event
@@ -302,13 +272,9 @@ class PyodideExecutionEnvironment(ExecutionEnvironment):
     async def execute(self, code: str) -> ExecutionResult:
         """Execute Python code in the Pyodide environment."""
         start_time = time.time()
-
         try:
-            result = await asyncio.wait_for(
-                self._send_request("execute", {"code": code}),
-                timeout=self.timeout,
-            )
-
+            callback = self._send_request("execute", {"code": code})
+            result = await asyncio.wait_for(callback, timeout=self.timeout)
             return ExecutionResult(
                 result=result.get("result"),
                 duration=result.get("duration", time.time() - start_time),
@@ -409,17 +375,9 @@ result.returncode
             result = await self.execute_command(command)
 
             if result.stdout:
-                yield OutputEvent(
-                    process_id=process_id,
-                    data=result.stdout,
-                    stream="stdout",
-                )
+                yield OutputEvent(process_id=process_id, data=result.stdout, stream="stdout")
             if result.stderr:
-                yield OutputEvent(
-                    process_id=process_id,
-                    data=result.stderr,
-                    stream="stderr",
-                )
+                yield OutputEvent(process_id=process_id, data=result.stderr, stream="stderr")
 
             if result.success:
                 yield ProcessCompletedEvent(
