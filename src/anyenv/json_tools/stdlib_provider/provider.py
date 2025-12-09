@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import datetime
 from io import TextIOWrapper
+import json
 from typing import Any
 
 from anyenv.json_tools.base import JsonDumpError, JsonLoadError, JsonProviderBase
@@ -16,18 +17,25 @@ class StdLibProvider(JsonProviderBase):
     @staticmethod
     def load_json(data: str | bytes | TextIOWrapper) -> Any:
         """Load JSON using stdlib json."""
-        import json
-
         try:
+            source_content: str | None = None
             match data:
                 case TextIOWrapper():
                     data = data.read()
+                    source_content = data
                 case bytes():
                     data = data.decode()
+                    source_content = data
+                case str():
+                    source_content = data
             return json.loads(data)
         except json.JSONDecodeError as exc:
-            error_msg = f"Invalid JSON: {exc}"
-            raise JsonLoadError(error_msg) from exc
+            raise JsonLoadError(
+                f"Invalid JSON: {exc.msg}",
+                line=exc.lineno,
+                column=exc.colno,
+                source_content=source_content,
+            ) from exc
 
     @staticmethod
     def dump_json(
@@ -38,8 +46,6 @@ class StdLibProvider(JsonProviderBase):
         sort_keys: bool = False,
     ) -> str:
         """Dump data to JSON string using stdlib json."""
-        import json
-
         try:
             # Handle datetime objects first
             data = handle_datetimes(data, naive_utc)

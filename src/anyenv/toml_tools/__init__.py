@@ -9,7 +9,7 @@ from __future__ import annotations
 import importlib.util
 from typing import Any, Literal, TYPE_CHECKING
 
-from anyenv.toml_tools.base import TomlDumpError, TomlLoadError
+from anyenv.toml_tools.base import ParseErrorInfo, TomlDumpError, TomlLoadError
 
 if TYPE_CHECKING:
     from anyenv.toml_tools.base import TomlProviderBase
@@ -141,4 +141,11 @@ def dump_toml(
 
 
 # Export the exception classes for user code
-__all__ = ["BackendType", "TomlDumpError", "TomlLoadError", "dump_toml", "load_toml"]
+__all__ = [
+    "BackendType",
+    "ParseErrorInfo",
+    "TomlDumpError",
+    "TomlLoadError",
+    "dump_toml",
+    "load_toml",
+]

@@ -9,7 +9,7 @@ from __future__ import annotations
 import importlib.util
 from typing import Any, Literal, TYPE_CHECKING
 
-from anyenv.json_tools.base import JsonDumpError, JsonLoadError
+from anyenv.json_tools.base import JsonDumpError, JsonLoadError, ParseErrorInfo
 
 if TYPE_CHECKING:
     from anyenv.json_tools.base import JsonProviderBase
@@ -151,4 +151,11 @@ def dump_json(
 
 
 # Export the exception classes for user code
-__all__ = ["BackendType", "JsonDumpError", "JsonLoadError", "dump_json", "load_json"]
+__all__ = [
+    "BackendType",
+    "JsonDumpError",
+    "JsonLoadError",
+    "ParseErrorInfo",
+    "dump_json",
+    "load_json",
+]

@@ -4,11 +4,37 @@ from __future__ import annotations
 
 from io import BytesIO, TextIOWrapper
 from pathlib import Path
+import re
 from typing import Any
 
 from upath import UPath
 
 from anyenv.toml_tools.base import TomlDumpError, TomlLoadError, TomlProviderBase
+
+
+def _extract_tomllib_error_info(exc: Exception) -> tuple[str, int | None, int | None]:
+    """Extract line and column info from tomllib error message.
+
+    tomllib errors typically have format like "... (at line X, column Y)"
+    or "Invalid value (at line 3, column 5)"
+    """
+    msg = str(exc)
+    line: int | None = None
+    column: int | None = None
+
+    # Try pattern "(at line X, column Y)"
+    match = re.search(r"\(at line (\d+), column (\d+)\)", msg)
+    if match:
+        line = int(match.group(1))
+        column = int(match.group(2))
+    else:
+        # Try pattern "at line X, column Y" without parentheses
+        match = re.search(r"at line (\d+), column (\d+)", msg)
+        if match:
+            line = int(match.group(1))
+            column = int(match.group(2))
+
+    return msg, line, column
 
 
 class TomlLibProvider(TomlProviderBase):
@@ -20,20 +46,32 @@ class TomlLibProvider(TomlProviderBase):
         import tomllib
 
         try:
+            source_content: str | None = None
             match data:
                 case Path() | UPath():
                     content = data.read_bytes()
+                    source_content = content.decode(errors="replace")
                     return tomllib.load(BytesIO(content))
                 case TextIOWrapper():
-                    content = data.read().encode()
-                    return tomllib.loads(content.decode())
+                    content = data.read()
+                    source_content = content
+                    return tomllib.loads(content)
                 case bytes():
+                    source_content = data.decode(errors="replace")
                     return tomllib.loads(data.decode())
                 case str():
+                    source_content = data
                     return tomllib.loads(data)
         except tomllib.TOMLDecodeError as exc:
-            error_msg = f"Invalid TOML: {exc}"
-            raise TomlLoadError(error_msg) from exc
+            msg, line, column = _extract_tomllib_error_info(exc)
+            source_path = data if isinstance(data, Path | UPath) else None
+            raise TomlLoadError(
+                f"Invalid TOML: {msg}",
+                line=line,
+                column=column,
+                source_path=source_path,
+                source_content=source_content,
+            ) from exc
 
     @staticmethod
     def dump_toml(data: Any, *, pretty: bool = False) -> str:

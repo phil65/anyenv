@@ -14,6 +14,34 @@ from anyenv.json_tools.utils import handle_datetimes, prepare_numpy_arrays
 logger = logging.getLogger(__name__)
 
 
+def _extract_pydantic_error_info(exc: Exception) -> tuple[str, int | None, int | None]:
+    """Extract line and column info from pydantic_core error message.
+
+    pydantic_core errors may include position info in various formats.
+    """
+    msg = str(exc)
+    line: int | None = None
+    column: int | None = None
+
+    # pydantic_core may report position info like "... at line X column Y"
+    if " at line " in msg and " column " in msg:
+        try:
+            parts = msg.rsplit(" at line ", 1)
+            if len(parts) == 2:
+                location = parts[1]
+                line_col = location.split(" column ")
+                if len(line_col) == 2:
+                    # Extract just the number, handling trailing text
+                    line_str = line_col[0].strip()
+                    col_str = line_col[1].split()[0] if line_col[1] else ""
+                    line = int(line_str)
+                    column = int(col_str)
+        except (ValueError, IndexError):
+            pass
+
+    return msg, line, column
+
+
 class PydanticProvider(JsonProviderBase):
     """Pydantic implementation of the JSON provider interface."""
 
@@ -23,13 +51,24 @@ class PydanticProvider(JsonProviderBase):
         from pydantic_core import from_json
 
         try:
+            source_content: str | None = None
             match data:
                 case TextIOWrapper():
                     data = data.read()
+                    source_content = data
+                case str():
+                    source_content = data
+                case bytes():
+                    source_content = data.decode(errors="replace")
             return from_json(data)
         except Exception as exc:
-            error_msg = f"Invalid JSON: {exc}"
-            raise JsonLoadError(error_msg) from exc
+            msg, line, column = _extract_pydantic_error_info(exc)
+            raise JsonLoadError(
+                f"Invalid JSON: {msg}",
+                line=line,
+                column=column,
+                source_content=source_content,
+            ) from exc
 
     @staticmethod
     def dump_json(
