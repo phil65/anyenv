@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import abc
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from anyenv.parse_errors import ParseErrorInfo
@@ -11,6 +10,7 @@ from anyenv.parse_errors import ParseErrorInfo
 
 if TYPE_CHECKING:
     from io import TextIOWrapper
+    from pathlib import Path
 
 
 class JsonProviderBase(abc.ABC):
