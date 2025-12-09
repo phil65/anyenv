@@ -57,18 +57,22 @@ class JsonLoadError(Exception):
 
     @property
     def line(self) -> int | None:
+        """Line number where the error occurred."""
         return self.info.line
 
     @property
     def column(self) -> int | None:
+        """Column number where the error occurred."""
         return self.info.column
 
     @property
     def source_path(self) -> str | Path | None:
+        """Path to the source file that caused the error."""
         return self.info.source_path
 
     @property
     def source_content(self) -> str | None:
+        """Source content that caused the error."""
         return self.info.source_content
 
     def format(self, context_lines: int = 2, use_color: bool = True) -> str:
