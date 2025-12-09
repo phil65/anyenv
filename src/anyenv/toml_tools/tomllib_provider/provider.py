@@ -60,9 +60,9 @@ class TomlLibProvider(TomlProviderBase):
                     source_content = content.decode(errors="replace")
                     return tomllib.load(BytesIO(content))
                 case TextIOWrapper():
-                    content = data.read()
-                    source_content = content
-                    return tomllib.loads(content)
+                    text_content = data.read()
+                    source_content = text_content
+                    return tomllib.loads(text_content)
                 case bytes():
                     source_content = data.decode(errors="replace")
                     return tomllib.loads(data.decode())
@@ -71,7 +71,9 @@ class TomlLibProvider(TomlProviderBase):
                     return tomllib.loads(data)
         except tomllib.TOMLDecodeError as exc:
             msg, line, column = _extract_tomllib_error_info(exc, source_content)
-            source_path = data if isinstance(data, Path | UPath) else None
+            source_path: str | Path | None = (
+                str(data) if isinstance(data, UPath) else (data if isinstance(data, Path) else None)
+            )
             raise TomlLoadError(  # noqa: TRY003
                 f"Invalid TOML: {msg}",
                 line=line,

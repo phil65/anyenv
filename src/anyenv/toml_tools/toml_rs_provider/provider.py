@@ -44,7 +44,7 @@ class TomlRsProvider(TomlProviderBase):
                 f"Invalid TOML: {exc.msg}",
                 line=exc.lineno,
                 column=exc.colno,
-                source_path=source_path,
+                source_path=str(source_path) if isinstance(source_path, UPath) else source_path,
                 source_content=source_content,
             ) from exc
 

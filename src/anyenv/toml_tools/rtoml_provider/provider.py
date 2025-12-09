@@ -72,7 +72,7 @@ class RtomlProvider(TomlProviderBase):
                 f"Invalid TOML: {msg}",
                 line=line,
                 column=column,
-                source_path=source_path,
+                source_path=str(source_path) if isinstance(source_path, UPath) else source_path,
                 source_content=source_content,
             ) from exc
 
