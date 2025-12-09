@@ -9,7 +9,8 @@ from __future__ import annotations
 import importlib.util
 from typing import Any, Literal, TYPE_CHECKING
 
-from anyenv.toml_tools.base import ParseErrorInfo, TomlDumpError, TomlLoadError
+from anyenv.toml_tools.base import TomlDumpError, TomlLoadError
+from anyenv.parse_errors import ParseErrorInfo
 
 if TYPE_CHECKING:
     from anyenv.toml_tools.base import TomlProviderBase

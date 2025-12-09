@@ -4,35 +4,11 @@ from __future__ import annotations
 
 from io import BytesIO, TextIOWrapper
 from pathlib import Path
-import re
 from typing import Any
 
 from upath import UPath
 
 from anyenv.toml_tools.base import TomlLoadError, TomlProviderBase
-
-
-def _extract_toml_rs_error_info(exc: Exception) -> tuple[str, int | None, int | None]:
-    """Extract line and column info from toml_rs error message.
-
-    toml_rs errors may include position info in various formats.
-    """
-    msg = str(exc)
-    line: int | None = None
-    column: int | None = None
-
-    # Try pattern "at line X column Y" or "(at line X, column Y)"
-    match = re.search(r"at line (\d+)[,]? column (\d+)", msg)
-    if match:
-        line = int(match.group(1))
-        column = int(match.group(2))
-    else:
-        # Try pattern "line X"
-        match = re.search(r"line (\d+)", msg)
-        if match:
-            line = int(match.group(1))
-
-    return msg, line, column
 
 
 class TomlRsProvider(TomlProviderBase):
@@ -63,12 +39,11 @@ class TomlRsProvider(TomlProviderBase):
                 case str():
                     source_content = data
                     return toml_rs.loads(data)
-        except Exception as exc:
-            msg, line, column = _extract_toml_rs_error_info(exc)
+        except toml_rs.TOMLDecodeError as exc:
             raise TomlLoadError(
-                f"Invalid TOML: {msg}",
-                line=line,
-                column=column,
+                f"Invalid TOML: {exc.msg}",
+                line=exc.lineno,
+                column=exc.colno,
                 source_path=source_path,
                 source_content=source_content,
             ) from exc

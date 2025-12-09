@@ -17,27 +17,19 @@ logger = logging.getLogger(__name__)
 def _extract_pydantic_error_info(exc: Exception) -> tuple[str, int | None, int | None]:
     """Extract line and column info from pydantic_core error message.
 
-    pydantic_core errors may include position info in various formats.
+    pydantic_core errors have format like "expected value at line 1 column 15"
     """
+    import re
+
     msg = str(exc)
     line: int | None = None
     column: int | None = None
 
-    # pydantic_core may report position info like "... at line X column Y"
-    if " at line " in msg and " column " in msg:
-        try:
-            parts = msg.rsplit(" at line ", 1)
-            if len(parts) == 2:
-                location = parts[1]
-                line_col = location.split(" column ")
-                if len(line_col) == 2:
-                    # Extract just the number, handling trailing text
-                    line_str = line_col[0].strip()
-                    col_str = line_col[1].split()[0] if line_col[1] else ""
-                    line = int(line_str)
-                    column = int(col_str)
-        except (ValueError, IndexError):
-            pass
+    # Pattern: "at line X column Y"
+    match = re.search(r"at line (\d+) column (\d+)", msg)
+    if match:
+        line = int(match.group(1))
+        column = int(match.group(2))
 
     return msg, line, column
 

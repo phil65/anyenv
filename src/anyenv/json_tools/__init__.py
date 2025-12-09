@@ -9,7 +9,8 @@ from __future__ import annotations
 import importlib.util
 from typing import Any, Literal, TYPE_CHECKING
 
-from anyenv.json_tools.base import JsonDumpError, JsonLoadError, ParseErrorInfo
+from anyenv.json_tools.base import JsonDumpError, JsonLoadError
+from anyenv.parse_errors import ParseErrorInfo
 
 if TYPE_CHECKING:
     from anyenv.json_tools.base import JsonProviderBase

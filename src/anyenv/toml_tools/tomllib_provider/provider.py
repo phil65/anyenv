@@ -12,11 +12,13 @@ from upath import UPath
 from anyenv.toml_tools.base import TomlDumpError, TomlLoadError, TomlProviderBase
 
 
-def _extract_tomllib_error_info(exc: Exception) -> tuple[str, int | None, int | None]:
+def _extract_tomllib_error_info(
+    exc: Exception, source: str | None
+) -> tuple[str, int | None, int | None]:
     """Extract line and column info from tomllib error message.
 
     tomllib errors typically have format like "... (at line X, column Y)"
-    or "Invalid value (at line 3, column 5)"
+    or "Invalid value (at line 3, column 5)" or "... (at end of document)"
     """
     msg = str(exc)
     line: int | None = None
@@ -33,6 +35,11 @@ def _extract_tomllib_error_info(exc: Exception) -> tuple[str, int | None, int | 
         if match:
             line = int(match.group(1))
             column = int(match.group(2))
+        elif "at end of document" in msg and source:
+            # For end-of-document errors, use last line
+            lines = source.splitlines()
+            line = len(lines)
+            column = len(lines[-1]) + 1 if lines else 1
 
     return msg, line, column
 
@@ -63,7 +70,7 @@ class TomlLibProvider(TomlProviderBase):
                     source_content = data
                     return tomllib.loads(data)
         except tomllib.TOMLDecodeError as exc:
-            msg, line, column = _extract_tomllib_error_info(exc)
+            msg, line, column = _extract_tomllib_error_info(exc, source_content)
             source_path = data if isinstance(data, Path | UPath) else None
             raise TomlLoadError(
                 f"Invalid TOML: {msg}",
