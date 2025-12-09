@@ -68,7 +68,7 @@ class RtomlProvider(TomlProviderBase):
                     return rtoml.loads(data)
         except Exception as exc:
             msg, line, column = _extract_rtoml_error_info(exc)
-            raise TomlLoadError(
+            raise TomlLoadError(  # noqa: TRY003
                 f"Invalid TOML: {msg}",
                 line=line,
                 column=column,

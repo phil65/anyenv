@@ -40,7 +40,7 @@ class TomlRsProvider(TomlProviderBase):
                     source_content = data
                     return toml_rs.loads(data)
         except toml_rs.TOMLDecodeError as exc:
-            raise TomlLoadError(
+            raise TomlLoadError(  # noqa: TRY003
                 f"Invalid TOML: {exc.msg}",
                 line=exc.lineno,
                 column=exc.colno,

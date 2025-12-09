@@ -72,7 +72,7 @@ class TomlLibProvider(TomlProviderBase):
         except tomllib.TOMLDecodeError as exc:
             msg, line, column = _extract_tomllib_error_info(exc, source_content)
             source_path = data if isinstance(data, Path | UPath) else None
-            raise TomlLoadError(
+            raise TomlLoadError(  # noqa: TRY003
                 f"Invalid TOML: {msg}",
                 line=line,
                 column=column,
