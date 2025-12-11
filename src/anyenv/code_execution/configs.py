@@ -13,13 +13,20 @@ from anyenv.code_execution.srt_provider.config import SandboxConfig
 if TYPE_CHECKING:
     from contextlib import AbstractAsyncContextManager
 
+    from anyenv.code_execution.acp_provider import ACPExecutionEnvironment
     from anyenv.code_execution.beam_provider import BeamExecutionEnvironment
     from anyenv.code_execution.daytona_provider import DaytonaExecutionEnvironment
     from anyenv.code_execution.docker_provider import DockerExecutionEnvironment
     from anyenv.code_execution.e2b_provider import E2bExecutionEnvironment
     from anyenv.code_execution.local_provider import LocalExecutionEnvironment
+    from anyenv.code_execution.microsandbox_provider import MicrosandboxExecutionEnvironment
+    from anyenv.code_execution.mock_provider import MockExecutionEnvironment
+    from anyenv.code_execution.modal_provider import ModalExecutionEnvironment
     from anyenv.code_execution.models import ServerInfo
+    from anyenv.code_execution.pyodide_provider import PyodideExecutionEnvironment
     from anyenv.code_execution.srt_provider import SRTExecutionEnvironment
+    from anyenv.code_execution.ssh_provider import SshExecutionEnvironment
+    from anyenv.code_execution.vercel_provider import VercelExecutionEnvironment
 
 
 class BaseExecutionEnvironmentConfig(BaseModel):
@@ -51,6 +58,8 @@ class LocalExecutionEnvironmentConfig(BaseExecutionEnvironmentConfig):
 
     Executes code in the same process. Fastest option but offers no isolation.
     """
+
+    model_config = ConfigDict(json_schema_extra={"x-doc-title": "Local Execution Environment"})
 
     type: Literal["local"] = Field("local", init=False)
 
@@ -93,6 +102,8 @@ class DockerExecutionEnvironmentConfig(BaseExecutionEnvironmentConfig):
     Executes code in Docker containers for strong isolation and reproducible environments.
     """
 
+    model_config = ConfigDict(json_schema_extra={"x-doc-title": "Docker Execution Environment"})
+
     type: Literal["docker"] = Field("docker", init=False)
 
     image: str = Field(
@@ -129,6 +140,8 @@ class E2bExecutionEnvironmentConfig(BaseExecutionEnvironmentConfig):
 
     Executes code in E2B sandboxes for secure, ephemeral execution environments.
     """
+
+    model_config = ConfigDict(json_schema_extra={"x-doc-title": "E2B Execution Environment"})
 
     type: Literal["e2b"] = Field("e2b", init=False)
 
@@ -170,6 +183,8 @@ class BeamExecutionEnvironmentConfig(BaseExecutionEnvironmentConfig):
 
     Executes code in Beam cloud sandboxes for scalable, serverless execution environments.
     """
+
+    model_config = ConfigDict(json_schema_extra={"x-doc-title": "Beam Execution Environment"})
 
     type: Literal["beam"] = Field("beam", init=False)
 
@@ -226,6 +241,8 @@ class DaytonaExecutionEnvironmentConfig(BaseExecutionEnvironmentConfig):
     Executes code in remote Daytona sandboxes for cloud-based development environments.
     """
 
+    model_config = ConfigDict(json_schema_extra={"x-doc-title": "Daytona Execution Environment"})
+
     type: Literal["daytona"] = Field("daytona", init=False)
 
     api_url: str | None = Field(
@@ -281,6 +298,8 @@ class SRTExecutionEnvironmentConfig(BaseExecutionEnvironmentConfig):
     Requires `srt` CLI: `npm install -g @anthropic-ai/sandbox-runtime`
     """
 
+    model_config = ConfigDict(json_schema_extra={"x-doc-title": "SRT Execution Environment"})
+
     type: Literal["srt"] = Field("srt", init=False)
 
     language: Language = Field(
@@ -316,6 +335,455 @@ class SRTExecutionEnvironmentConfig(BaseExecutionEnvironmentConfig):
         )
 
 
+class MockExecutionEnvironmentConfig(BaseExecutionEnvironmentConfig):
+    """Mock execution environment for testing.
+
+    Provides a memory-backed filesystem and configurable mock responses.
+    """
+
+    model_config = ConfigDict(json_schema_extra={"x-doc-title": "Mock Execution Environment"})
+
+    type: Literal["mock"] = Field("mock", init=False)
+
+    code_results: dict[str, dict] | None = Field(
+        default=None,
+        title="Code Results",
+    )
+    """Map of code string to execution result."""
+
+    command_results: dict[str, dict] | None = Field(
+        default=None,
+        title="Command Results",
+    )
+    """Map of command string to execution result."""
+
+    def get_provider(
+        self, lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None
+    ) -> MockExecutionEnvironment:
+        """Create mock execution environment instance."""
+        from anyenv.code_execution.mock_provider import MockExecutionEnvironment
+        from anyenv.code_execution.models import ExecutionResult
+
+        code_results = None
+        if self.code_results:
+            code_results = {k: ExecutionResult(**v) for k, v in self.code_results.items()}
+
+        command_results = None
+        if self.command_results:
+            command_results = {k: ExecutionResult(**v) for k, v in self.command_results.items()}
+
+        return MockExecutionEnvironment(
+            code_results=code_results,
+            command_results=command_results,
+        )
+
+
+class MicrosandboxExecutionEnvironmentConfig(BaseExecutionEnvironmentConfig):
+    """Microsandbox execution environment configuration.
+
+    Executes code in lightweight microVMs for strong isolation.
+    """
+
+    model_config = ConfigDict(
+        json_schema_extra={"x-doc-title": "Microsandbox Execution Environment"}
+    )
+
+    type: Literal["microsandbox"] = Field("microsandbox", init=False)
+
+    server_url: str | None = Field(
+        default=None,
+        title="Server URL",
+        examples=["http://localhost:8080"],
+    )
+    """Microsandbox server URL (uses MSB_SERVER_URL env var if None)."""
+
+    namespace: str = Field(
+        default="default",
+        title="Namespace",
+    )
+    """Sandbox namespace."""
+
+    api_key: SecretStr | None = Field(default=None, title="API Key")
+    """API key for authentication (uses MSB_API_KEY env var if None)."""
+
+    memory: int = Field(
+        default=512,
+        ge=128,
+        title="Memory (MB)",
+    )
+    """Memory limit in MB."""
+
+    cpus: float = Field(
+        default=1.0,
+        ge=0.1,
+        title="CPU Cores",
+    )
+    """CPU limit."""
+
+    language: Language = Field(
+        default="python",
+        title="Programming Language",
+        examples=["python", "javascript", "typescript"],
+    )
+    """Programming language to use."""
+
+    image: str | None = Field(
+        default=None,
+        title="Docker Image",
+        examples=["python:3.13-slim", "node:20-alpine"],
+    )
+    """Custom Docker image (uses default for language if None)."""
+
+    def get_provider(
+        self, lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None
+    ) -> MicrosandboxExecutionEnvironment:
+        """Create Microsandbox execution environment instance."""
+        from anyenv.code_execution.microsandbox_provider import MicrosandboxExecutionEnvironment
+
+        api_key_str = self.api_key.get_secret_value() if self.api_key else None
+        return MicrosandboxExecutionEnvironment(
+            lifespan_handler=lifespan_handler,
+            dependencies=self.dependencies,
+            server_url=self.server_url,
+            namespace=self.namespace,
+            api_key=api_key_str,
+            memory=self.memory,
+            cpus=self.cpus,
+            timeout=self.timeout,
+            language=self.language,
+            image=self.image,
+        )
+
+
+class ModalExecutionEnvironmentConfig(BaseExecutionEnvironmentConfig):
+    """Modal execution environment configuration.
+
+    Executes code in Modal serverless sandboxes for scalable cloud execution.
+    """
+
+    model_config = ConfigDict(json_schema_extra={"x-doc-title": "Modal Execution Environment"})
+
+    type: Literal["modal"] = Field("modal", init=False)
+
+    app_name: str | None = Field(
+        default=None,
+        title="App Name",
+        examples=["my-app", "anyenv-execution"],
+    )
+    """Modal app name (creates if missing)."""
+
+    cpu: float | None = Field(
+        default=None,
+        ge=0.1,
+        title="CPU Cores",
+    )
+    """CPU allocation in cores."""
+
+    memory: int | None = Field(
+        default=None,
+        ge=128,
+        title="Memory (MB)",
+    )
+    """Memory allocation in MB."""
+
+    gpu: str | None = Field(
+        default=None,
+        title="GPU Type",
+        examples=["T4", "A100", "A10G"],
+    )
+    """GPU type."""
+
+    idle_timeout: int | None = Field(
+        default=None,
+        title="Idle Timeout (seconds)",
+    )
+    """Idle timeout in seconds."""
+
+    workdir: str = Field(
+        default="/tmp",
+        title="Working Directory",
+    )
+    """Working directory in sandbox."""
+
+    language: Language = Field(
+        default="python",
+        title="Programming Language",
+        examples=["python", "javascript", "typescript"],
+    )
+    """Programming language to use."""
+
+    def get_provider(
+        self, lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None
+    ) -> ModalExecutionEnvironment:
+        """Create Modal execution environment instance."""
+        from anyenv.code_execution.modal_provider import ModalExecutionEnvironment
+
+        return ModalExecutionEnvironment(
+            lifespan_handler=lifespan_handler,
+            dependencies=self.dependencies,
+            app_name=self.app_name,
+            cpu=self.cpu,
+            memory=self.memory,
+            gpu=self.gpu,
+            timeout=int(self.timeout),
+            idle_timeout=self.idle_timeout,
+            workdir=self.workdir,
+            language=self.language,
+        )
+
+
+class SshExecutionEnvironmentConfig(BaseExecutionEnvironmentConfig):
+    """SSH execution environment configuration.
+
+    Executes code on a remote machine via SSH connection.
+    """
+
+    model_config = ConfigDict(json_schema_extra={"x-doc-title": "SSH Execution Environment"})
+
+    type: Literal["ssh"] = Field("ssh", init=False)
+
+    host: str = Field(
+        title="Host",
+        examples=["192.168.1.100", "example.com"],
+    )
+    """Remote host to connect to."""
+
+    username: str = Field(
+        title="Username",
+        examples=["ubuntu", "root"],
+    )
+    """SSH username."""
+
+    password: SecretStr | None = Field(default=None, title="Password")
+    """SSH password (if not using key auth)."""
+
+    private_key_path: str | None = Field(
+        default=None,
+        title="Private Key Path",
+        examples=["~/.ssh/id_rsa", "/path/to/key"],
+    )
+    """Path to SSH private key file."""
+
+    port: int = Field(
+        default=22,
+        ge=1,
+        le=65535,
+        title="SSH Port",
+    )
+    """SSH port."""
+
+    language: Language = Field(
+        default="python",
+        title="Programming Language",
+        examples=["python", "javascript", "typescript"],
+    )
+    """Programming language to use."""
+
+    cwd: str | None = Field(
+        default=None,
+        title="Working Directory",
+        examples=["/tmp", "~/workspace"],
+    )
+    """Remote working directory (auto-generated if None)."""
+
+    def get_provider(
+        self, lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None
+    ) -> SshExecutionEnvironment:
+        """Create SSH execution environment instance."""
+        from anyenv.code_execution.ssh_provider import SshExecutionEnvironment
+
+        password_str = self.password.get_secret_value() if self.password else None
+        return SshExecutionEnvironment(
+            host=self.host,
+            username=self.username,
+            lifespan_handler=lifespan_handler,
+            dependencies=self.dependencies,
+            password=password_str,
+            private_key_path=self.private_key_path,
+            port=self.port,
+            timeout=self.timeout,
+            language=self.language,
+            cwd=self.cwd,
+        )
+
+
+class VercelExecutionEnvironmentConfig(BaseExecutionEnvironmentConfig):
+    """Vercel execution environment configuration.
+
+    Executes code in Vercel cloud sandboxes for serverless execution.
+    """
+
+    model_config = ConfigDict(json_schema_extra={"x-doc-title": "Vercel Execution Environment"})
+
+    type: Literal["vercel"] = Field("vercel", init=False)
+
+    runtime: (
+        Literal["node22", "python3.13", "v0-next-shadcn", "cua-ubuntu-xfce", "walleye-python"]
+        | None
+    ) = Field(
+        default=None,
+        title="Runtime",
+    )
+    """Vercel runtime to use."""
+
+    resources: dict[str, int | str] | None = Field(
+        default=None,
+        title="Resources",
+    )
+    """Resource configuration for the sandbox."""
+
+    ports: list[int] = Field(
+        default=[3000],
+        title="Ports",
+    )
+    """List of ports to expose."""
+
+    language: Language = Field(
+        default="python",
+        title="Programming Language",
+        examples=["python", "javascript", "typescript"],
+    )
+    """Programming language to use."""
+
+    token: SecretStr | None = Field(default=None, title="API Token")
+    """Vercel API token (uses environment if None)."""
+
+    project_id: str | None = Field(
+        default=None,
+        title="Project ID",
+    )
+    """Vercel project ID (uses environment if None)."""
+
+    team_id: str | None = Field(
+        default=None,
+        title="Team ID",
+    )
+    """Vercel team ID (uses environment if None)."""
+
+    def get_provider(
+        self, lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None
+    ) -> VercelExecutionEnvironment:
+        """Create Vercel execution environment instance."""
+        from anyenv.code_execution.vercel_provider import VercelExecutionEnvironment
+
+        token_str = self.token.get_secret_value() if self.token else None
+        return VercelExecutionEnvironment(
+            lifespan_handler=lifespan_handler,
+            dependencies=self.dependencies,
+            runtime=self.runtime,
+            timeout=int(self.timeout),
+            resources=self.resources,
+            ports=self.ports,
+            language=self.language,
+            token=token_str,
+            project_id=self.project_id,
+            team_id=self.team_id,
+        )
+
+
+class PyodideExecutionEnvironmentConfig(BaseExecutionEnvironmentConfig):
+    """Pyodide execution environment configuration.
+
+    Executes Python code in WASM via Deno for sandboxed browser-like execution.
+    """
+
+    model_config = ConfigDict(json_schema_extra={"x-doc-title": "Pyodide Execution Environment"})
+
+    type: Literal["pyodide"] = Field("pyodide", init=False)
+
+    startup_timeout: float = Field(
+        default=60.0,
+        gt=0.0,
+        title="Startup Timeout",
+    )
+    """Timeout for Pyodide initialization in seconds."""
+
+    allow_net: bool | list[str] = Field(
+        default=True,
+        title="Network Access",
+    )
+    """Network access (True=all, list=specific hosts, False=none)."""
+
+    allow_read: bool | list[str] = Field(
+        default=False,
+        title="File Read Access",
+    )
+    """File read access."""
+
+    allow_write: bool | list[str] = Field(
+        default=False,
+        title="File Write Access",
+    )
+    """File write access."""
+
+    allow_env: bool | list[str] = Field(
+        default=False,
+        title="Environment Variable Access",
+    )
+    """Environment variable access."""
+
+    allow_run: bool | list[str] = Field(
+        default=False,
+        title="Subprocess Execution",
+    )
+    """Subprocess execution (limited in WASM)."""
+
+    allow_ffi: bool | list[str] = Field(
+        default=False,
+        title="FFI Access",
+    )
+    """Foreign function interface access."""
+
+    deno_executable: str | None = Field(
+        default=None,
+        title="Deno Executable",
+        examples=["deno", "/usr/local/bin/deno"],
+    )
+    """Path to deno executable (auto-detected if None)."""
+
+    def get_provider(
+        self, lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None
+    ) -> PyodideExecutionEnvironment:
+        """Create Pyodide execution environment instance."""
+        from anyenv.code_execution.pyodide_provider import PyodideExecutionEnvironment
+
+        return PyodideExecutionEnvironment(
+            lifespan_handler=lifespan_handler,
+            dependencies=self.dependencies,
+            timeout=self.timeout,
+            startup_timeout=self.startup_timeout,
+            allow_net=self.allow_net,
+            allow_read=self.allow_read,
+            allow_write=self.allow_write,
+            allow_env=self.allow_env,
+            allow_run=self.allow_run,
+            allow_ffi=self.allow_ffi,
+            deno_executable=self.deno_executable,
+        )
+
+
+class ACPExecutionEnvironmentConfig(BaseExecutionEnvironmentConfig):
+    """ACP execution environment configuration.
+
+    Delegates to ACP client capabilities for code execution.
+    Note: This config requires external ACP filesystem and requests objects.
+    """
+
+    model_config = ConfigDict(json_schema_extra={"x-doc-title": "ACP Execution Environment"})
+
+    type: Literal["acp"] = Field("acp", init=False)
+
+    def get_provider(
+        self, lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None
+    ) -> ACPExecutionEnvironment:
+        """Create ACP execution environment instance.
+
+        Note: This requires fs and requests to be injected separately.
+        """
+        msg = "ACPExecutionEnvironment requires external fs and requests objects"
+        raise NotImplementedError(msg)
+
+
 # Union type for all execution environment configurations
 ExecutionEnvironmentConfig = Annotated[
     LocalExecutionEnvironmentConfig
@@ -323,6 +791,13 @@ ExecutionEnvironmentConfig = Annotated[
     | E2bExecutionEnvironmentConfig
     | BeamExecutionEnvironmentConfig
     | DaytonaExecutionEnvironmentConfig
-    | SRTExecutionEnvironmentConfig,
+    | SRTExecutionEnvironmentConfig
+    # | MockExecutionEnvironmentConfig
+    | MicrosandboxExecutionEnvironmentConfig
+    | ModalExecutionEnvironmentConfig
+    | SshExecutionEnvironmentConfig
+    | VercelExecutionEnvironmentConfig
+    | PyodideExecutionEnvironmentConfig,
+    # | ACPExecutionEnvironmentConfig,
     Field(discriminator="type"),
 ]
