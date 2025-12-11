@@ -13,14 +13,12 @@ from anyenv.code_execution.srt_provider.config import SandboxConfig
 if TYPE_CHECKING:
     from contextlib import AbstractAsyncContextManager
 
-    from anyenv.code_execution.acp_provider import ACPExecutionEnvironment
     from anyenv.code_execution.beam_provider import BeamExecutionEnvironment
     from anyenv.code_execution.daytona_provider import DaytonaExecutionEnvironment
     from anyenv.code_execution.docker_provider import DockerExecutionEnvironment
     from anyenv.code_execution.e2b_provider import E2bExecutionEnvironment
     from anyenv.code_execution.local_provider import LocalExecutionEnvironment
     from anyenv.code_execution.microsandbox_provider import MicrosandboxExecutionEnvironment
-    from anyenv.code_execution.mock_provider import MockExecutionEnvironment
     from anyenv.code_execution.modal_provider import ModalExecutionEnvironment
     from anyenv.code_execution.models import ServerInfo
     from anyenv.code_execution.pyodide_provider import PyodideExecutionEnvironment
@@ -332,49 +330,6 @@ class SRTExecutionEnvironmentConfig(BaseExecutionEnvironmentConfig):
             timeout=self.timeout,
             executable=self.executable,
             language=self.language,
-        )
-
-
-class MockExecutionEnvironmentConfig(BaseExecutionEnvironmentConfig):
-    """Mock execution environment for testing.
-
-    Provides a memory-backed filesystem and configurable mock responses.
-    """
-
-    model_config = ConfigDict(json_schema_extra={"x-doc-title": "Mock Execution Environment"})
-
-    type: Literal["mock"] = Field("mock", init=False)
-
-    code_results: dict[str, dict] | None = Field(
-        default=None,
-        title="Code Results",
-    )
-    """Map of code string to execution result."""
-
-    command_results: dict[str, dict] | None = Field(
-        default=None,
-        title="Command Results",
-    )
-    """Map of command string to execution result."""
-
-    def get_provider(
-        self, lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None
-    ) -> MockExecutionEnvironment:
-        """Create mock execution environment instance."""
-        from anyenv.code_execution.mock_provider import MockExecutionEnvironment
-        from anyenv.code_execution.models import ExecutionResult
-
-        code_results = None
-        if self.code_results:
-            code_results = {k: ExecutionResult(**v) for k, v in self.code_results.items()}
-
-        command_results = None
-        if self.command_results:
-            command_results = {k: ExecutionResult(**v) for k, v in self.command_results.items()}
-
-        return MockExecutionEnvironment(
-            code_results=code_results,
-            command_results=command_results,
         )
 
 
@@ -762,28 +717,6 @@ class PyodideExecutionEnvironmentConfig(BaseExecutionEnvironmentConfig):
         )
 
 
-class ACPExecutionEnvironmentConfig(BaseExecutionEnvironmentConfig):
-    """ACP execution environment configuration.
-
-    Delegates to ACP client capabilities for code execution.
-    Note: This config requires external ACP filesystem and requests objects.
-    """
-
-    model_config = ConfigDict(json_schema_extra={"x-doc-title": "ACP Execution Environment"})
-
-    type: Literal["acp"] = Field("acp", init=False)
-
-    def get_provider(
-        self, lifespan_handler: AbstractAsyncContextManager[ServerInfo] | None = None
-    ) -> ACPExecutionEnvironment:
-        """Create ACP execution environment instance.
-
-        Note: This requires fs and requests to be injected separately.
-        """
-        msg = "ACPExecutionEnvironment requires external fs and requests objects"
-        raise NotImplementedError(msg)
-
-
 # Union type for all execution environment configurations
 ExecutionEnvironmentConfig = Annotated[
     LocalExecutionEnvironmentConfig
@@ -792,7 +725,6 @@ ExecutionEnvironmentConfig = Annotated[
     | BeamExecutionEnvironmentConfig
     | DaytonaExecutionEnvironmentConfig
     | SRTExecutionEnvironmentConfig
-    # | MockExecutionEnvironmentConfig
     | MicrosandboxExecutionEnvironmentConfig
     | ModalExecutionEnvironmentConfig
     | SshExecutionEnvironmentConfig
