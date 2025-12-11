@@ -56,15 +56,11 @@ from anyenv.testing import open_in_playground
 from anyenv.json_tools import load_json, JsonLoadError, dump_json, JsonDumpError
 from anyenv.toml_tools import load_toml, TomlLoadError, dump_toml, TomlDumpError
 from anyenv.download.base import HttpBackend, HttpResponse, Session
-from anyenv.code_execution import get_environment
-from anyenv.code_execution.remote_callable import create_remote_callable
-from anyenv.code_execution.base import ExecutionEnvironment
 from anyenv.os_commands import get_os_command_provider
 from anyenv.process_manager import ProcessManager, ProcessOutput, RunningProcess
 from anyenv.processes import create_process, create_shell_process
 
 __all__ = [
-    "ExecutionEnvironment",
     "HttpBackend",
     "HttpError",
     "HttpResponse",
@@ -83,7 +79,6 @@ __all__ = [
     "__version__",
     "call_and_gather",
     "create_process",
-    "create_remote_callable",
     "create_shell_process",
     "download",
     "download_sync",
@@ -95,7 +90,6 @@ __all__ = [
     "get_backend",
     "get_bytes",
     "get_bytes_sync",
-    "get_environment",
     "get_json",
     "get_json_sync",
     "get_os_command_provider",
