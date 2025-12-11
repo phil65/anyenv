@@ -43,20 +43,11 @@ Source = "https://github.com/phil65/anyenv"
 
 [project.optional-dependencies]
 aiohttp = ["aiohttp", "aiohttp-client-cache"]
-beam = ["beam-client>=0.2.187"]
-daytona = ["daytona; python_version < '3.14'"]
-docker = ["testcontainers", "morefs"]
-e2b = ["e2b-code-interpreter"]
 httpx = ["httpx", "hishel[async]>=1.0.0"]
-mcp = ["fastmcp", "mcp-run-python"]
-microsandbox = ["microsandbox"]
-modal = ["modal"]
 msgspec = ["msgspec"]
 pytomlpp = ["pytomlpp; python_version < '3.14'"]
 rtoml = ["rtoml"]
-ssh = ["asyncssh", "sshfs"]
 toml-rs = ["toml-rs"]
-vercel = ["vercel"]
 
 [dependency-groups]
 dev = [
