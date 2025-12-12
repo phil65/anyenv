@@ -660,7 +660,7 @@ def get_bytes_sync(url: str, **kwargs: Unpack[DataRetrievalOptions]) -> bytes:
     return run_sync(get_bytes(url, **kwargs))
 
 
-async def post_json[T](  # noqa: D417
+async def post_json[T](
     url: str,
     json_data: Any,
     *,

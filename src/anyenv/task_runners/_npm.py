@@ -13,9 +13,8 @@ from anyenv.task_runners._base import TaskInfo, TaskRunner
 
 
 if TYPE_CHECKING:
+    from exxec import ExecutionEnvironment
     from fsspec.asyn import AsyncFileSystem  # type: ignore[import-untyped]
-
-    from anyenv.code_execution import ExecutionEnvironment
 
 
 type PackageManagerStr = Literal["npm", "pnpm", "yarn", "bun"]

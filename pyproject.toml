@@ -43,6 +43,7 @@ Source = "https://github.com/phil65/anyenv"
 
 [project.optional-dependencies]
 aiohttp = ["aiohttp", "aiohttp-client-cache"]
+exxec = ["exxec>=0.1.1"]
 httpx = ["httpx", "hishel[async]>=1.0.0"]
 msgspec = ["msgspec"]
 pytomlpp = ["pytomlpp; python_version < '3.14'"]

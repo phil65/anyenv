@@ -8,7 +8,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from anyenv.code_execution import ExecutionEnvironment, ExecutionEnvironmentStr
+    from exxec import ExecutionEnvironment, ExecutionEnvironmentStr
+
     from anyenv.language_formatters._base import LanguageFormatter
 
 

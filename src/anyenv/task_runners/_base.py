@@ -10,9 +10,8 @@ from typing import TYPE_CHECKING, ClassVar, Literal
 
 
 if TYPE_CHECKING:
+    from exxec import ExecutionEnvironment
     from fsspec.asyn import AsyncFileSystem  # type: ignore[import-untyped]
-
-    from anyenv.code_execution import ExecutionEnvironment
 
 
 type TaskRunnerStr = Literal["makefile", "task", "just", "duty", "invoke", "doit", "npm", "cargo"]

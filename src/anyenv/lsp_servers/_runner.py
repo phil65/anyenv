@@ -9,7 +9,8 @@ from anyenv.lsp_servers._base import DiagnosticsResult
 
 
 if TYPE_CHECKING:
-    from anyenv.code_execution.base import ExecutionEnvironment
+    from exxec import ExecutionEnvironment
+
     from anyenv.lsp_servers._base import Diagnostic, LSPServerInfo
 
 

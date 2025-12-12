@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 
 if TYPE_CHECKING:
-    from anyenv.code_execution import ExecutionEnvironment, ExecutionEnvironmentStr
+    from exxec import ExecutionEnvironment, ExecutionEnvironmentStr
 
 
 @dataclass
@@ -71,7 +71,7 @@ class LanguageFormatter(ABC):
                 or a direct ExecutionEnvironment instance
         """
         if isinstance(execution_env, str):
-            from anyenv.code_execution import get_environment
+            from exxec import get_environment
 
             self._execution_env: ExecutionEnvironment = get_environment(execution_env)  # type: ignore[arg-type]
         else:
