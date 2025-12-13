@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Sequence
+from collections.abc import AsyncGenerator, Sequence
+import contextlib
 import contextvars
 from functools import partial
 import inspect
@@ -15,7 +16,7 @@ from anyio import to_thread
 
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable, Coroutine
+    from collections.abc import AsyncIterable, Awaitable, Callable, Coroutine, Iterable
 
 
 PosArgsT = TypeVarTuple("PosArgsT")
@@ -310,3 +311,80 @@ async def call_and_gather[T](
     if return_exceptions:
         return await gather(*coros, return_exceptions=True)
     return await gather(*coros, return_exceptions=False)
+
+
+async def as_generated[T](
+    iterables: Iterable[AsyncIterable[T]],
+    *,
+    return_exceptions: bool = False,
+) -> AsyncIterable[T]:
+    """Yield results from one or more async iterables, in the order they are produced.
+
+    Like :func:`as_completed`, but for async iterators or generators instead of futures.
+    Creates a separate task to drain each iterable, and a single queue for results.
+
+    If ``return_exceptions`` is ``False``, then any exception will be raised, and
+    pending iterables and tasks will be cancelled, and async generators will be closed.
+    If ``return_exceptions`` is ``True``, any exceptions will be yielded as results,
+    and execution will continue until all iterables have been fully consumed.
+
+    Example::
+
+        async def generator(x):
+            for i in range(x):
+                yield i
+
+        gen1 = generator(10)
+        gen2 = generator(12)
+
+        async for value in as_generated([gen1, gen2]):
+            ...  # intermixed values yielded from gen1 and gen2
+    """
+    exc_queue: asyncio.Queue[Exception] = asyncio.Queue()
+    queue: asyncio.Queue[T] = asyncio.Queue()
+
+    async def tailer(iterable: AsyncIterable[T]) -> None:
+        try:
+            async for item in iterable:
+                await queue.put(item)
+        except asyncio.CancelledError:
+            if isinstance(iter, AsyncGenerator):  # pragma:nocover
+                await iter.aclose()
+            raise
+        except Exception as e:  # noqa: BLE001
+            await exc_queue.put(e)
+
+    tasks = [asyncio.ensure_future(tailer(i)) for i in iterables]
+    pending = set(tasks)
+
+    try:
+        while pending:
+            try:
+                exc = exc_queue.get_nowait()
+                if return_exceptions:
+                    yield exc  # type: ignore
+                else:
+                    raise exc
+            except asyncio.QueueEmpty:
+                pass
+
+            try:
+                value = queue.get_nowait()
+                yield value
+            except asyncio.QueueEmpty:
+                for task in list(pending):
+                    if task.done():
+                        pending.remove(task)
+                await asyncio.sleep(0.001)
+
+    except (asyncio.CancelledError, GeneratorExit):
+        pass
+
+    finally:
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+
+        for task in tasks:
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
