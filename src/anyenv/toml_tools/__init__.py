@@ -89,7 +89,7 @@ def get_toml_provider(backend: BackendType = "auto") -> type[TomlProviderBase]:
     raise ValueError(msg)
 
 
-def load_toml[T](
+def load_toml[T = dict[str, Any]](
     data: str | bytes | TextIOWrapper | Path,
     return_type: type[T] | None = None,
     backend: BackendType = "auto",
@@ -118,12 +118,7 @@ def load_toml[T](
     return parsed_data  # type: ignore[no-any-return]
 
 
-def dump_toml(
-    data: Any,
-    *,
-    pretty: bool = False,
-    backend: BackendType = "auto",
-) -> str:
+def dump_toml(data: Any, *, pretty: bool = False, backend: BackendType = "auto") -> str:
     """Serialize data to a TOML string.
 
     Args:
