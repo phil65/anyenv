@@ -26,7 +26,8 @@ class UnixFileInfoCommand(FileInfoCommand):
         Returns:
             The stat command string
         """
-        return f'stat -c "%n|%s|%F|%Y" "{path}"'
+        # Use single quotes for format string to prevent shell expansion of % chars
+        return f"stat -c '%n|%s|%F|%Y' \"{path}\""
 
     def parse_command(self, output: str, path: str) -> FileInfo:
         """Parse GNU stat output format: name|size|file_type|mtime.
