@@ -9,9 +9,11 @@ from __future__ import annotations
 
 from .base import (
     Base64EncodeCommand,
+    CopyPathCommand,
     CreateDirectoryCommand,
     ExistsCommand,
     FileInfoCommand,
+    FindCommand,
     IsDirectoryCommand,
     IsFileCommand,
     ListDirectoryCommand,
@@ -33,6 +35,11 @@ from .base64_encode import (
     UnixBase64EncodeCommand,
     WindowsBase64EncodeCommand,
 )
+from .copy_path import (
+    MacOSCopyPathCommand,
+    UnixCopyPathCommand,
+    WindowsCopyPathCommand,
+)
 from .create_directory import (
     MacOSCreateDirectoryCommand,
     UnixCreateDirectoryCommand,
@@ -40,6 +47,7 @@ from .create_directory import (
 )
 from .exists import MacOSExistsCommand, UnixExistsCommand, WindowsExistsCommand
 from .file_info import MacOSFileInfoCommand, UnixFileInfoCommand, WindowsFileInfoCommand
+from .find import MacOSFindCommand, UnixFindCommand, WindowsFindCommand
 from .is_directory import (
     MacOSIsDirectoryCommand,
     UnixIsDirectoryCommand,
@@ -84,6 +92,7 @@ __all__ = [
     "Base64EncodeCommand",
     # Models
     "CommandResult",
+    "CopyPathCommand",
     "CreateDirectoryCommand",
     "CreateDirectoryResult",
     "DirectoryEntry",
@@ -93,15 +102,19 @@ __all__ = [
     "ExistsResult",
     "FileInfo",
     "FileInfoCommand",
+    # Find command
+    "FindCommand",
     "IsDirectoryCommand",
     "IsFileCommand",
     "ListDirectoryCommand",
     "MacOSBase64EncodeCommand",
     "MacOSCommandProvider",
+    "MacOSCopyPathCommand",
     "MacOSCreateDirectoryCommand",
     "MacOSEnvVarCommand",
     "MacOSExistsCommand",
     "MacOSFileInfoCommand",
+    "MacOSFindCommand",
     "MacOSIsDirectoryCommand",
     "MacOSIsFileCommand",
     "MacOSListDirectoryCommand",
@@ -117,6 +130,8 @@ __all__ = [
     # Base64 encode commands
     "UnixBase64EncodeCommand",
     "UnixCommandProvider",
+    # Copy path commands
+    "UnixCopyPathCommand",
     # Create directory commands
     "UnixCreateDirectoryCommand",
     "UnixEnvVarCommand",
@@ -124,6 +139,8 @@ __all__ = [
     "UnixExistsCommand",
     # File info commands
     "UnixFileInfoCommand",
+    # Find commands
+    "UnixFindCommand",
     # Is directory commands
     "UnixIsDirectoryCommand",
     # Is file commands
@@ -138,10 +155,12 @@ __all__ = [
     "WhichCommand",
     "WindowsBase64EncodeCommand",
     "WindowsCommandProvider",
+    "WindowsCopyPathCommand",
     "WindowsCreateDirectoryCommand",
     "WindowsEnvVarCommand",
     "WindowsExistsCommand",
     "WindowsFileInfoCommand",
+    "WindowsFindCommand",
     "WindowsIsDirectoryCommand",
     "WindowsIsFileCommand",
     "WindowsListDirectoryCommand",

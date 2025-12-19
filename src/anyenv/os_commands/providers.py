@@ -10,6 +10,11 @@ from .base64_encode import (
     UnixBase64EncodeCommand,
     WindowsBase64EncodeCommand,
 )
+from .copy_path import (
+    MacOSCopyPathCommand,
+    UnixCopyPathCommand,
+    WindowsCopyPathCommand,
+)
 from .create_directory import (
     MacOSCreateDirectoryCommand,
     UnixCreateDirectoryCommand,
@@ -18,6 +23,7 @@ from .create_directory import (
 from .env_var import MacOSEnvVarCommand, UnixEnvVarCommand, WindowsEnvVarCommand
 from .exists import MacOSExistsCommand, UnixExistsCommand, WindowsExistsCommand
 from .file_info import MacOSFileInfoCommand, UnixFileInfoCommand, WindowsFileInfoCommand
+from .find import MacOSFindCommand, UnixFindCommand, WindowsFindCommand
 from .is_directory import (
     MacOSIsDirectoryCommand,
     UnixIsDirectoryCommand,
@@ -41,10 +47,12 @@ from .which import MacOSWhichCommand, UnixWhichCommand, WindowsWhichCommand
 if TYPE_CHECKING:
     from .base import (
         Base64EncodeCommand,
+        CopyPathCommand,
         CreateDirectoryCommand,
         EnvVarCommand,
         ExistsCommand,
         FileInfoCommand,
+        FindCommand,
         IsDirectoryCommand,
         IsFileCommand,
         ListDirectoryCommand,
@@ -61,10 +69,12 @@ CommandType = Literal[
     "is_directory",
     "create_directory",
     "remove_path",
+    "copy_path",
     "base64_encode",
     "which",
     "pwd",
     "env_var",
+    "find",
 ]
 
 
@@ -82,10 +92,12 @@ class OSCommandProvider:
             | IsDirectoryCommand
             | CreateDirectoryCommand
             | RemovePathCommand
+            | CopyPathCommand
             | Base64EncodeCommand
             | WhichCommand
             | PwdCommand
-            | EnvVarCommand,
+            | EnvVarCommand
+            | FindCommand,
         ] = {}
 
     @overload
@@ -110,6 +122,9 @@ class OSCommandProvider:
     def get_command(self, command_type: Literal["remove_path"]) -> RemovePathCommand: ...
 
     @overload
+    def get_command(self, command_type: Literal["copy_path"]) -> CopyPathCommand: ...
+
+    @overload
     def get_command(self, command_type: Literal["base64_encode"]) -> Base64EncodeCommand: ...
 
     @overload
@@ -121,6 +136,9 @@ class OSCommandProvider:
     @overload
     def get_command(self, command_type: Literal["env_var"]) -> EnvVarCommand: ...
 
+    @overload
+    def get_command(self, command_type: Literal["find"]) -> FindCommand: ...
+
     def get_command(
         self, command_type: CommandType
     ) -> (
@@ -131,10 +149,12 @@ class OSCommandProvider:
         | IsDirectoryCommand
         | CreateDirectoryCommand
         | RemovePathCommand
+        | CopyPathCommand
         | Base64EncodeCommand
         | WhichCommand
         | PwdCommand
         | EnvVarCommand
+        | FindCommand
     ):
         """Get command instance by type."""
         return self.commands[command_type]
@@ -154,10 +174,12 @@ class UnixCommandProvider(OSCommandProvider):
             "is_directory": UnixIsDirectoryCommand(),
             "create_directory": UnixCreateDirectoryCommand(),
             "remove_path": UnixRemovePathCommand(),
+            "copy_path": UnixCopyPathCommand(),
             "base64_encode": UnixBase64EncodeCommand(),
             "which": UnixWhichCommand(),
             "pwd": UnixPwdCommand(),
             "env_var": UnixEnvVarCommand(),
+            "find": UnixFindCommand(),
         }
 
 
@@ -175,10 +197,12 @@ class MacOSCommandProvider(OSCommandProvider):
             "is_directory": MacOSIsDirectoryCommand(),
             "create_directory": MacOSCreateDirectoryCommand(),
             "remove_path": MacOSRemovePathCommand(),
+            "copy_path": MacOSCopyPathCommand(),
             "base64_encode": MacOSBase64EncodeCommand(),
             "which": MacOSWhichCommand(),
             "pwd": MacOSPwdCommand(),
             "env_var": MacOSEnvVarCommand(),
+            "find": MacOSFindCommand(),
         }
 
 
@@ -196,10 +220,12 @@ class WindowsCommandProvider(OSCommandProvider):
             "is_directory": WindowsIsDirectoryCommand(),
             "create_directory": WindowsCreateDirectoryCommand(),
             "remove_path": WindowsRemovePathCommand(),
+            "copy_path": WindowsCopyPathCommand(),
             "base64_encode": WindowsBase64EncodeCommand(),
             "which": WindowsWhichCommand(),
             "pwd": WindowsPwdCommand(),
             "env_var": WindowsEnvVarCommand(),
+            "find": WindowsFindCommand(),
         }
 
 
