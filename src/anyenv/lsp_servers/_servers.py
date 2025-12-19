@@ -133,6 +133,130 @@ class PyrightServer(LSPServerInfo):
 
 
 @dataclass
+class ZubanServer(LSPServerInfo):
+    """Zuban type checker with mypy-compatible text output parsing."""
+
+    def _parse_text_diagnostics(self, output: str) -> list[Diagnostic]:
+        """Parse zuban mypy-compatible text output.
+
+        Format: file.py:line:column: severity: message  [error-code]
+        """
+        import re
+
+        diagnostics: list[Diagnostic] = []
+        # Pattern: path:line:col: severity: message  [code]
+        pattern = re.compile(
+            r"^(.+?):(\d+):(\d+): (error|warning|note): (.+?)(?:\s+\[([^\]]+)\])?$"
+        )
+
+        for line in output.strip().splitlines():
+            line = line.strip()
+            if match := pattern.match(line):
+                file_path, line_no, col, severity, message, code = match.groups()
+                diagnostics.append(
+                    Diagnostic(
+                        file=file_path,
+                        line=int(line_no),
+                        column=int(col),
+                        severity=severity_from_string(severity),
+                        message=message.strip(),
+                        code=code,
+                        source=self.id,
+                    )
+                )
+
+        return diagnostics
+
+    def parse_diagnostics(self, stdout: str, stderr: str) -> list[Diagnostic]:
+        """Parse diagnostics from CLI output."""
+        return self._parse_text_diagnostics(stdout or stderr)
+
+
+@dataclass
+class TyServer(LSPServerInfo):
+    """Ty (Astral) type checker with GitLab JSON diagnostic parsing."""
+
+    def _parse_json_diagnostics(self, output: str) -> list[Diagnostic]:
+        """Parse ty GitLab JSON output."""
+        import anyenv
+
+        diagnostics: list[Diagnostic] = []
+
+        try:
+            data = anyenv.load_json(output, return_type=list)
+            for item in data:
+                location = item.get("location", {})
+                positions = location.get("positions", {})
+                begin = positions.get("begin", {})
+                end = positions.get("end", {})
+
+                # Map GitLab severity to our severity
+                gitlab_severity = item.get("severity", "major")
+                if gitlab_severity in ("blocker", "critical", "major"):
+                    severity = "error"
+                elif gitlab_severity == "minor":
+                    severity = "warning"
+                else:
+                    severity = "information"
+
+                diagnostics.append(
+                    Diagnostic(
+                        file=location.get("path", ""),
+                        line=begin.get("line", 1),
+                        column=begin.get("column", 1),
+                        end_line=end.get("line", begin.get("line", 1)),
+                        end_column=end.get("column", begin.get("column", 1)),
+                        severity=severity_from_string(severity),
+                        message=item.get("description", ""),
+                        code=item.get("check_name"),
+                        source=self.id,
+                    )
+                )
+        except anyenv.JsonLoadError:
+            pass
+
+        return diagnostics
+
+
+@dataclass
+class PyreflyServer(LSPServerInfo):
+    """Pyrefly (Meta) type checker with JSON diagnostic parsing."""
+
+    def _parse_json_diagnostics(self, output: str) -> list[Diagnostic]:
+        """Parse pyrefly JSON output."""
+        import anyenv
+
+        diagnostics: list[Diagnostic] = []
+
+        try:
+            # Find JSON object (may have INFO line after it)
+            json_start = output.find("{")
+            json_end = output.rfind("}") + 1
+            if json_start == -1 or json_end == 0:
+                return diagnostics
+
+            data = anyenv.load_json(output[json_start:json_end], return_type=dict)
+            for error in data.get("errors", []):
+                diagnostics.append(
+                    Diagnostic(
+                        file=error.get("path", ""),
+                        line=error.get("line", 1),
+                        column=error.get("column", 1),
+                        end_line=error.get("stop_line", error.get("line", 1)),
+                        end_column=error.get("stop_column", error.get("column", 1)),
+                        severity=severity_from_string(error.get("severity", "error")),
+                        message=error.get("description", ""),
+                        code=error.get("name"),
+                        source=self.id,
+                    )
+                )
+        except anyenv.JsonLoadError:
+            pass
+
+        return diagnostics
+
+
+@dataclass
 class MypyServer(LSPServerInfo):
     """Mypy with JSON diagnostic parsing."""
 
@@ -411,6 +535,70 @@ MYPY = MypyServer(
     ),
 )
 
+ZUBAN = ZubanServer(
+    id="zuban",
+    extensions=[".py", ".pyi"],
+    root_detection=RootDetection(
+        include_patterns=[
+            "pyproject.toml",
+            "setup.py",
+            "setup.cfg",
+            "requirements.txt",
+            "mypy.ini",
+            ".mypy.ini",
+        ],
+    ),
+    command="zuban",
+    args=["server"],
+    cli_diagnostics=CLIDiagnosticConfig(
+        command="zuban",
+        args=["check", "--show-column-numbers", "--show-error-codes", "{files}"],
+        output_format="text",
+    ),
+)
+
+TY = TyServer(
+    id="ty",
+    extensions=[".py", ".pyi"],
+    root_detection=RootDetection(
+        include_patterns=[
+            "pyproject.toml",
+            "setup.py",
+            "setup.cfg",
+            "requirements.txt",
+            "ty.toml",
+        ],
+    ),
+    command="ty",
+    args=["server"],
+    cli_diagnostics=CLIDiagnosticConfig(
+        command="ty",
+        args=["check", "--output-format", "gitlab", "{files}"],
+        output_format="json",
+    ),
+)
+
+PYREFLY = PyreflyServer(
+    id="pyrefly",
+    extensions=[".py", ".pyi"],
+    root_detection=RootDetection(
+        include_patterns=[
+            "pyproject.toml",
+            "setup.py",
+            "setup.cfg",
+            "requirements.txt",
+            "pyrefly.toml",
+        ],
+    ),
+    command="pyrefly",
+    args=["lsp"],
+    cli_diagnostics=CLIDiagnosticConfig(
+        command="pyrefly",
+        args=["check", "--output-format", "json", "{files}"],
+        output_format="json",
+    ),
+)
+
 # Go
 
 GOPLS = GoplsServer(
@@ -625,6 +813,9 @@ ALL_SERVERS: list[LSPServerInfo] = [
     ASTRO,
     ESLINT,
     # Python
+    TY,
+    ZUBAN,
+    PYREFLY,
     PYRIGHT,
     BASEDPYRIGHT,
     MYPY,
