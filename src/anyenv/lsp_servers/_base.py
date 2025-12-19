@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import posixpath
 from typing import TYPE_CHECKING, Any, Literal
 
 
@@ -158,16 +159,12 @@ class LSPServerInfo:
     dotnet_install: DotnetInstall | None = None
     gem_install: GemInstall | None = None
     github_release: GitHubRelease | None = None
-
     # LSP initialization settings (static)
     initialization: dict[str, Any] = field(default_factory=dict)
-
     # Environment variables
     env: dict[str, str] = field(default_factory=dict)
-
     # If True, single global instance (not per-project)
     global_server: bool = False
-
     # CLI diagnostic fallback
     cli_diagnostics: CLIDiagnosticConfig | None = None
 
@@ -212,8 +209,6 @@ class LSPServerInfo:
         Returns:
             The resolved root directory, or None if this LSP shouldn't be used
         """
-        import posixpath
-
         if self.root_detection.exclude_patterns:
             excluded = await self._find_nearest(
                 posixpath.dirname(file_path),

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-import json
 import os
 import posixpath
 from typing import TYPE_CHECKING, Any
@@ -26,6 +25,13 @@ from anyenv.lsp_servers._base import (
 
 
 # Custom server classes for complex behaviors
+def get_python_venv_candidates(root: str) -> list[str]:
+    paths = [
+        os.environ.get("VIRTUAL_ENV"),
+        posixpath.join(root, ".venv"),
+        posixpath.join(root, "venv"),
+    ]
+    return [i for i in paths if i is not None]
 
 
 @dataclass
@@ -75,15 +81,7 @@ class PyrightServer(LSPServerInfo):
         """Detect virtualenv and set pythonPath."""
         init = await super().resolve_initialization(root, fs)
 
-        venv_candidates = [
-            os.environ.get("VIRTUAL_ENV"),
-            posixpath.join(root, ".venv"),
-            posixpath.join(root, "venv"),
-        ]
-
-        for venv_path in venv_candidates:
-            if venv_path is None:
-                continue
+        for venv_path in get_python_venv_candidates(root):
             if os.name == "nt":
                 python = posixpath.join(venv_path, "Scripts", "python.exe")
             else:
@@ -99,6 +97,8 @@ class PyrightServer(LSPServerInfo):
 
     def _parse_json_diagnostics(self, output: str) -> list[Diagnostic]:
         """Parse pyright JSON output."""
+        import anyenv
+
         diagnostics: list[Diagnostic] = []
 
         try:
@@ -106,7 +106,7 @@ class PyrightServer(LSPServerInfo):
             json_start = output.find("{")
             if json_start == -1:
                 return diagnostics
-            data = json.loads(output[json_start:])
+            data = anyenv.load_json(output[json_start:], return_type=dict)
 
             for diag in data.get("generalDiagnostics", []):
                 range_info = diag.get("range", {})
@@ -126,7 +126,7 @@ class PyrightServer(LSPServerInfo):
                         source=self.id,
                     )
                 )
-        except json.JSONDecodeError:
+        except anyenv.JsonLoadError:
             pass
 
         return diagnostics
@@ -138,14 +138,15 @@ class MypyServer(LSPServerInfo):
 
     def _parse_json_diagnostics(self, output: str) -> list[Diagnostic]:
         """Parse mypy JSON output (one JSON object per line)."""
-        diagnostics: list[Diagnostic] = []
+        import anyenv
 
+        diagnostics: list[Diagnostic] = []
         for line in output.strip().splitlines():
             line = line.strip()
             if not line or not line.startswith("{"):
                 continue
             try:
-                data = json.loads(line)
+                data = anyenv.load_json(line, return_type=dict)
                 diagnostics.append(
                     Diagnostic(
                         file=data.get("file", ""),
@@ -157,7 +158,7 @@ class MypyServer(LSPServerInfo):
                         source=self.id,
                     )
                 )
-            except json.JSONDecodeError:
+            except anyenv.JsonLoadError:
                 continue
 
         return diagnostics
@@ -170,7 +171,6 @@ class TypeScriptServer(LSPServerInfo):
     async def resolve_initialization(self, root: str, fs: AsyncFileSystem) -> dict[str, Any]:
         """Detect tsserver.js path."""
         init = await super().resolve_initialization(root, fs)
-
         tsserver = posixpath.join(root, "node_modules", "typescript", "lib", "tsserver.js")
         try:
             if await fs._exists(tsserver):  # noqa: SLF001
@@ -188,7 +188,6 @@ class AstroServer(LSPServerInfo):
     async def resolve_initialization(self, root: str, fs: AsyncFileSystem) -> dict[str, Any]:
         """Detect TypeScript SDK path for Astro."""
         init = await super().resolve_initialization(root, fs)
-
         tsserver = posixpath.join(root, "node_modules", "typescript", "lib", "tsserver.js")
         try:
             if await fs._exists(tsserver):  # noqa: SLF001

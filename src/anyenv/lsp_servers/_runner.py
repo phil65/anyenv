@@ -1,33 +1,70 @@
-"""Diagnostic runner using ExecutionEnvironment."""
+"""Diagnostic runner for LSP servers."""
 
 from __future__ import annotations
 
+import asyncio
+from dataclasses import dataclass
 import posixpath
-from typing import TYPE_CHECKING
+import time
+from typing import TYPE_CHECKING, Protocol
 
 from anyenv.lsp_servers._base import DiagnosticsResult
 
 
 if TYPE_CHECKING:
-    from exxec import ExecutionEnvironment
-
     from anyenv.lsp_servers._base import Diagnostic, LSPServerInfo
 
 
-class DiagnosticRunner:
-    """Run diagnostics via ExecutionEnvironment.
+@dataclass
+class CommandResult:
+    """Result from running a command."""
 
-    Works with any ExecutionEnvironment (local, Docker, SSH, etc.) to run
+    stdout: str
+    stderr: str
+    exit_code: int
+    duration: float
+
+
+class CommandExecutor(Protocol):
+    """Protocol for command execution."""
+
+    async def __call__(self, command: str) -> CommandResult:
+        """Execute a command and return the result."""
+        ...
+
+
+async def _default_executor(command: str) -> CommandResult:
+    """Default executor using asyncio subprocess."""
+    start = time.perf_counter()
+    proc = await asyncio.create_subprocess_shell(
+        command,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    stdout, stderr = await proc.communicate()
+    duration = time.perf_counter() - start
+    return CommandResult(
+        stdout=stdout.decode() if stdout else "",
+        stderr=stderr.decode() if stderr else "",
+        exit_code=proc.returncode or 0,
+        duration=duration,
+    )
+
+
+class DiagnosticRunner:
+    """Run diagnostics using CLI tools.
+
+    Works with any command executor (local subprocess, Docker, SSH, etc.) to run
     CLI diagnostic tools and parse their output.
     """
 
-    def __init__(self, env: ExecutionEnvironment) -> None:
-        """Initialize with an execution environment.
+    def __init__(self, executor: CommandExecutor | None = None) -> None:
+        """Initialize with an optional command executor.
 
         Args:
-            env: The execution environment to run commands in
+            executor: Callable to execute commands. Defaults to local subprocess.
         """
-        self.env = env
+        self._executor = executor or _default_executor
         self._servers: list[LSPServerInfo] = []
 
     def register(self, server: LSPServerInfo) -> None:
@@ -74,8 +111,8 @@ class DiagnosticRunner:
             return DiagnosticsResult(diagnostics=[], success=False, duration=0.0, error=msg)
 
         command = server.build_diagnostic_command(files)
-        result = await self.env.execute_command(command)
-        diagnostics = server.parse_diagnostics(result.stdout or "", result.stderr or "")
+        result = await self._executor(command)
+        diagnostics = server.parse_diagnostics(result.stdout, result.stderr)
         # Parsing succeeded, even if there are errors
         return DiagnosticsResult(diagnostics=diagnostics, success=True, duration=result.duration)
 
