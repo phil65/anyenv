@@ -10,7 +10,14 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from fsspec.asyn import AsyncFileSystem  # type: ignore[import-untyped]
 
-from anyenv.lsp_servers._base import LSPServerInfo, NpmInstall, RootDetection
+from anyenv.lsp_servers._base import (
+    CLIDiagnosticConfig,
+    Diagnostic,
+    LSPServerInfo,
+    NpmInstall,
+    RootDetection,
+    severity_from_string,
+)
 
 
 @dataclass
@@ -45,6 +52,87 @@ class AstroServer(LSPServerInfo):
             pass
 
         return init
+
+
+@dataclass
+class OxlintServer(LSPServerInfo):
+    """Oxlint (oxc) linter with JSON diagnostic parsing."""
+
+    def _parse_json_diagnostics(self, output: str) -> list[Diagnostic]:
+        """Parse oxlint JSON output."""
+        import anyenv
+
+        diagnostics: list[Diagnostic] = []
+
+        try:
+            data = anyenv.load_json(output, return_type=dict)
+            for diag in data.get("diagnostics", []):
+                # Get location from labels
+                labels = diag.get("labels", [])
+                if labels:
+                    span = labels[0].get("span", {})
+                    line = span.get("line", 1)
+                    column = span.get("column", 1)
+                else:
+                    line, column = 1, 1
+
+                diagnostics.append(
+                    Diagnostic(
+                        file=diag.get("filename", ""),
+                        line=line,
+                        column=column,
+                        severity=severity_from_string(diag.get("severity", "warning")),
+                        message=diag.get("message", ""),
+                        code=diag.get("code"),
+                        source=self.id,
+                    )
+                )
+        except anyenv.JsonLoadError:
+            pass
+
+        return diagnostics
+
+
+@dataclass
+class BiomeServer(LSPServerInfo):
+    """Biome linter/formatter with JSON diagnostic parsing."""
+
+    def _parse_json_diagnostics(self, output: str) -> list[Diagnostic]:
+        """Parse biome JSON output."""
+        import anyenv
+
+        diagnostics: list[Diagnostic] = []
+
+        try:
+            # Find JSON in output (biome may print extra text)
+            json_start = output.find("{")
+            if json_start == -1:
+                return diagnostics
+
+            data = anyenv.load_json(output[json_start:], return_type=dict)
+            for diag in data.get("diagnostics", []):
+                location = diag.get("location", {})
+                span = location.get("span", [0, 0])
+                # Biome uses byte offsets, not line/column directly
+                # For now, use offset as approximation (would need source to convert)
+                path_info = location.get("path", {})
+                file_path = path_info.get("file", "") if isinstance(path_info, dict) else ""
+
+                diagnostics.append(
+                    Diagnostic(
+                        file=file_path,
+                        line=1,  # Would need source text to calculate
+                        column=span[0] if span else 1,
+                        severity=severity_from_string(diag.get("severity", "error")),
+                        message=diag.get("description", ""),
+                        code=diag.get("category"),
+                        source=self.id,
+                    )
+                )
+        except anyenv.JsonLoadError:
+            pass
+
+        return diagnostics
 
 
 DENO = LSPServerInfo(
@@ -150,4 +238,49 @@ ESLINT = LSPServerInfo(
     ),
     command="vscode-eslint-language-server",
     args=["--stdio"],
+)
+
+OXLINT = OxlintServer(
+    id="oxlint",
+    extensions=[".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts", ".vue"],
+    root_detection=RootDetection(
+        include_patterns=[
+            "package-lock.json",
+            "bun.lockb",
+            "bun.lock",
+            "pnpm-lock.yaml",
+            "yarn.lock",
+            ".oxlintrc.json",
+        ],
+    ),
+    command="oxlint",  # No LSP server mode, CLI only
+    args=[],
+    cli_diagnostics=CLIDiagnosticConfig(
+        command="oxlint",
+        args=["--format", "json", "{files}"],
+        output_format="json",
+    ),
+)
+
+BIOME = BiomeServer(
+    id="biome",
+    extensions=[".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts", ".json", ".jsonc"],
+    root_detection=RootDetection(
+        include_patterns=[
+            "biome.json",
+            "biome.jsonc",
+            "package-lock.json",
+            "bun.lockb",
+            "bun.lock",
+            "pnpm-lock.yaml",
+            "yarn.lock",
+        ],
+    ),
+    command="biome",
+    args=["lsp-proxy"],
+    cli_diagnostics=CLIDiagnosticConfig(
+        command="biome",
+        args=["lint", "--reporter=json", "{files}"],
+        output_format="json",
+    ),
 )

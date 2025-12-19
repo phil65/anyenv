@@ -4,10 +4,21 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .js_ts_lsps import DENO, TYPESCRIPT, VUE, SVELTE, ASTRO, ESLINT
-from .python_lsps import TY, ZUBAN, PYREFLY, PYRIGHT, BASEDPYRIGHT, MYPY
-from .rust_lsps import RUST_ANALYZER
-from .go_lsps import GOPLS
+from .js_ts_lsps import (
+    DENO,
+    TYPESCRIPT,
+    VUE,
+    SVELTE,
+    ASTRO,
+    ESLINT,
+    OXLINT,
+    BIOME,
+    AstroServer,
+    TypeScriptServer,
+)
+from .python_lsps import TY, ZUBAN, PYREFLY, PYRIGHT, BASEDPYRIGHT, MYPY, PyrightServer, MypyServer
+from .rust_lsps import RUST_ANALYZER, RustAnalyzerServer
+from .go_lsps import GOPLS, GoplsServer
 from .c_lsps import CLANGD
 from .zig_lsps import ZLS
 from .ruby_lsps import RUBOCOP
@@ -27,6 +38,8 @@ if TYPE_CHECKING:
 # All servers
 ALL_SERVERS: list[LSPServerInfo] = [
     # JavaScript/TypeScript
+    OXLINT,
+    BIOME,
     DENO,
     TYPESCRIPT,
     VUE,
