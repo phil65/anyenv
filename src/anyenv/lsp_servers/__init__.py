@@ -14,7 +14,12 @@ from anyenv.lsp_servers._base import (
     RootDetection,
 )
 from anyenv.lsp_servers._registry import LSPServerRegistry
-from anyenv.lsp_servers._runner import CommandExecutor, CommandResult, DiagnosticRunner
+from anyenv.lsp_servers._runner import (
+    CommandExecutor,
+    CommandResult,
+    DiagnosticRunner,
+    SimpleCommandResult,
+)
 from anyenv.lsp_servers._servers import (
     ALL_SERVERS,
     ASTRO,
@@ -92,5 +97,6 @@ __all__ = [
     "PyrightServer",
     "RootDetection",
     "RustAnalyzerServer",
+    "SimpleCommandResult",
     "TypeScriptServer",
 ]

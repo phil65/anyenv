@@ -15,13 +15,29 @@ if TYPE_CHECKING:
     from anyenv.lsp_servers._base import Diagnostic, LSPServerInfo
 
 
-@dataclass
-class CommandResult:
-    """Result from running a command."""
+class CommandResult(Protocol):
+    """Protocol for command execution results."""
 
-    stdout: str
-    stderr: str
-    exit_code: int
+    @property
+    def stdout(self) -> str | None: ...
+
+    @property
+    def stderr(self) -> str | None: ...
+
+    @property
+    def exit_code(self) -> int | None: ...
+
+    @property
+    def duration(self) -> float: ...
+
+
+@dataclass
+class SimpleCommandResult:
+    """Simple implementation of CommandResult."""
+
+    stdout: str | None
+    stderr: str | None
+    exit_code: int | None
     duration: float
 
 
@@ -33,7 +49,7 @@ class CommandExecutor(Protocol):
         ...
 
 
-async def _default_executor(command: str) -> CommandResult:
+async def _default_executor(command: str) -> SimpleCommandResult:
     """Default executor using asyncio subprocess."""
     start = time.perf_counter()
     proc = await asyncio.create_subprocess_shell(
@@ -43,10 +59,10 @@ async def _default_executor(command: str) -> CommandResult:
     )
     stdout, stderr = await proc.communicate()
     duration = time.perf_counter() - start
-    return CommandResult(
+    return SimpleCommandResult(
         stdout=stdout.decode() if stdout else "",
         stderr=stderr.decode() if stderr else "",
-        exit_code=proc.returncode or 0,
+        exit_code=proc.returncode,
         duration=duration,
     )
 
@@ -112,7 +128,7 @@ class DiagnosticRunner:
 
         command = server.build_diagnostic_command(files)
         result = await self._executor(command)
-        diagnostics = server.parse_diagnostics(result.stdout, result.stderr)
+        diagnostics = server.parse_diagnostics(result.stdout or "", result.stderr or "")
         # Parsing succeeded, even if there are errors
         return DiagnosticsResult(diagnostics=diagnostics, success=True, duration=result.duration)
 
