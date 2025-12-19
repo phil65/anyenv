@@ -237,7 +237,7 @@ class PyreflyServer(LSPServerInfo):
 
             data = anyenv.load_json(output[json_start:json_end], return_type=dict)
             for error in data.get("errors", []):
-                diagnostics.append(
+                diagnostics.append(  # noqa: PERF401
                     Diagnostic(
                         file=error.get("path", ""),
                         line=error.get("line", 1),
