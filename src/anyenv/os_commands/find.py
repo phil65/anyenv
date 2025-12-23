@@ -9,7 +9,7 @@ from .models import DirectoryEntry
 
 
 class UnixFindCommand(FindCommand):
-    """Unix/Linux find command implementation using GNU find -printf."""
+    """Unix/Linux find command implementation."""
 
     def create_command(
         self,
@@ -18,11 +18,7 @@ class UnixFindCommand(FindCommand):
         maxdepth: int | None = None,
         file_type: Literal["file", "directory", "all"] = "all",
     ) -> str:
-        """Generate Unix find command with -printf for size and type info.
-
-        Uses GNU find -printf to get size, type, and path in one call.
-        Output format: "<size> <type> <path>" per line
-        where type is f (file), d (directory), or l (link).
+        """Generate Unix find command.
 
         Args:
             path: Directory to search in
@@ -47,21 +43,14 @@ class UnixFindCommand(FindCommand):
         if pattern:
             parts.append(f'-name "{pattern}"')
 
-        # Use -printf to get size, type, and path
-        # %s = size in bytes, %y = type (f/d/l), %p = path
-        parts.append(r"-printf '%s %y %p\n'")
-
         return " ".join(parts)
 
     def parse_command(self, output: str, base_path: str = "") -> list[DirectoryEntry]:
-        """Parse Unix find -printf output.
-
-        Expected format: "<size> <type> <path>" per line
-        where type is f (file), d (directory), or l (link).
+        """Parse Unix find output.
 
         Args:
-            output: Raw find command output
-            base_path: Base path used in the find command (unused)
+            output: Raw find command output (one path per line)
+            base_path: Base path used in the find command
 
         Returns:
             List of DirectoryEntry objects
@@ -70,47 +59,27 @@ class UnixFindCommand(FindCommand):
         if not lines or (len(lines) == 1 and not lines[0]):
             return []
 
-        type_map: dict[str, Literal["file", "directory", "link"]] = {
-            "f": "file",
-            "d": "directory",
-            "l": "link",
-        }
-        expected_parts = 3  # size, type, path
-
         entries: list[DirectoryEntry] = []
         for line in lines:
             line = line.strip()
             if not line:
                 continue
 
-            # Parse: "<size> <type> <path>"
-            parts = line.split(" ", 2)
-            if len(parts) < expected_parts:
-                continue
-
-            # Parse size
-            try:
-                size = int(parts[0])
-            except ValueError:
-                size = 0
-
-            # Get type
-            entry_type = type_map.get(parts[1], "file")
-            file_path = parts[2]
-
             # Extract name from path
-            name = file_path.rsplit("/", 1)[-1] if "/" in file_path else file_path
+            name = line.rsplit("/", 1)[-1] if "/" in line else line
 
             # Skip . and ..
             if name in (".", ".."):
                 continue
 
+            # We can't determine type from find output alone without -ls
+            # Default to file, caller can use -type to filter
             entries.append(
                 DirectoryEntry(
                     name=name,
-                    path=file_path,
-                    type=entry_type,
-                    size=size,
+                    path=line,
+                    type="file",  # Default; use file_type param to filter
+                    size=0,  # Not available from basic find output
                     timestamp=None,
                     permissions=None,
                 )
@@ -120,7 +89,7 @@ class UnixFindCommand(FindCommand):
 
 
 class MacOSFindCommand(FindCommand):
-    """macOS find command implementation (BSD find with stat for size/type)."""
+    """macOS find command implementation (BSD find)."""
 
     def create_command(
         self,
@@ -129,11 +98,9 @@ class MacOSFindCommand(FindCommand):
         maxdepth: int | None = None,
         file_type: Literal["file", "directory", "all"] = "all",
     ) -> str:
-        """Generate macOS find command with stat for size and type info.
+        """Generate macOS find command.
 
-        BSD find doesn't support -printf, so we use -exec stat to get info.
-        Output format: "<size> <type> <path>" per line
-        where type is Regular (file), Directory, or Link.
+        BSD find uses the same syntax as GNU find for basic operations.
 
         Args:
             path: Directory to search in
@@ -158,86 +125,21 @@ class MacOSFindCommand(FindCommand):
         if pattern:
             parts.append(f'-name "{pattern}"')
 
-        # Use -exec stat to get size and type
-        # %z = size in bytes, %HT = file type, %N = path
-        parts.append(r"-exec stat -f '%z %HT %N' {} \;")
-
         return " ".join(parts)
 
     def parse_command(self, output: str, base_path: str = "") -> list[DirectoryEntry]:
-        """Parse macOS find + stat output.
-
-        Expected format: "<size> <type> <path>" per line
-        where type is "Regular File", "Directory", "Symbolic Link", etc.
+        """Parse macOS find output.
 
         Args:
-            output: Raw find command output
-            base_path: Base path used in the find command (unused)
+            output: Raw find command output (one path per line)
+            base_path: Base path used in the find command
 
         Returns:
             List of DirectoryEntry objects
         """
-        lines = output.strip().split("\n")
-        if not lines or (len(lines) == 1 and not lines[0]):
-            return []
-
-        entries: list[DirectoryEntry] = []
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
-
-            # Parse: "<size> <type> <path>"
-            # Type can be multi-word like "Regular File" or "Symbolic Link"
-            parts = line.split(" ", 1)
-            min_parts = 2
-            if len(parts) < min_parts:
-                continue
-
-            # Parse size
-            try:
-                size = int(parts[0])
-            except ValueError:
-                size = 0
-
-            remainder = parts[1]
-
-            # Determine type and extract path
-            entry_type: Literal["file", "directory", "link"]
-            if remainder.startswith("Directory "):
-                entry_type = "directory"
-                file_path = remainder[10:]  # len("Directory ")
-            elif remainder.startswith("Symbolic Link "):
-                entry_type = "link"
-                file_path = remainder[14:]  # len("Symbolic Link ")
-            elif remainder.startswith("Regular File "):
-                entry_type = "file"
-                file_path = remainder[13:]  # len("Regular File ")
-            else:
-                # Unknown type, try to find path after type word
-                type_parts = remainder.split(" ", 1)
-                entry_type = "file"
-                file_path = type_parts[1] if len(type_parts) > 1 else remainder
-
-            # Extract name from path
-            name = file_path.rsplit("/", 1)[-1] if "/" in file_path else file_path
-
-            # Skip . and ..
-            if name in (".", ".."):
-                continue
-
-            entries.append(
-                DirectoryEntry(
-                    name=name,
-                    path=file_path,
-                    type=entry_type,
-                    size=size,
-                    timestamp=None,
-                    permissions=None,
-                )
-            )
-
-        return entries
+        # Same parsing as Unix
+        unix_cmd = UnixFindCommand()
+        return unix_cmd.parse_command(output, base_path)
 
 
 class WindowsFindCommand(FindCommand):
