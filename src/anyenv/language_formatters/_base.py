@@ -73,7 +73,7 @@ class LanguageFormatter(ABC):
         if isinstance(execution_env, str):
             from exxec import get_environment
 
-            self._execution_env: ExecutionEnvironment = get_environment(execution_env)  # type: ignore[arg-type]
+            self._execution_env: ExecutionEnvironment = get_environment(execution_env)
         else:
             self._execution_env = execution_env
 
