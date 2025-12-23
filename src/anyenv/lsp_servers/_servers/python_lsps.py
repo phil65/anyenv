@@ -32,45 +32,6 @@ def get_python_venv_candidates(root: str) -> list[str]:
 
 
 @dataclass
-class RustAnalyzerServer(LSPServerInfo):
-    """Rust analyzer with workspace detection."""
-
-    async def resolve_root(
-        self,
-        file_path: str,
-        project_root: str,
-        fs: AsyncFileSystem,
-    ) -> str | None:
-        """Walk up to find workspace root containing [workspace] in Cargo.toml."""
-        crate_root = await super().resolve_root(file_path, project_root, fs)
-        if crate_root is None:
-            return None
-
-        # Walk up looking for workspace
-        current = crate_root.rstrip("/")
-        project_root = project_root.rstrip("/")
-
-        while True:
-            cargo_toml = posixpath.join(current, "Cargo.toml")
-            try:
-                if await fs._exists(cargo_toml):  # noqa: SLF001
-                    content = (await fs._cat_file(cargo_toml)).decode()  # noqa: SLF001
-                    if "[workspace]" in content:
-                        return current
-            except Exception:  # noqa: BLE001
-                pass
-
-            if current == project_root:
-                break
-            parent = posixpath.dirname(current)
-            if current in (parent, fs.root_marker):
-                break
-            current = parent
-
-        return crate_root
-
-
-@dataclass
 class PyrightServer(LSPServerInfo):
     """Pyright with virtualenv detection and JSON diagnostic parsing."""
 
