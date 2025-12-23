@@ -86,10 +86,13 @@ from .which import (
     UnixWhichCommand,
     WindowsWhichCommand,
 )
+from .batch import CommandBatch
 
 __all__ = [
     # Base classes
     "Base64EncodeCommand",
+    # Batch execution
+    "CommandBatch",
     # Models
     "CommandResult",
     "CopyPathCommand",
