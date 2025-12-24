@@ -8,6 +8,9 @@ from .base import FindCommand
 from .models import DirectoryEntry
 
 
+EntryType = Literal["file", "directory", "link"]
+
+
 class UnixFindCommand(FindCommand):
     """Unix/Linux find command implementation."""
 
@@ -17,6 +20,7 @@ class UnixFindCommand(FindCommand):
         pattern: str | None = None,
         maxdepth: int | None = None,
         file_type: Literal["file", "directory", "all"] = "all",
+        with_stats: bool = True,
     ) -> str:
         """Generate Unix find command.
 
@@ -25,6 +29,7 @@ class UnixFindCommand(FindCommand):
             pattern: Glob pattern for name matching (e.g., "*.py")
             maxdepth: Maximum directory depth to descend
             file_type: Filter by type - files only, directories only, or all
+            with_stats: Include file stats using -printf (size, mtime, type, perms)
 
         Returns:
             The find command string
@@ -43,13 +48,23 @@ class UnixFindCommand(FindCommand):
         if pattern:
             parts.append(f'-name "{pattern}"')
 
+        if with_stats:
+            # Use -printf to get file stats in tab-separated format:
+            # %p = path, %s = size in bytes, %T@ = mtime as unix timestamp
+            # %y = type (f=file, d=dir, l=link), %M = permissions like ls -l
+            # Single quotes protect the format string from shell interpretation
+            parts.append(r"-printf '%p\t%s\t%T@\t%y\t%M\n'")
+
         return " ".join(parts)
 
     def parse_command(self, output: str, base_path: str = "") -> list[DirectoryEntry]:
         """Parse Unix find output.
 
+        Handles both plain path output and -printf formatted output with stats.
+        Detects format automatically based on presence of tab separators.
+
         Args:
-            output: Raw find command output (one path per line)
+            output: Raw find command output
             base_path: Base path used in the find command
 
         Returns:
@@ -65,21 +80,56 @@ class UnixFindCommand(FindCommand):
             if not line:
                 continue
 
-            # Extract name from path
+            # Check if this is -printf formatted output (contains tabs)
+            if "\t" in line:
+                # Parse tab-separated format: path\tsize\ttimestamp\ttype\tpermissions
+                # Parse from the right since path may contain tabs (rare but possible)
+                parts = line.rsplit("\t", 4)
+                if len(parts) == 5:  # noqa: PLR2004
+                    path_str, size_str, timestamp_str, type_char, permissions = parts
+
+                    # Map find type char to our type
+                    type_map: dict[str, EntryType] = {"f": "file", "d": "directory", "l": "link"}
+                    entry_type: EntryType = type_map.get(type_char, "file")
+
+                    # Parse size
+                    try:
+                        size = int(size_str)
+                    except ValueError:
+                        size = 0
+
+                    # Extract name from path
+                    name = path_str.rsplit("/", 1)[-1] if "/" in path_str else path_str
+
+                    # Skip . and ..
+                    if name in (".", ".."):
+                        continue
+
+                    entries.append(
+                        DirectoryEntry(
+                            name=name,
+                            path=path_str,
+                            type=entry_type,
+                            size=size,
+                            timestamp=timestamp_str,
+                            permissions=permissions,
+                        )
+                    )
+                    continue
+
+            # Fallback: plain path output (no tabs)
             name = line.rsplit("/", 1)[-1] if "/" in line else line
 
             # Skip . and ..
             if name in (".", ".."):
                 continue
 
-            # We can't determine type from find output alone without -ls
-            # Default to file, caller can use -type to filter
             entries.append(
                 DirectoryEntry(
                     name=name,
                     path=line,
                     type="file",  # Default; use file_type param to filter
-                    size=0,  # Not available from basic find output
+                    size=0,
                     timestamp=None,
                     permissions=None,
                 )
@@ -97,21 +147,22 @@ class MacOSFindCommand(FindCommand):
         pattern: str | None = None,
         maxdepth: int | None = None,
         file_type: Literal["file", "directory", "all"] = "all",
+        with_stats: bool = True,
     ) -> str:
         """Generate macOS find command.
 
-        BSD find uses the same syntax as GNU find for basic operations.
+        BSD find doesn't support -printf, so we use -exec stat for file stats.
 
         Args:
             path: Directory to search in
             pattern: Glob pattern for name matching (e.g., "*.py")
             maxdepth: Maximum directory depth to descend
             file_type: Filter by type - files only, directories only, or all
+            with_stats: Include file stats (uses -exec stat, slower than GNU -printf)
 
         Returns:
             The find command string
         """
-        # BSD find has same syntax for these basic operations
         parts = ["find", f'"{path}"']
 
         if maxdepth is not None:
@@ -125,21 +176,91 @@ class MacOSFindCommand(FindCommand):
         if pattern:
             parts.append(f'-name "{pattern}"')
 
+        if with_stats:
+            # BSD stat format: path\tsize\tmtime\ttype\tpermissions
+            # %N = path, %z = size, %m = mtime (unix timestamp)
+            # %HT = type (Regular File, Directory, etc.), %Sp = permissions
+            # Single quotes protect the format string from shell interpretation
+            parts.append(r"-exec stat -f '%N\t%z\t%m\t%HT\t%Sp' {} \;")
+
         return " ".join(parts)
 
     def parse_command(self, output: str, base_path: str = "") -> list[DirectoryEntry]:
         """Parse macOS find output.
 
+        Handles both plain path output and stat-formatted output with stats.
+
         Args:
-            output: Raw find command output (one path per line)
+            output: Raw find command output
             base_path: Base path used in the find command
 
         Returns:
             List of DirectoryEntry objects
         """
-        # Same parsing as Unix
-        unix_cmd = UnixFindCommand()
-        return unix_cmd.parse_command(output, base_path)
+        lines = output.strip().split("\n")
+        if not lines or (len(lines) == 1 and not lines[0]):
+            return []
+
+        entries: list[DirectoryEntry] = []
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+
+            # Check if this is stat-formatted output (contains tabs)
+            if "\t" in line:
+                parts = line.rsplit("\t", 4)
+                if len(parts) == 5:  # noqa: PLR2004
+                    path_str, size_str, timestamp_str, type_str, permissions = parts
+
+                    # Map BSD stat type string to our type
+                    if "Directory" in type_str:
+                        entry_type: Literal["file", "directory", "link"] = "directory"
+                    elif "Link" in type_str:
+                        entry_type = "link"
+                    else:
+                        entry_type = "file"
+
+                    try:
+                        size = int(size_str)
+                    except ValueError:
+                        size = 0
+
+                    name = path_str.rsplit("/", 1)[-1] if "/" in path_str else path_str
+
+                    if name in (".", ".."):
+                        continue
+
+                    entries.append(
+                        DirectoryEntry(
+                            name=name,
+                            path=path_str,
+                            type=entry_type,
+                            size=size,
+                            timestamp=timestamp_str,
+                            permissions=permissions,
+                        )
+                    )
+                    continue
+
+            # Fallback: plain path output
+            name = line.rsplit("/", 1)[-1] if "/" in line else line
+
+            if name in (".", ".."):
+                continue
+
+            entries.append(
+                DirectoryEntry(
+                    name=name,
+                    path=line,
+                    type="file",
+                    size=0,
+                    timestamp=None,
+                    permissions=None,
+                )
+            )
+
+        return entries
 
 
 class WindowsFindCommand(FindCommand):
@@ -151,6 +272,7 @@ class WindowsFindCommand(FindCommand):
         pattern: str | None = None,
         maxdepth: int | None = None,
         file_type: Literal["file", "directory", "all"] = "all",
+        with_stats: bool = True,
     ) -> str:
         """Generate Windows PowerShell Get-ChildItem command.
 
@@ -159,6 +281,7 @@ class WindowsFindCommand(FindCommand):
             pattern: Glob pattern for name matching (e.g., "*.py")
             maxdepth: Maximum directory depth to descend
             file_type: Filter by type - files only, directories only, or all
+            with_stats: Include file stats (always True for Windows, included for API consistency)
 
         Returns:
             The PowerShell command string
