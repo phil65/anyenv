@@ -4,13 +4,15 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable, Coroutine
-from typing import Any, TypeVarTuple, Unpack
+import inspect
+from typing import Any, TypeVarTuple, Unpack, overload
 from weakref import WeakKeyDictionary
 
 
 Ts = TypeVarTuple("Ts")
 
 type AsyncCallback[*Ts] = Callable[[Unpack[Ts]], Coroutine[Any, Any, Any]]
+type SyncCallback[*Ts] = Callable[[Unpack[Ts]], Any]
 
 # Global registry for auto-registered signals
 _global_registry: dict[type, list[BoundSignal]] = {}  # type: ignore[type-arg]
@@ -19,28 +21,47 @@ _global_registry: dict[type, list[BoundSignal]] = {}  # type: ignore[type-arg]
 class BoundSignal[*Ts]:
     """Instance-bound signal holding connections."""
 
-    __slots__ = ("_callbacks",)
+    __slots__ = ("_async_callbacks", "_sync_callbacks")
 
     def __init__(self) -> None:
-        self._callbacks: list[AsyncCallback[*Ts]] = []
+        self._async_callbacks: list[AsyncCallback[*Ts]] = []
+        self._sync_callbacks: list[SyncCallback[*Ts]] = []
 
-    def connect(self, callback: AsyncCallback[*Ts]) -> AsyncCallback[*Ts]:
-        """Connect async callback. Can be used as decorator."""
-        self._callbacks.append(callback)
+    @overload
+    def connect(self, callback: AsyncCallback[*Ts]) -> AsyncCallback[*Ts]: ...
+
+    @overload
+    def connect(self, callback: SyncCallback[*Ts]) -> SyncCallback[*Ts]: ...
+
+    def connect(
+        self, callback: AsyncCallback[*Ts] | SyncCallback[*Ts]
+    ) -> AsyncCallback[*Ts] | SyncCallback[*Ts]:
+        """Connect callback. Can be used as decorator. Auto-detects sync/async."""
+        if inspect.iscoroutinefunction(callback):
+            self._async_callbacks.append(callback)
+        else:
+            self._sync_callbacks.append(callback)
         return callback
 
-    def disconnect(self, callback: AsyncCallback[*Ts]) -> None:
+    def disconnect(self, callback: AsyncCallback[*Ts] | SyncCallback[*Ts]) -> None:
         """Remove callback."""
-        self._callbacks.remove(callback)
+        try:
+            self._async_callbacks.remove(callback)
+        except ValueError:
+            self._sync_callbacks.remove(callback)
 
     async def emit(self, *args: *Ts) -> None:
-        """Emit signal, await all handlers sequentially."""
-        for callback in self._callbacks:
+        """Emit signal, call all handlers sequentially."""
+        for callback in self._sync_callbacks:
+            callback(*args)
+        for callback in self._async_callbacks:
             await callback(*args)
 
-    def emit_bg(self, *args: *Ts) -> list[asyncio.Task[None]]:
+    def emit_bg(self, *args: *Ts) -> list[asyncio.Task[Any]]:
         """Emit signal, create tasks for all handlers (fire-and-forget)."""
-        return [asyncio.create_task(callback(*args)) for callback in self._callbacks]
+        tasks = [asyncio.create_task(asyncio.to_thread(cb, *args)) for cb in self._sync_callbacks]
+        tasks.extend(asyncio.create_task(cb(*args)) for cb in self._async_callbacks)
+        return tasks
 
 
 class Signal[*Ts]:
