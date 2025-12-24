@@ -190,6 +190,7 @@ class FindCommand(ABC):
         pattern: str | None = None,
         maxdepth: int | None = None,
         file_type: Literal["file", "directory", "all"] = "all",
+        with_stats: bool = True,
     ) -> str:
         """Generate recursive find command.
 
@@ -198,6 +199,7 @@ class FindCommand(ABC):
             pattern: Glob pattern for name matching (e.g., "*.py")
             maxdepth: Maximum directory depth to descend (None for unlimited)
             file_type: Filter by type - files only, directories only, or all
+            with_stats: Include file stats (size, mtime, type, permissions)
         """
 
     @abstractmethod
