@@ -14,7 +14,7 @@ import uuid
 from anyenv.log import get_logger
 from anyenv.process_manager.process import RunningProcess
 from anyenv.process_manager.protocol import ProcessManagerProtocol
-from anyenv.processes import create_process
+from anyenv.processes import create_process, create_shell_process
 
 
 if TYPE_CHECKING:
@@ -53,8 +53,13 @@ class ProcessManager(ProcessManagerProtocol):
         """Start a background process.
 
         Args:
-            command: Command to execute
-            args: Command arguments
+            command: Command to execute. When args is None/empty, this is
+                interpreted as a shell command string (supporting pipes,
+                redirects, etc.). When args is provided, command is the
+                program name executed directly.
+            args: Command arguments. If provided, command is executed directly
+                with these arguments. If None/empty, command is run through
+                the shell.
             cwd: Working directory
             env: Environment variables (added to current env)
             output_limit: Maximum bytes of output to retain
@@ -66,20 +71,31 @@ class ProcessManager(ProcessManagerProtocol):
             OSError: If process creation fails
         """
         process_id = f"proc_{uuid.uuid4().hex[:8]}"
-        args = args or []
         proc_env = dict(os.environ)
         if env:
             proc_env.update(env)
         work_dir = Path(cwd) if cwd else None
         try:
-            process = await create_process(
-                command,
-                *args,
-                cwd=work_dir,
-                env=proc_env,
-                stdout="pipe",
-                stderr="pipe",
-            )
+            if args:
+                # Direct execution with explicit args
+                process = await create_process(
+                    command,
+                    *args,
+                    cwd=work_dir,
+                    env=proc_env,
+                    stdout="pipe",
+                    stderr="pipe",
+                )
+            else:
+                # Shell execution for command strings (supports pipes, redirects, etc.)
+                process = await create_shell_process(
+                    command,
+                    cwd=work_dir,
+                    env=proc_env,
+                    stdout="pipe",
+                    stderr="pipe",
+                )
+            args = args or []
 
             # Create tracking object
             running_proc = RunningProcess(
@@ -96,7 +112,7 @@ class ProcessManager(ProcessManagerProtocol):
             self._output_tasks[process_id] = asyncio.create_task(self._collect_output(running_proc))
             logger.info("Started process %s: %s %s", process_id, command, " ".join(args))
         except Exception as e:
-            msg = f"Failed to start process: {command} {' '.join(args)}"
+            msg = f"Failed to start process: {command} {' '.join(args or [])}"
             logger.exception(msg, exc_info=e)
             raise OSError(msg) from e
         else:

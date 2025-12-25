@@ -75,11 +75,12 @@ async def test_start_process_with_options(process_manager: ProcessManager, mock_
 
 async def test_start_process_failure(process_manager: ProcessManager):
     """Test handling process creation failure."""
+    # When args is provided, uses create_subprocess_exec
     with (
         patch("asyncio.create_subprocess_exec", side_effect=OSError("Command not found")),
         pytest.raises(OSError, match="Failed to start process"),
     ):
-        await process_manager.start_process("nonexistent_command")
+        await process_manager.start_process("nonexistent_command", args=["arg"])
 
 
 async def test_get_output_success(process_manager: ProcessManager, mock_process):
@@ -108,8 +109,9 @@ async def test_wait_for_exit(process_manager: ProcessManager, mock_process):
     """Test waiting for process completion."""
     mock_process.wait.return_value = 42
 
+    # Use args to trigger create_subprocess_exec path
     with patch("asyncio.create_subprocess_exec", return_value=mock_process):
-        process_id = await process_manager.start_process("test_cmd")
+        process_id = await process_manager.start_process("test_cmd", args=["arg"])
 
         exit_code = await process_manager.wait_for_exit(process_id)
         assert exit_code == 42  # noqa: PLR2004
@@ -120,8 +122,9 @@ async def test_kill_process(process_manager: ProcessManager, mock_process):
     """Test killing a running process."""
     mock_process.returncode = None  # Still running
 
+    # Use args to trigger create_subprocess_exec path
     with patch("asyncio.create_subprocess_exec", return_value=mock_process):
-        process_id = await process_manager.start_process("test_cmd")
+        process_id = await process_manager.start_process("test_cmd", args=["arg"])
 
         await process_manager.kill_process(process_id)
 
