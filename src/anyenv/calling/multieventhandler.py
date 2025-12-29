@@ -8,6 +8,8 @@ import contextlib
 import inspect
 from typing import TYPE_CHECKING, Any, Literal, ParamSpec, overload
 
+import anyio
+
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable
@@ -130,7 +132,7 @@ class MultiEventHandler[HandlerT, Mode: ExecutionMode = DefaultMode]:
         # Create new debounced task
         async def debounced_execution() -> list[Any] | list[asyncio.Task[Any]]:
             if self._debounce_delay is not None:
-                await asyncio.sleep(self._debounce_delay)
+                await anyio.sleep(self._debounce_delay)
             return await self._execute_handlers(mode, *args, **kwargs)
 
         self._debounce_task = asyncio.create_task(debounced_execution())
@@ -273,7 +275,7 @@ if __name__ == "__main__":
 
     async def async_handler(a: int, b: str) -> None:
         """Async handler function."""
-        await asyncio.sleep(0.1)
+        await anyio.sleep(0.1)
         print(f"Async Handler: {a}, {b}")
 
     class SomeClass:
