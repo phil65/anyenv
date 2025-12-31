@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import tempfile
 
 import anyio
 import pytest
@@ -43,7 +44,7 @@ async def test_start_process_with_options(process_manager: ProcessManager):
     process_id = await process_manager.start_process(
         "echo",
         args=["hello"],
-        cwd="/tmp",
+        cwd=tempfile.gettempdir(),
         env={"TEST_VAR": "test_value"},
         output_limit=1024,
     )
