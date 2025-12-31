@@ -5,6 +5,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import hishel
+
 from anyenv.download.base import HttpBackend, HttpResponse, Session
 from anyenv.download.exceptions import RequestError, ResponseError, check_response
 
@@ -12,7 +14,6 @@ from anyenv.download.exceptions import RequestError, ResponseError, check_respon
 if TYPE_CHECKING:
     import os
 
-    import hishel
     import httpx
 
     from anyenv.download.base import Method, ProgressCallback, StrPath
@@ -40,18 +41,39 @@ def get_storage(
             raise ValueError(msg)
 
 
+class _AlwaysCacheFilter(hishel.BaseFilter[hishel.Response]):
+    """Filter that always returns True, forcing all responses to be cached."""
+
+    def apply(self, item: hishel.Response, body: bytes | None) -> bool:
+        """Always return True to cache all responses."""
+        return True
+
+    def needs_body(self) -> bool:
+        """Body is not needed for this filter."""
+        return False
+
+
 def get_cache_policy() -> hishel.CachePolicy:
-    """Get cache policy for HTTP caching."""
+    """Get cache policy for HTTP caching.
+
+    Uses FilterPolicy with an always-cache filter to ignore server cache directives
+    (like max-age=0) that would prevent caching. The storage TTL controls expiration.
+    """
     import hishel
 
-    # Use SpecificationPolicy for RFC 9111 compliant caching
-    cache_options = hishel.CacheOptions(
-        shared=False,  # Private cache (browser-like)
-        supported_methods=["GET", "HEAD"],  # Only cache safe methods
-        allow_stale=True,  # Allow serving stale responses
-    )
+    # Use FilterPolicy to force caching regardless of server Cache-Control headers.
+    # Many APIs return max-age=0 which would prevent caching with SpecificationPolicy.
+    return hishel.FilterPolicy(response_filters=[_AlwaysCacheFilter()])
 
-    return hishel.SpecificationPolicy(cache_options=cache_options)
+    # TODO: Make cache policy configurable in the future.
+    # RFC 9111 compliant policy that respects server Cache-Control headers:
+    #
+    # cache_options = hishel.CacheOptions(
+    #     shared=False,  # Private cache (browser-like)
+    #     supported_methods=["GET", "HEAD"],  # Only cache safe methods
+    #     allow_stale=True,  # Allow serving stale responses
+    # )
+    # return hishel.SpecificationPolicy(cache_options=cache_options)
 
 
 class HttpxResponse(HttpResponse):
