@@ -9,9 +9,10 @@ from anyenv.text_sharing.github_gist import GistSharer
 from anyenv.text_sharing.opencode import OpenCodeSharer
 from anyenv.text_sharing.paste_rs import PasteRsSharer
 from anyenv.text_sharing.pastebin import PastebinSharer
+from anyenv.text_sharing.shittycodingagent import ShittyCodingAgentSharer
 
 
-TextSharerStr = Literal["gist", "pastebin", "paste_rs", "opencode"]
+TextSharerStr = Literal["gist", "pastebin", "paste_rs", "opencode", "shittycodingagent"]
 
 
 @overload
@@ -42,6 +43,14 @@ def get_sharer(
     *,
     api_url: str | None = None,
 ) -> OpenCodeSharer: ...
+
+
+@overload
+def get_sharer(
+    provider: Literal["shittycodingagent"],
+    *,
+    token: str | None = None,
+) -> ShittyCodingAgentSharer: ...
 
 
 def get_sharer(
@@ -90,6 +99,8 @@ def get_sharer(
             return PasteRsSharer()
         case "opencode":
             return OpenCodeSharer(**kwargs)  # type: ignore[arg-type]
+        case "shittycodingagent":
+            return ShittyCodingAgentSharer(**kwargs)
         case _ as unreachable:
             assert_never(unreachable)
 
@@ -100,6 +111,7 @@ __all__ = [
     "PasteRsSharer",
     "PastebinSharer",
     "ShareResult",
+    "ShittyCodingAgentSharer",
     "TextSharer",
     "TextSharerStr",
     "Visibility",
