@@ -6,7 +6,7 @@ import asyncio
 from collections.abc import Callable, Coroutine
 import inspect
 from typing import Any, TypeVarTuple, Unpack, overload
-from weakref import WeakKeyDictionary
+from weakref import WeakValueDictionary
 
 
 Ts = TypeVarTuple("Ts")
@@ -76,7 +76,7 @@ class Signal[*Ts]:
 
     def __init__(self) -> None:
         self._name: str = ""
-        self._bound_signals: WeakKeyDictionary[object, BoundSignal[*Ts]] = WeakKeyDictionary()
+        self._bound_signals: WeakValueDictionary[int, BoundSignal[*Ts]] = WeakValueDictionary()
 
     def __set_name__(self, owner: type, name: str) -> None:
         self._name = name
@@ -85,9 +85,10 @@ class Signal[*Ts]:
         if obj is None:
             # Class-level access - return a dummy for introspection
             return BoundSignal()
-        if obj not in self._bound_signals:
-            self._bound_signals[obj] = BoundSignal()
-        return self._bound_signals[obj]
+        obj_id = id(obj)
+        if obj_id not in self._bound_signals:
+            self._bound_signals[obj_id] = BoundSignal()
+        return self._bound_signals[obj_id]
 
 
 def create_signal[E](event_type: type[E]) -> Signal[*tuple[E]]:
