@@ -6,7 +6,7 @@ import asyncio
 from collections.abc import Callable, Coroutine
 import inspect
 from typing import Any, TypeVarTuple, Unpack, overload
-from weakref import WeakValueDictionary
+from weakref import ref
 
 
 Ts = TypeVarTuple("Ts")
@@ -21,7 +21,7 @@ _global_registry: dict[type, list[BoundSignal]] = {}  # type: ignore[type-arg]
 class BoundSignal[*Ts]:
     """Instance-bound signal holding connections."""
 
-    __slots__ = ("__weakref__", "_async_callbacks", "_sync_callbacks")
+    __slots__ = ("_async_callbacks", "_sync_callbacks")
 
     def __init__(self) -> None:
         self._async_callbacks: list[AsyncCallback[*Ts]] = []
@@ -72,11 +72,12 @@ class Signal[*Ts]:
             changed = Signal[str]()
     """
 
-    __slots__ = ("_bound_signals", "_name")
+    __slots__ = ("_bound_signals", "_name", "_weak_refs")
 
     def __init__(self) -> None:
         self._name: str = ""
-        self._bound_signals: WeakValueDictionary[int, BoundSignal[*Ts]] = WeakValueDictionary()
+        self._bound_signals: dict[int, BoundSignal[*Ts]] = {}
+        self._weak_refs: dict[int, ref[object]] = {}
 
     def __set_name__(self, owner: type, name: str) -> None:
         self._name = name
@@ -87,7 +88,17 @@ class Signal[*Ts]:
             return BoundSignal()
         obj_id = id(obj)
         if obj_id not in self._bound_signals:
-            self._bound_signals[obj_id] = BoundSignal()
+            # Create the bound signal
+            bound = BoundSignal[*Ts]()
+            self._bound_signals[obj_id] = bound
+
+            # Set up cleanup callback when obj is garbage collected
+            def cleanup(_: object) -> None:
+                self._bound_signals.pop(obj_id, None)
+                self._weak_refs.pop(obj_id, None)
+
+            # Store the weak reference to keep it alive
+            self._weak_refs[obj_id] = ref(obj, cleanup)
         return self._bound_signals[obj_id]
 
 
