@@ -21,7 +21,7 @@ _global_registry: dict[type, list[BoundSignal]] = {}  # type: ignore[type-arg]
 class BoundSignal[*Ts]:
     """Instance-bound signal holding connections."""
 
-    __slots__ = ("_async_callbacks", "_sync_callbacks")
+    __slots__ = ("__weakref__", "_async_callbacks", "_sync_callbacks")
 
     def __init__(self) -> None:
         self._async_callbacks: list[AsyncCallback[*Ts]] = []
