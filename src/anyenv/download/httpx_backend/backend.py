@@ -19,6 +19,10 @@ if TYPE_CHECKING:
     from anyenv.download.http_types import CacheType, FilesType, HeaderType, ParamsType
 
 
+# Versioned name: hishel 2 refuses to open databases created by hishel 1.x.
+CACHE_DB_NAME = "anyenv_cache_hishel2.db"
+
+
 def get_storage(
     cache_backend: CacheType,
     cache_dir: StrPath,
@@ -29,11 +33,11 @@ def get_storage(
 
     match cache_backend:
         case "sqlite":
-            return hishel.AsyncSqliteStorage(database_path="anyenv_cache.db", default_ttl=cache_ttl)
+            return hishel.AsyncSqliteStorage(database_path=CACHE_DB_NAME, default_ttl=cache_ttl)
         case "memory":
             return hishel.AsyncSqliteStorage(database_path=":memory:", default_ttl=cache_ttl)
         case "file":
-            cache_path = Path(cache_dir) / "anyenv_cache.db"
+            cache_path = Path(cache_dir) / CACHE_DB_NAME
             return hishel.AsyncSqliteStorage(database_path=str(cache_path), default_ttl=cache_ttl)
         case _:
             msg = f"Invalid cache backend: {cache_backend}"
