@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import types
 from typing import Any, cast
 
 from anyenv.helpers import get_object_name
@@ -11,7 +12,7 @@ from anyenv.helpers import get_object_name
 _has_pydantic = importlib.util.find_spec("pydantic") is not None
 
 
-def validate_json_data[T](data: Any, return_type: type[T] | None = None) -> T:  # noqa: PLR0911
+def validate_json_data[T](data: Any, return_type: type[T] | types.UnionType | None = None) -> T:  # noqa: PLR0911
     """Validate and convert data to the requested return type.
 
     Supports a wide range of types including:
@@ -36,6 +37,24 @@ def validate_json_data[T](data: Any, return_type: type[T] | None = None) -> T:  
     # No type validation requested
     if return_type is None:
         return cast(T, data)
+
+    # Handle UnionType (e.g. X | Y) - delegate to Pydantic TypeAdapter
+    if isinstance(return_type, types.UnionType):
+        if _has_pydantic:
+            from pydantic import TypeAdapter
+
+            try:
+                adapter: TypeAdapter[Any] = TypeAdapter(return_type)
+                return cast(T, adapter.validate_python(data))
+            except Exception as e:
+                error_msg = f"Data doesn't match type {return_type}: {e}"
+                raise TypeError(error_msg) from e
+        # Without Pydantic, try isinstance against union args
+        union_args = return_type.__args__
+        if isinstance(data, union_args):
+            return cast(T, data)
+        error_msg = f"Expected {return_type}, got {type(data).__name__}"
+        raise TypeError(error_msg)
 
     # Handle simple built-in types directly for efficiency
     simple_types = (str, int, float, bool, list, dict, tuple, set)
@@ -62,8 +81,8 @@ def validate_json_data[T](data: Any, return_type: type[T] | None = None) -> T:  
         from pydantic import TypeAdapter
 
         try:
-            adapter = TypeAdapter(return_type)
-            return adapter.validate_python(data)
+            type_adapter: TypeAdapter[T] = TypeAdapter(return_type)
+            return type_adapter.validate_python(data)
         except Exception as e:
             expected = get_object_name(return_type, str(return_type))
             error_msg = f"Data doesn't match type {expected}: {e}"

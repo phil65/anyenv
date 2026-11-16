@@ -7,12 +7,13 @@ with automatic selection of the best available backend and type validation.
 from __future__ import annotations
 
 import importlib.util
-from typing import Any, Literal, TYPE_CHECKING
+from typing import Any, Literal, overload, TYPE_CHECKING
 
 from anyenv.json_tools.base import JsonDumpError, JsonLoadError
 from anyenv.parse_errors import ParseErrorInfo
 
 if TYPE_CHECKING:
+    import types
     from anyenv.json_tools.base import JsonProviderBase
     from io import TextIOWrapper
 
@@ -88,11 +89,29 @@ def get_json_provider(backend: BackendType = "auto") -> type[JsonProviderBase]:
     raise ValueError(msg)
 
 
-def load_json[T = Any](
+@overload
+def load_json[T](
     data: str | bytes | TextIOWrapper,
-    return_type: type[T] | None = None,
+    return_type: type[T],
     backend: BackendType = "auto",
-) -> T:
+) -> T: ...
+@overload
+def load_json(
+    data: str | bytes | TextIOWrapper,
+    return_type: types.UnionType,
+    backend: BackendType = "auto",
+) -> Any: ...
+@overload
+def load_json(
+    data: str | bytes | TextIOWrapper,
+    return_type: None = None,
+    backend: BackendType = "auto",
+) -> Any: ...
+def load_json(
+    data: str | bytes | TextIOWrapper,
+    return_type: type[Any] | types.UnionType | None = None,
+    backend: BackendType = "auto",
+) -> Any:
     """Load JSON data with optional type validation.
 
     Args:
@@ -114,7 +133,7 @@ def load_json[T = Any](
         from anyenv.validate import validate_json_data
 
         return validate_json_data(parsed_data, return_type)
-    return parsed_data  # type: ignore[no-any-return]
+    return parsed_data
 
 
 def dump_json(
