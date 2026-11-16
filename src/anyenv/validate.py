@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import types
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, cast, is_typeddict
 
 from anyenv.helpers import get_object_name
 
@@ -142,6 +142,17 @@ def validate_json_data[T](data: Any, return_type: type[T] | types.UnionType | No
                 return cast(T, validated_dict)
 
             return cast(T, data)
+
+    # TypedDicts don't support isinstance, only the container type can be checked
+    if is_typeddict(return_type):
+        if isinstance(data, dict):
+            return cast(T, data)
+        error_msg = f"Expected dict for {get_object_name(return_type)}, got {type(data).__name__}"
+        raise TypeError(error_msg)
+
+    # Typing constructs like Literal or Annotated can't be checked without Pydantic
+    if not isinstance(return_type, type):
+        return cast(T, data)
 
     # Last resort - simple isinstance check
     if isinstance(data, return_type):
