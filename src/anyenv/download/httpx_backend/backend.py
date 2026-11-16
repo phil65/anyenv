@@ -172,8 +172,11 @@ class HttpxBackend(HttpBackend):
             #     supported_methods=["GET", "HEAD"],  # Only cache safe methods
             #     allow_stale=True,  # Allow serving stale responses
             # )
-            return AsyncCacheClient(storage=storage, headers=headers, base_url=url)
-        return httpx.AsyncClient(headers=headers, base_url=url)
+            return AsyncCacheClient(
+                storage=storage, headers=headers, base_url=url, follow_redirects=True
+            )
+        # Follow redirects like the aiohttp and pyodide backends do.
+        return httpx.AsyncClient(headers=headers, base_url=url, follow_redirects=True)
 
     async def request(
         self,
