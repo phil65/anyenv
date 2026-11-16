@@ -89,7 +89,7 @@ class FormatterRegistry:
             from pygments.lexers import guess_lexer
 
             lexer = guess_lexer(content)
-            return lexer.name.lower()  # type: ignore[attr-defined, no-any-return]
+            return lexer.name.lower()
         except ImportError:
             return None
         except Exception:  # noqa: BLE001

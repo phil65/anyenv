@@ -123,18 +123,13 @@ result = run_sync(async_function())
 result = await run_sync_in_thread(sync_function, arg1, arg2)
 
 # Enhanced gather with better error handling
-results = await gather(
-    async_func1(),
-    async_func2(),
-    async_func3(),
-    return_exceptions=True
-)
+results = await gather(async_func1(), async_func2(), async_func3(), return_exceptions=True)
 
 # Call function and gather results
 func_results = await call_and_gather(
     my_function,
     [arg1, arg2, arg3],  # Arguments to call function with
-    max_workers=5
+    max_workers=5,
 )
 ```
 

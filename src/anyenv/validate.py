@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import importlib.util
 import types
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from anyenv.helpers import get_object_name
+
+
+if TYPE_CHECKING:
+    from typing_extensions import TypeForm
 
 
 _has_pydantic = importlib.util.find_spec("pydantic") is not None
@@ -44,7 +48,7 @@ def validate_json_data[T](data: Any, return_type: type[T] | types.UnionType | No
             from pydantic import TypeAdapter
 
             try:
-                adapter: TypeAdapter[Any] = TypeAdapter(return_type)
+                adapter: TypeAdapter[Any] = TypeAdapter(cast("TypeForm[Any]", return_type))
                 return cast(T, adapter.validate_python(data))
             except Exception as e:
                 error_msg = f"Data doesn't match type {return_type}: {e}"
