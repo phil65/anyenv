@@ -46,6 +46,7 @@ aiohttp = ["aiohttp", "aiohttp-client-cache"]
 exxec = ["exxec>=0.1.1"]
 httpx = ["httpx", "hishel[async]>=2.0.0"]
 msgspec = ["msgspec"]
+orjson = ["orjson"]
 pytomlpp = ["pytomlpp; python_version < '3.14'"]
 rtoml = ["rtoml"]
 toml-rs = ["toml-rs"]
@@ -106,6 +107,11 @@ strict = true
 check_untyped_defs = true
 exclude = ["venv/", ".venv/", "tests/"]
 plugins = []
+
+[[tool.mypy.overrides]]
+# No 3.14 wheels, so the extra is skipped there
+module = ["pytomlpp"]
+ignore_missing_imports = true
 
 [tool.pyright]
 venvPath = "."
