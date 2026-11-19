@@ -67,9 +67,8 @@ docs = [
   # Only add below (Copier)
 ]
 lint = [
-  "mypy; python_version >= '3.14'",
-  "mypy[faster-cache]; python_version < '3.14'",
   "ruff",
+  "ty",
   "types-Pygments",
   "types-pyyaml>=6.0.12.20250915",
   # Only add below (Copier)
@@ -99,19 +98,6 @@ allowed-commit-types = [
   "chore",
 ]
 docstring-style = "google"
-
-[tool.mypy]
-python_version = "3.13"
-pretty = true
-strict = true
-check_untyped_defs = true
-exclude = ["venv/", ".venv/", "tests/"]
-plugins = []
-
-[[tool.mypy.overrides]]
-# No 3.14 wheels, so the extra is skipped there
-module = ["pytomlpp"]
-ignore_missing_imports = true
 
 [tool.pyright]
 venvPath = "."
@@ -153,7 +139,7 @@ target-version = "py313"
 future-annotations = true
 select = [
   "A",  # Flake8-builtins
-  # "ANN",  # Flake8-Annotations
+  "ANN",  # Flake8-Annotations (enforces complete annotations; ty does not)
   # "ASYNC",  # Flake8-Async
   # "ARG",  # # Flake8-Unused-Arguments
   "B",  # flake8-bugbear
@@ -213,6 +199,7 @@ select = [
   "YTT",  # flake8-2020
 ]
 ignore = [
+  "ANN401",  # Dynamically typed expressions (Any) are allowed
   "C901",  # {name} is too complex ({complexity} > {max_complexity})
   "COM812",
   "D105",  # Missing docstring in magic method
@@ -270,15 +257,31 @@ max-complexity = 15
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["E402", "I001"]
-"scripts/*" = ["INP001"]
-"*tests/*" = ["D100"]
+"scripts/*" = ["INP001", "ANN"]
+"*tests/*" = ["D100", "ANN"]  # tests need not be fully annotated
+"duties.py" = ["ANN"]  # tooling, not package code
+"examples/**/*.py" = ["ANN"]
 
 [tool.ruff.format]
 preview = true
 
+[tool.ty.src]
+# `ty check` (hooks, CI, editors) type-checks the package code only.
+include = ["src"]
+
 [tool.ty.environment]
 python-version = "3.13"
 python-platform = "all"
+
+[tool.ty.analysis]
+# Pyodide-only modules (js, pyodide), optional numpy and version-gated
+# pytomlpp (< 3.14). Still type-checked wherever installed.
+allowed-unresolved-imports = ["js.**", "numpy.**", "pyodide.**", "pytomlpp.**"]
+
+[tool.ty.rules]
+# Narrowing an overridden class attribute (e.g. pydantic discriminators,
+# `Config` attributes) is an intentional pattern.
+incompatible-mutable-override = "ignore"
 
 [tool.uv]
 default-groups = ["dev", "lint", "docs"]

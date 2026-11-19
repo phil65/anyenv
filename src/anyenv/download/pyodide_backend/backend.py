@@ -11,6 +11,7 @@ from anyenv.download.exceptions import RequestError, ResponseError, check_respon
 
 
 if TYPE_CHECKING:
+    import builtins
     import os
 
     from pyodide.http import FetchResponse  # type: ignore[import-not-found]
@@ -57,7 +58,7 @@ class PyodideResponse(HttpResponse):
 
         return await load_json(self._response)
 
-    async def bytes(self) -> bytes:
+    async def bytes(self) -> builtins.bytes:
         """Bytes implementation for PyodideResponse."""
         return await self._response.bytes()  # type: ignore[no-any-return]
 

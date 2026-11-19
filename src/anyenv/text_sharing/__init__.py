@@ -98,7 +98,7 @@ def get_sharer(
         case "paste_rs":
             return PasteRsSharer()
         case "opencode":
-            return OpenCodeSharer(**kwargs)  # type: ignore[arg-type]
+            return OpenCodeSharer(api_url=kwargs.get("api_url"))
         case "shittycodingagent":
             return ShittyCodingAgentSharer(**kwargs)
         case _ as unreachable:

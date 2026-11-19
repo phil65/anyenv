@@ -11,6 +11,7 @@ from anyenv.download.exceptions import RequestError, ResponseError, check_respon
 
 
 if TYPE_CHECKING:
+    import builtins
     import os
 
     import aiohttp
@@ -78,7 +79,7 @@ class AiohttpResponse(HttpResponse):
         """JSON content of the response."""
         return await self._response.json(loads=load_json)
 
-    async def bytes(self) -> bytes:
+    async def bytes(self) -> builtins.bytes:
         """Bytes content of the response."""
         return await self._response.read()
 

@@ -71,12 +71,13 @@ class LanguageFormatter(ABC):
             execution_env: Execution environment - either a string provider name
                 or a direct ExecutionEnvironment instance
         """
-        if isinstance(execution_env, str):
-            from exxec import get_environment
+        from exxec import ExecutionEnvironment, get_environment
 
-            self._execution_env: ExecutionEnvironment = get_environment(execution_env)
-        else:
-            self._execution_env = execution_env
+        self._execution_env: ExecutionEnvironment = (
+            execution_env
+            if isinstance(execution_env, ExecutionEnvironment)
+            else get_environment(execution_env)
+        )
 
     async def _execute_command(self, cmd: list[str]) -> tuple[bool, str, str, float, str | None]:
         """Execute command and return rich result information."""

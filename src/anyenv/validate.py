@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import collections.abc
 import importlib.util
 import types
-from typing import TYPE_CHECKING, Any, cast, is_typeddict
+from typing import TYPE_CHECKING, Any, cast, get_args, get_origin, is_typeddict
 
 from anyenv.helpers import get_object_name
 
@@ -14,6 +15,16 @@ if TYPE_CHECKING:
 
 
 _has_pydantic = importlib.util.find_spec("pydantic") is not None
+
+# `typing.get_origin` maps typing aliases (List, Set, Dict, ...) to these.
+_SEQUENCE_ORIGINS: frozenset[object] = frozenset({
+    list,
+    set,
+    tuple,
+    collections.abc.Sequence,
+    collections.abc.Set,
+})
+_MAPPING_ORIGINS: frozenset[object] = frozenset({dict, collections.abc.Mapping})
 
 
 def validate_json_data[T](data: Any, return_type: type[T] | types.UnionType | None = None) -> T:  # noqa: PLR0911
@@ -96,17 +107,11 @@ def validate_json_data[T](data: Any, return_type: type[T] | types.UnionType | No
 
     # For generic types without Pydantic, attempt basic validation
     # This is limited but better than nothing
-    if hasattr(return_type, "__origin__") and hasattr(return_type, "__args__"):
-        origin = return_type.__origin__  # type: ignore
-        args = return_type.__args__  # type: ignore
-
-        # Handle List[T], Sequence[T], etc.
-        if origin in (list, set, tuple) or origin.__name__ in (
-            "List",
-            "Sequence",
-            "Set",
-            "Tuple",
-        ):
+    origin = get_origin(return_type)
+    args = get_args(return_type)
+    if origin is not None:
+        # Handle List[T], Sequence[T], Set[T], Tuple[T, ...], etc.
+        if origin in _SEQUENCE_ORIGINS:
             if not isinstance(data, list | tuple | set):
                 error_msg = f"Expected sequence type, got {type(data).__name__}"
                 raise TypeError(error_msg)
@@ -115,18 +120,16 @@ def validate_json_data[T](data: Any, return_type: type[T] | types.UnionType | No
             if len(args) == 1 and args[0] is not Ellipsis:
                 validated_items: list[Any] = [validate_json_data(item, args[0]) for item in data]
                 # Convert to the right container type
-                if origin is list or origin.__name__ == "List":
-                    return cast(T, validated_items)
-                if origin is tuple or origin.__name__ == "Tuple":
+                if origin is tuple:
                     return cast(T, tuple(validated_items))
-                if origin is set or origin.__name__ == "Set":
+                if origin in (set, collections.abc.Set):
                     return cast(T, set(validated_items))
                 return cast(T, validated_items)
 
             return cast(T, data)
 
-        # Handle Dict[K, V]
-        if origin in (dict,) or origin.__name__ in ("Dict", "Mapping"):
+        # Handle Dict[K, V], Mapping[K, V]
+        if origin in _MAPPING_ORIGINS:
             if not isinstance(data, dict):
                 error_msg = f"Expected dict type, got {type(data).__name__}"
                 raise TypeError(error_msg)

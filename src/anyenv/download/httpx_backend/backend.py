@@ -10,6 +10,7 @@ from anyenv.download.exceptions import RequestError, ResponseError, check_respon
 
 
 if TYPE_CHECKING:
+    import builtins
     import os
 
     import hishel
@@ -80,7 +81,7 @@ class HttpxResponse(HttpResponse):
 
         return load_json(self._response.content)
 
-    async def bytes(self) -> bytes:
+    async def bytes(self) -> builtins.bytes:
         """Bytes content of the response."""
         return self._response.content
 

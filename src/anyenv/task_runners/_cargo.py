@@ -115,14 +115,14 @@ def _parse_cargo_config(content: str) -> list[TaskInfo]:
     in_alias_section = False
     for line in content.splitlines():
         stripped = line.strip()
+        # Skip empty lines and comments
+        if not stripped or stripped.startswith("#"):
+            continue
         # Track section headers
         if stripped.startswith("["):
             in_alias_section = stripped == "[alias]"
             continue
         if not in_alias_section:
-            continue
-        # Skip empty lines and comments
-        if not stripped or stripped.startswith("#"):
             continue
         if match := _ALIAS_PATTERN.match(stripped):
             alias_name, alias_value = match.groups()

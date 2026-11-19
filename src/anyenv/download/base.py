@@ -18,6 +18,7 @@ from typing import (
 
 
 if TYPE_CHECKING:
+    import builtins
     import types
 
     from anyenv.download.http_types import (
@@ -99,7 +100,7 @@ class HttpResponse(abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    async def bytes(self) -> bytes:
+    async def bytes(self) -> builtins.bytes:
         """Get response body as bytes."""
         raise NotImplementedError
 

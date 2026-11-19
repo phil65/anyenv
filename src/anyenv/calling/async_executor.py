@@ -104,9 +104,12 @@ class AsyncExecutor[**P, T]:
                 UserWarning,
                 stacklevel=2,
             )
+
+            def run_coro() -> T:
+                return asyncio.run(coro)
+
             with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(asyncio.run, coro)
-                return future.result()
+                return executor.submit(run_coro).result()
 
     def task(self, *args: P.args, **kwargs: P.kwargs) -> asyncio.Task[T]:
         """Create a Task for concurrent execution."""

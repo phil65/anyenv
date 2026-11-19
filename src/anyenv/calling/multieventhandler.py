@@ -23,7 +23,7 @@ P = ParamSpec("P")
 HandlerT = Callable[P, Any]
 
 
-class MultiEventHandler[HandlerT, Mode: ExecutionMode = DefaultMode]:
+class MultiEventHandler[HandlerT: Callable[..., Any], Mode: ExecutionMode = DefaultMode]:
     """Manages multiple callbacks/event handlers with various execution modes.
 
     Provides a unified interface for executing multiple callbacks either sequentially,
@@ -65,7 +65,8 @@ class MultiEventHandler[HandlerT, Mode: ExecutionMode = DefaultMode]:
     def __init__(
         self,
         handlers: Sequence[HandlerT] | HandlerT | None = None,
-        mode: Mode = "parallel",  # type: ignore[assignment]
+        # Only valid while Mode is the default; type checkers cannot express that.
+        mode: Mode = "parallel",  # ty: ignore[invalid-parameter-default]
         debounce_delay: float | None = None,
     ) -> None:
         self._handlers: list[HandlerT] = []
@@ -220,10 +221,8 @@ class MultiEventHandler[HandlerT, Mode: ExecutionMode = DefaultMode]:
         """Wrap a synchronous handler to work with async interface."""
 
         async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
-            return handler(*args, **kwargs)  # type: ignore[operator]
+            return handler(*args, **kwargs)
 
-        # Store reference to original handler for removal
-        async_wrapper._original_handler = handler  # type: ignore[attr-defined]  # noqa: SLF001
         return async_wrapper
 
     def clear(self) -> None:

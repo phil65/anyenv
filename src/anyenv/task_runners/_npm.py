@@ -76,7 +76,9 @@ class PackageJsonRunner(TaskRunner):
                 if (pm_field := data.get("packageManager")) and (
                     match := re.match(r"^(npm|pnpm|yarn|bun)", pm_field)
                 ):
-                    return match.group(1)  # type: ignore[return-value]
+                    match match.group(1):
+                        case "npm" | "pnpm" | "yarn" | "bun" as manager:
+                            return manager
         except (json.JSONDecodeError, OSError, Exception):  # noqa: BLE001
             pass
 

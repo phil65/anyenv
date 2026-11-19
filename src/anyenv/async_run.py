@@ -51,9 +51,12 @@ def run_sync[T](coro: Coroutine[Any, Any, T]) -> T:
     async def wrapper() -> T:
         return await coro
 
+    def run_wrapper() -> T:
+        return anyio.run(wrapper)
+
     try:
         # Try to run directly with anyio
-        return ctx.run(anyio.run, wrapper)
+        return ctx.run(run_wrapper)
     except RuntimeError as e:
         if "already running" in str(e).lower():
             return run_sync_in_thread(coro)
@@ -189,9 +192,9 @@ async def run_in_thread[T_Retval, *PosArgsT](
     Returns:
         The return value of the function
     """
-    fn = partial(func, **kwargs) if kwargs else func  # type: ignore[call-arg]
+    fn: Callable[[*PosArgsT], T_Retval] = partial(func, **kwargs) if kwargs else func
     return await to_thread.run_sync(
-        fn,  # type: ignore[arg-type]
+        fn,
         *args,
         abandon_on_cancel=abandon_on_cancel,
         cancellable=cancellable,
@@ -348,8 +351,8 @@ async def as_generated[T](
             async for item in iterable:
                 await queue.put(item)
         except asyncio.CancelledError:
-            if isinstance(iter, AsyncGenerator):  # pragma:nocover
-                await iter.aclose()
+            if isinstance(iterable, AsyncGenerator):  # pragma:nocover
+                await iterable.aclose()
             raise
         except Exception as e:  # noqa: BLE001
             await exc_queue.put(e)
@@ -362,7 +365,7 @@ async def as_generated[T](
             try:
                 exc = exc_queue.get_nowait()
                 if return_exceptions:
-                    yield exc  # type: ignore
+                    yield exc
                 else:
                     raise exc
             except asyncio.QueueEmpty:
