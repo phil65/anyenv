@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 
 ProgressCallback = Callable[[int, int], Any]  # current, total -> Any
 Method = Literal["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD"]
-BackendType = Literal["httpx", "aiohttp", "pyodide"]
+BackendType = Literal["httpx2", "httpx", "aiohttp", "pyodide"]
 StrPath = str | os.PathLike[str]
 DEFAULT_TTL = 3600
 

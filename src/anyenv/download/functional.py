@@ -28,6 +28,11 @@ if TYPE_CHECKING:
 
 def get_default_backend() -> HttpBackend:
     """Get the best available HTTP backend."""
+    if importlib.util.find_spec("httpx2"):
+        from anyenv.download.httpx_backend import Httpx2Backend
+
+        return Httpx2Backend()
+
     if importlib.util.find_spec("httpx"):
         from anyenv.download.httpx_backend import HttpxBackend
 
@@ -47,7 +52,7 @@ def get_default_backend() -> HttpBackend:
 
     msg = (
         "No HTTP backend available. Please install one of: "
-        "httpx+hishel, aiohttp+aiohttp_client_cache"
+        "httpx2+hishel, httpx+hishel, aiohttp+aiohttp_client_cache"
     )
     raise ImportError(msg)
 
@@ -72,6 +77,14 @@ def get_backend(
     """
     if backend_type is None:
         return get_default_backend()
+
+    if backend_type == "httpx2":
+        if importlib.util.find_spec("httpx2") and importlib.util.find_spec("hishel"):
+            from anyenv.download.httpx_backend import Httpx2Backend
+
+            return Httpx2Backend(cache_dir=cache_dir, cache_ttl=cache_ttl)
+        msg = "httpx2 backend requested but httpx2 or hishel not installed"
+        raise ImportError(msg)
 
     if backend_type == "httpx":
         if importlib.util.find_spec("httpx") and importlib.util.find_spec("hishel"):

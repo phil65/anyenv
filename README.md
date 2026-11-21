@@ -180,7 +180,7 @@ from anyenv import get_backend, HttpBackend
 backend = get_backend()
 
 # Use specific backend
-backend = get_backend("httpx")  # or "urllib", "requests"
+backend = get_backend("httpx2")  # or "httpx", "aiohttp", "pyodide"
 response = await backend.get("https://example.com")
 ```
 
@@ -189,7 +189,7 @@ response = await backend.get("https://example.com")
 All functionality automatically adapts to the execution environment:
 
 - **PyOdide**: Uses browser-compatible implementations
-- **Standard Python**: Uses optimal libraries (httpx, etc.)
+- **Standard Python**: Uses optimal libraries (httpx2, httpx, aiohttp)
 - **Limited environments**: Falls back to stdlib implementations
 - **Async contexts**: Provides async implementations
 - **Sync contexts**: Provides synchronous alternatives

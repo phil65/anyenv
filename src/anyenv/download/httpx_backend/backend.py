@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import importlib
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from anyenv.download.base import HttpBackend, HttpResponse, Session
 from anyenv.download.exceptions import RequestError, ResponseError, check_response
@@ -12,6 +13,7 @@ from anyenv.download.exceptions import RequestError, ResponseError, check_respon
 if TYPE_CHECKING:
     import builtins
     import os
+    from types import ModuleType
 
     import hishel
     import httpx
@@ -89,9 +91,15 @@ class HttpxResponse(HttpResponse):
 class HttpxSession(Session):
     """HTTPX implementation of HTTP session."""
 
-    def __init__(self, client: httpx.AsyncClient, base_url: str | None = None) -> None:
+    def __init__(
+        self,
+        client: httpx.AsyncClient,
+        base_url: str | None = None,
+        httpx_module: ModuleType | None = None,
+    ) -> None:
         self._client = client
         self._base_url = base_url
+        self._httpx = httpx_module or importlib.import_module("httpx")
 
     async def request(
         self,
@@ -107,7 +115,7 @@ class HttpxSession(Session):
         cache: bool | None = None,
     ) -> HttpResponse:
         """Request implementation using HTTPX."""
-        import httpx
+        httpx = self._httpx
 
         if self._base_url:
             url = f"{self._base_url.rstrip('/')}/{url.lstrip('/')}"
@@ -146,7 +154,18 @@ class HttpxSession(Session):
 
 
 class HttpxBackend(HttpBackend):
-    """HTTPX implementation of HTTP backend."""
+    """HTTPX implementation of HTTP backend.
+
+    Subclasses can target an API-compatible fork (e.g. httpx2) by overriding
+    the module names below.
+    """
+
+    httpx_module_name: ClassVar[str] = "httpx"
+    hishel_module_name: ClassVar[str] = "hishel.httpx"
+
+    @property
+    def _httpx(self) -> ModuleType:
+        return importlib.import_module(self.httpx_module_name)
 
     def _create_client(
         self,
@@ -156,9 +175,7 @@ class HttpxBackend(HttpBackend):
         cache_backend: CacheType = "file",
     ) -> httpx.AsyncClient:
         """Create an HTTPX client."""
-        from hishel.httpx import AsyncCacheClient
-        import httpx
-
+        httpx = self._httpx
         url = base_url or ""
         if cache:
             storage = get_storage(cache_backend, self.cache_dir, self.cache_ttl)
@@ -173,7 +190,8 @@ class HttpxBackend(HttpBackend):
             #     supported_methods=["GET", "HEAD"],  # Only cache safe methods
             #     allow_stale=True,  # Allow serving stale responses
             # )
-            return AsyncCacheClient(
+            hishel_mod = importlib.import_module(self.hishel_module_name)
+            return hishel_mod.AsyncCacheClient(
                 storage=storage, headers=headers, base_url=url, follow_redirects=True
             )
         # Follow redirects like the aiohttp and pyodide backends do.
@@ -194,7 +212,7 @@ class HttpxBackend(HttpBackend):
         cache_backend: CacheType = "file",
     ) -> HttpResponse:
         """Request implementation using httpx."""
-        import httpx
+        httpx = self._httpx
 
         try:
             async with self._create_client(cache=cache, cache_backend=cache_backend) as client:
@@ -227,7 +245,7 @@ class HttpxBackend(HttpBackend):
         cache_backend: CacheType = "file",
     ) -> None:
         """Download implementation using HTTPX."""
-        import httpx
+        httpx = self._httpx
 
         try:
             async with self._create_client(  # noqa: SIM117
@@ -270,7 +288,14 @@ class HttpxBackend(HttpBackend):
             headers=headers,
             cache_backend=cache_backend,
         )
-        return HttpxSession(client, base_url)
+        return HttpxSession(client, base_url, self._httpx)
+
+
+class Httpx2Backend(HttpxBackend):
+    """httpx2 (pydantic's httpx fork) implementation of HTTP backend."""
+
+    httpx_module_name: ClassVar[str] = "httpx2"
+    hishel_module_name: ClassVar[str] = "hishel.httpx2"
 
 
 if __name__ == "__main__":
