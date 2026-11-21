@@ -111,8 +111,6 @@ async def test_follows_redirects(server_url: str, backend_type: BackendType) -> 
 
 async def test_post_json(server_url: str, backend_type: BackendType) -> None:
     """POST JSON body round-trips."""
-    if backend_type == "aiohttp":
-        pytest.xfail("aiohttp backend closes the session before the body is read")
     response = await functional.post(f"{server_url}/echo", json={"a": 1}, backend=backend_type)
     assert await response.json() == {"a": 1}
 

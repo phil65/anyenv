@@ -244,6 +244,9 @@ class AiohttpBackend(HttpBackend):
                     data=data,
                     timeout=aiohttp.ClientTimeout(total=timeout) if timeout else None,
                 )
+                # Buffer the body now: the session is closed in `finally`, after
+                # which aiohttp can no longer read from the connection.
+                await response.read()
                 aiohttp_response = AiohttpResponse(response)
             except aiohttp.ClientError as exc:
                 error_msg = f"Request failed: {exc!s}"
