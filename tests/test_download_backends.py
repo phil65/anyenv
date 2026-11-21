@@ -67,7 +67,7 @@ def server_url() -> Iterator[str]:
 _REQUIREMENTS: dict[str, tuple[str, ...]] = {
     "httpx2": ("httpx2", "hishel"),
     "httpx": ("httpx", "hishel"),
-    "aiohttp": ("aiohttp", "aiohttp_client_cache"),
+    "aiohttp": ("aiohttp", "aiohttp_client_cache", "aiofiles"),
 }
 
 BACKENDS = [
@@ -156,8 +156,6 @@ async def test_session(server_url: str, backend_type: BackendType) -> None:
 
 async def test_cached_request(server_url: str, backend_type: BackendType, tmp_path: Path) -> None:
     """Cached requests work and survive a second hit."""
-    if backend_type == "aiohttp" and not importlib.util.find_spec("aiofiles"):
-        pytest.skip("aiohttp file cache needs aiofiles")
     backend = functional.get_backend(backend_type, cache_dir=tmp_path)
     for _ in range(2):
         response = await backend.request("GET", f"{server_url}/json", cache=True)

@@ -42,7 +42,7 @@ Issues = "https://github.com/phil65/anyenv/issues"
 Source = "https://github.com/phil65/anyenv"
 
 [project.optional-dependencies]
-aiohttp = ["aiohttp", "aiohttp-client-cache"]
+aiohttp = ["aiohttp", "aiohttp-client-cache", "aiofiles"]
 exxec = ["exxec>=0.1.1"]
 httpx = ["httpx", "hishel[async]>=2.0.0"]
 httpx2 = ["httpx2", "hishel[httpx2]>=2.0.0"]
