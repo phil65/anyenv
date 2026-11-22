@@ -3,6 +3,11 @@
 from __future__ import annotations
 
 import concurrent.futures
+
+# Import from the defining module: on Python 3.15, `concurrent.futures` exposes its
+# executors as lazy imports, which some import hooks (e.g. PySide6/shiboken) hand
+# out unresolved ("cannot create 'lazy_import' instances").
+from concurrent.futures.thread import ThreadPoolExecutor
 import contextvars
 import logging
 from typing import TYPE_CHECKING, Any
@@ -13,7 +18,7 @@ if TYPE_CHECKING:
     from types import TracebackType
 
 
-class ContextExecutor(concurrent.futures.ThreadPoolExecutor):
+class ContextExecutor(ThreadPoolExecutor):
     """Thread pool executor that preserves context variables across threads.
 
     This executor captures the current context variables when created and
@@ -58,11 +63,9 @@ class ThreadGroup[R = Any]:
         self.preserve_context = preserve_context
 
         if preserve_context:
-            self.executor: concurrent.futures.ThreadPoolExecutor = ContextExecutor(
-                max_workers=self.max_workers
-            )
+            self.executor: ThreadPoolExecutor = ContextExecutor(max_workers=self.max_workers)
         else:
-            self.executor = concurrent.futures.ThreadPoolExecutor(max_workers=self.max_workers)
+            self.executor = ThreadPoolExecutor(max_workers=self.max_workers)
 
         self.futures: list[concurrent.futures.Future[R]] = []
         self._results: list[R] = []

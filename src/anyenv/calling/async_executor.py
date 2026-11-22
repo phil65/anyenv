@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections import defaultdict
-import concurrent.futures
+from concurrent.futures.thread import ThreadPoolExecutor  # not the lazy facade (3.15)
 from functools import wraps
 import inspect
 import queue
@@ -108,7 +108,7 @@ class AsyncExecutor[**P, T]:
             def run_coro() -> T:
                 return asyncio.run(coro)
 
-            with concurrent.futures.ThreadPoolExecutor() as executor:
+            with ThreadPoolExecutor() as executor:
                 return executor.submit(run_coro).result()
 
     def task(self, *args: P.args, **kwargs: P.kwargs) -> asyncio.Task[T]:
