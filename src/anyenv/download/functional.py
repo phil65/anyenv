@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import functools
 import importlib.util
 import os
 from typing import TYPE_CHECKING, Any, Unpack, assert_never
@@ -26,35 +27,86 @@ if TYPE_CHECKING:
     from anyenv.download.http_types import AuthType, FilesType, HeaderType, ParamsType
 
 
-def get_default_backend() -> HttpBackend:
-    """Get the best available HTTP backend."""
+def _default_backend_type() -> BackendType:
+    """Return the best available backend type."""
     if importlib.util.find_spec("httpx2"):
-        from anyenv.download.httpx_backend import Httpx2Backend
-
-        return Httpx2Backend()
-
+        return "httpx2"
     if importlib.util.find_spec("httpx"):
-        from anyenv.download.httpx_backend import HttpxBackend
-
-        return HttpxBackend()
-
-    # Try aiohttp next
+        return "httpx"
     if importlib.util.find_spec("aiohttp"):
-        from anyenv.download.aiohttp_backend import AiohttpBackend
-
-        return AiohttpBackend()
-
+        return "aiohttp"
     # Fall back to pyodide if in browser environment
     if importlib.util.find_spec("pyodide"):
-        from anyenv.download.pyodide_backend import PyodideBackend
-
-        return PyodideBackend()
-
+        return "pyodide"
     msg = (
         "No HTTP backend available. Please install one of: "
         "httpx2+hishel, httpx+hishel, aiohttp+aiohttp_client_cache"
     )
     raise ImportError(msg)
+
+
+def _create_backend(
+    backend_type: BackendType,
+    cache_dir: StrPath | None = None,
+    cache_ttl: int | str | None = None,
+    *,
+    require_cache: bool = True,
+) -> HttpBackend:
+    """Instantiate given backend type with given cache settings.
+
+    Args:
+        backend_type: The backend type to create
+        cache_dir: Optional path to use for caching
+        cache_ttl: Optional TTL for cached responses
+        require_cache: Whether the cache library of the backend must be installed
+    """
+    match backend_type:
+        case "httpx2" | "httpx":
+            cache_lib = "hishel"
+            available = importlib.util.find_spec(backend_type) and (
+                not require_cache or importlib.util.find_spec(cache_lib)
+            )
+            if not available:
+                msg = f"{backend_type} backend requested but {backend_type} or hishel not installed"
+                raise ImportError(msg)
+            from anyenv.download.httpx_backend import Httpx2Backend, HttpxBackend
+
+            cls = Httpx2Backend if backend_type == "httpx2" else HttpxBackend
+            return cls(cache_dir=cache_dir, cache_ttl=cache_ttl)
+        case "aiohttp":
+            available = importlib.util.find_spec("aiohttp") and (
+                not require_cache or importlib.util.find_spec("aiohttp_client_cache")
+            )
+            if not available:
+                msg = "aiohttp backend requested but aiohttp or aiohttp_client_cache not installed"
+                raise ImportError(msg)
+            from anyenv.download.aiohttp_backend import AiohttpBackend
+
+            return AiohttpBackend(cache_dir=cache_dir, cache_ttl=cache_ttl)
+        case "pyodide":
+            if importlib.util.find_spec("pyodide"):
+                from anyenv.download.pyodide_backend import PyodideBackend
+
+                return PyodideBackend()
+            msg = "pyodide backend requested but pyodide not installed"
+            raise ImportError(msg)
+        case _:
+            msg = f"Unknown backend type: {backend_type}"
+            raise ValueError(msg)
+
+
+def get_default_backend(
+    cache_dir: StrPath | None = None,
+    cache_ttl: int | str | None = None,
+) -> HttpBackend:
+    """Get the best available HTTP backend.
+
+    Args:
+        cache_dir: Optional path to use for caching. If None, uses a default path.
+        cache_ttl: Optional TTL for cached responses. If None, uses a default TTL.
+    """
+    backend_type = _default_backend_type()
+    return _create_backend(backend_type, cache_dir, cache_ttl, require_cache=False)
 
 
 def get_backend(
@@ -76,42 +128,27 @@ def get_backend(
         ImportError: If the requested backend is not available.
     """
     if backend_type is None:
-        return get_default_backend()
+        return get_default_backend(cache_dir=cache_dir, cache_ttl=cache_ttl)
+    return _create_backend(backend_type, cache_dir, cache_ttl)
 
-    if backend_type == "httpx2":
-        if importlib.util.find_spec("httpx2") and importlib.util.find_spec("hishel"):
-            from anyenv.download.httpx_backend import Httpx2Backend
 
-            return Httpx2Backend(cache_dir=cache_dir, cache_ttl=cache_ttl)
-        msg = "httpx2 backend requested but httpx2 or hishel not installed"
-        raise ImportError(msg)
+@functools.lru_cache(maxsize=64)
+def _get_shared_backend(
+    backend_type: BackendType | None,
+    cache_dir: str | None,
+    cache_ttl: int | str | None,
+) -> HttpBackend:
+    return get_backend(backend_type, cache_dir=cache_dir, cache_ttl=cache_ttl)
 
-    if backend_type == "httpx":
-        if importlib.util.find_spec("httpx") and importlib.util.find_spec("hishel"):
-            from anyenv.download.httpx_backend import HttpxBackend
 
-            return HttpxBackend(cache_dir=cache_dir, cache_ttl=cache_ttl)
-        msg = "httpx backend requested but httpx or hishel not installed"
-        raise ImportError(msg)
-
-    if backend_type == "aiohttp":
-        if importlib.util.find_spec("aiohttp") and importlib.util.find_spec("aiohttp_client_cache"):
-            from anyenv.download.aiohttp_backend import AiohttpBackend
-
-            return AiohttpBackend(cache_dir=cache_dir, cache_ttl=cache_ttl)
-        msg = "aiohttp backend requested but aiohttp or aiohttp_client_cache not installed"
-        raise ImportError(msg)
-
-    if backend_type == "pyodide":
-        if importlib.util.find_spec("pyodide"):
-            from anyenv.download.pyodide_backend import PyodideBackend
-
-            return PyodideBackend()
-        msg = "pyodide backend requested but pyodide not installed"
-        raise ImportError(msg)
-
-    msg = f"Unknown backend type: {backend_type}"
-    raise ValueError(msg)
+def _backend_for_request(
+    backend_type: BackendType | None,
+    cache_dir: StrPath | None,
+    cache_ttl: int | str | None,
+) -> HttpBackend:
+    """Return a backend for given cache config, reusing instances across requests."""
+    dir_ = os.fspath(cache_dir) if cache_dir is not None else None
+    return _get_shared_backend(backend_type, dir_, cache_ttl)
 
 
 # High-level API functions
@@ -168,7 +205,7 @@ async def request(
     if auth_header_name is None:
         auth_header_name = "X-API-Key"
 
-    http_backend = get_backend(backend, cache_dir=cache_dir, cache_ttl=cache_ttl)
+    http_backend = _backend_for_request(backend, cache_dir, cache_ttl)
 
     # Apply header middlewares first
     processed_headers = header_middlewares.apply(url, headers)
@@ -355,7 +392,7 @@ async def download(
         cache_ttl: Optional TTL for cached responses. Can be specified as seconds (int)
                    or as a time period string (e.g. "1h", "2d", "1w 2d").
     """
-    http_backend = get_backend(backend, cache_dir=cache_dir, cache_ttl=cache_ttl)
+    http_backend = _backend_for_request(backend, cache_dir, cache_ttl)
     await http_backend.download(
         url,
         path,
@@ -555,7 +592,7 @@ def request_sync(
     if auth_header_name is None:
         auth_header_name = "X-API-Key"
 
-    http_backend = get_backend(backend, cache_dir=cache_dir, cache_ttl=cache_ttl)
+    http_backend = _backend_for_request(backend, cache_dir, cache_ttl)
     processed_params = params
     processed_headers = headers or {}
 
@@ -637,7 +674,7 @@ def download_sync(
     cache_ttl: int | str | None = None,
 ) -> None:
     """Synchronous version of download."""
-    http_backend = get_backend(backend, cache_dir=cache_dir, cache_ttl=cache_ttl)
+    http_backend = _backend_for_request(backend, cache_dir, cache_ttl)
     http_backend.download_sync(
         url,
         path,

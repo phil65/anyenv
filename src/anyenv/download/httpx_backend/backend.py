@@ -35,13 +35,11 @@ def get_storage(
     import hishel
 
     match cache_backend:
-        case "sqlite":
-            return hishel.AsyncSqliteStorage(database_path=CACHE_DB_NAME, default_ttl=cache_ttl)
-        case "memory":
-            return hishel.AsyncSqliteStorage(database_path=":memory:", default_ttl=cache_ttl)
-        case "file":
+        case "sqlite" | "file":
             cache_path = Path(cache_dir) / CACHE_DB_NAME
             return hishel.AsyncSqliteStorage(database_path=str(cache_path), default_ttl=cache_ttl)
+        case "memory":
+            return hishel.AsyncSqliteStorage(database_path=":memory:", default_ttl=cache_ttl)
         case _:
             msg = f"Invalid cache backend: {cache_backend}"
             raise ValueError(msg)
@@ -178,21 +176,19 @@ class HttpxBackend(HttpBackend):
         httpx = self._httpx
         url = base_url or ""
         if cache:
+            from anyenv.download.httpx_backend.cache import get_cache_client_class
+
             storage = get_storage(cache_backend, self.cache_dir, self.cache_ttl)
-            # Non-RFC mode (hishel default) ignores server Cache-Control headers.
-            # Many APIs return max-age=0 which would prevent caching in RFC mode.
-            # The storage TTL controls expiration.
-            # TODO: Make cache policy configurable in the future.
-            # RFC 9111 compliant mode that respects server Cache-Control headers:
-            #
-            # rfc = hishel.CacheOptions(
-            #     shared=False,  # Private cache (browser-like)
-            #     supported_methods=["GET", "HEAD"],  # Only cache safe methods
-            #     allow_stale=True,  # Allow serving stale responses
-            # )
-            hishel_mod = importlib.import_module(self.hishel_module_name)
-            return hishel_mod.AsyncCacheClient(
-                storage=storage, headers=headers, base_url=url, follow_redirects=True
+            # Cached responses expire after the backend's cache_ttl, regardless of
+            # the server's Cache-Control headers (many APIs send max-age=0).
+            # Bodies are stored decoded, and unusable entries are refetched.
+            client_cls = get_cache_client_class(self.httpx_module_name, self.hishel_module_name)
+            return client_cls(
+                storage=storage,
+                ttl=self.cache_ttl,
+                headers=headers,
+                base_url=url,
+                follow_redirects=True,
             )
         # Follow redirects like the aiohttp and pyodide backends do.
         return httpx.AsyncClient(headers=headers, base_url=url, follow_redirects=True)
