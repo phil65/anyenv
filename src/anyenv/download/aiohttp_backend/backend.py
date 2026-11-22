@@ -151,7 +151,7 @@ class AiohttpSession(Session):
                 **kwargs,  # type: ignore
             )
             aiohttp_response = AiohttpResponse(response)
-        except aiohttp.ClientError as exc:
+        except (aiohttp.ClientError, TimeoutError) as exc:
             error_msg = f"Request failed: {exc!s}"
             raise RequestError(error_msg) from exc
 
@@ -248,7 +248,7 @@ class AiohttpBackend(HttpBackend):
                 # which aiohttp can no longer read from the connection.
                 await response.read()
                 aiohttp_response = AiohttpResponse(response)
-            except aiohttp.ClientError as exc:
+            except (aiohttp.ClientError, TimeoutError) as exc:
                 error_msg = f"Request failed: {exc!s}"
                 raise RequestError(error_msg) from exc
 
@@ -288,7 +288,7 @@ class AiohttpBackend(HttpBackend):
                             current += len(chunk)
                             if progress_callback:
                                 await self._handle_callback(progress_callback, current, total)
-            except aiohttp.ClientError as exc:
+            except (aiohttp.ClientError, TimeoutError) as exc:
                 error_msg = f"Download failed: {exc!s}"
                 raise RequestError(error_msg) from exc
         finally:

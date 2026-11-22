@@ -160,3 +160,16 @@ async def test_cached_request(server_url: str, backend_type: BackendType, tmp_pa
     for _ in range(2):
         response = await backend.request("GET", f"{server_url}/json", cache=True)
         assert await response.json() == {"ok": True}
+
+
+async def test_timeout_raises_request_error(backend_type: BackendType) -> None:
+    """Timeouts raise RequestError like other connection failures."""
+    import socket
+
+    # A listening socket which never accepts or answers.
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        sock.listen(0)
+        url = f"http://127.0.0.1:{sock.getsockname()[1]}/"
+        with pytest.raises(RequestError):
+            await functional.get(url, backend=backend_type, timeout=0.5)
