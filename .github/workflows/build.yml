@@ -10,10 +10,12 @@ jobs:
   test:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
-
+    # 3.15 is a pre-release: test it early, but don't let it block the build.
+    continue-on-error: ${{ matrix.python_version == '3.15' }}
     strategy:
+      fail-fast: false
       matrix:
-        python_version: ["3.13", "3.14"]
+        python_version: ["3.13", "3.14", "3.15"]
         os: ["ubuntu-latest", "macos-latest", "windows-latest"]
     steps:
       - name: Check out repository
@@ -31,17 +33,17 @@ jobs:
           enable-cache: true
           cache-dependency-glob: pyproject.toml
           cache-suffix: py${{ matrix.python_version }}
+          python-version: ${{ matrix.python_version }}
 
       - name: Install dependencies (uv sync)
-        run: uv sync --all-extras --no-group docs --no-group lint
+        run: uv sync --all-extras --no-group docs
 
+      # ruff / ty come from the pinned `lint` group, same versions as pre-commit.
       - name: Check for code issues (ruff check)
-        uses: astral-sh/ruff-action@v3
+        run: uv run --no-group docs ruff check .
 
       - name: Check code format (ruff format)
-        uses: astral-sh/ruff-action@v3
-        with:
-          args: "format --check"
+        run: uv run --no-group docs ruff format --check .
 
       - name: Static type checking (ty)
         run: uv run --no-group docs ty check

@@ -18,10 +18,8 @@ classifiers = [
   "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
-  "Topic :: Documentation",
   "Topic :: Software Development",
   "Topic :: Utilities",
   "Typing :: Typed",
@@ -36,7 +34,6 @@ dependencies = [
 
 [project.urls]
 "Code coverage" = "https://app.codecov.io/gh/phil65/anyenv"
-Discussions = "https://github.com/phil65/anyenv/discussions"
 Documentation = "https://phil65.github.io/anyenv/"
 Issues = "https://github.com/phil65/anyenv/issues"
 Source = "https://github.com/phil65/anyenv"
@@ -54,6 +51,7 @@ toml-rs = ["toml-rs"]
 
 [dependency-groups]
 dev = [
+  "deptry",
   "devtools",
   "pyreadline3",
   "pytest",
@@ -63,13 +61,15 @@ dev = [
 ]
 benchmark = ["pyinstrument"]
 docs = [
-  "mkdocs-material",
-  "mkdocs-mknodes",
+  "mkdocs-mknodes>=2.0.0",
+  "mkdocstrings[python]",
   # Only add below (Copier)
 ]
 lint = [
-  "ruff",
-  "ty",
+  # Pinned on purpose: CI, pre-commit and editors all run exactly these versions.
+  # Bump them here (template) and roll out via `copier update`.
+  "ruff==0.17.6",
+  "ty==0.0.107",
   "types-Pygments",
   "types-pyyaml>=6.0.12.20250915",
   # Only add below (Copier)

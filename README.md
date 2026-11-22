@@ -9,7 +9,6 @@
 [![Implementation](https://img.shields.io/pypi/implementation/anyenv.svg)](https://pypi.org/project/anyenv/)
 [![Releases](https://img.shields.io/github/downloads/phil65/anyenv/total.svg)](https://github.com/phil65/anyenv/releases)
 [![Github Contributors](https://img.shields.io/github/contributors/phil65/anyenv)](https://github.com/phil65/anyenv/graphs/contributors)
-[![Github Discussions](https://img.shields.io/github/discussions/phil65/anyenv)](https://github.com/phil65/anyenv/discussions)
 [![Github Forks](https://img.shields.io/github/forks/phil65/anyenv)](https://github.com/phil65/anyenv/forks)
 [![Github Issues](https://img.shields.io/github/issues/phil65/anyenv)](https://github.com/phil65/anyenv/issues)
 [![Github Issues](https://img.shields.io/github/issues-pr/phil65/anyenv)](https://github.com/phil65/anyenv/pulls)
