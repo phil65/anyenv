@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import os
 import subprocess
 import sys
 import textwrap
@@ -74,7 +75,8 @@ def test_works_without_legacy_httpx(tmp_path) -> None:
         text=True,
         timeout=60,
         cwd=tmp_path,
-        env={"XDG_CACHE_HOME": str(tmp_path), "HOME": str(tmp_path), "PATH": ""},
+        # Keep the inherited env (Windows sockets need SYSTEMROOT); isolate the cache dirs.
+        env={**os.environ, "XDG_CACHE_HOME": str(tmp_path), "LOCALAPPDATA": str(tmp_path)},
     )
     assert proc.returncode == 0, proc.stderr
     assert proc.stdout.strip() == "OK"
