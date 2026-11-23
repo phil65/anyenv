@@ -41,8 +41,9 @@ Source = "https://github.com/phil65/anyenv"
 [project.optional-dependencies]
 aiohttp = ["aiohttp", "aiohttp-client-cache", "aiofiles", "aiosqlite"]
 exxec = ["exxec>=0.1.1"]
+# Legacy: original httpx. Prefer the `httpx2` extra (recommended).
 httpx = ["httpx", "hishel[async]>=2.0.0"]
-httpx2 = ["httpx2", "hishel[httpx2]>=2.0.0"]
+httpx2 = ["httpx2>=2.16", "hishel[httpx2]>=2.0.0"]
 msgspec = ["msgspec"]
 orjson = ["orjson"]
 pytomlpp = ["pytomlpp; python_version < '3.14'"]

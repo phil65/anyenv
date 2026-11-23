@@ -32,7 +32,7 @@ if TYPE_CHECKING:
     from types import ModuleType
 
     import hishel
-    import httpx
+    import httpx2 as httpx
 
 
 logger = logging.getLogger(__name__)

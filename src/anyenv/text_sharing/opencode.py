@@ -29,8 +29,7 @@ import time
 from typing import TYPE_CHECKING, Literal, Self
 import uuid
 
-import httpx
-
+from anyenv.download.httpx_backend.module import get_httpx_module
 from anyenv.text_sharing.base import ShareResult, TextSharer
 
 
@@ -139,7 +138,8 @@ class OpenCodeSharer(TextSharer):
         """
         self.api_url = api_url or "https://api.opencode.ai"
         self.timeout = timeout
-        self._client = httpx.AsyncClient(timeout=timeout)
+        self._httpx = get_httpx_module()  # httpx2 preferred, legacy httpx as fallback
+        self._client = self._httpx.AsyncClient(timeout=timeout)
 
     @property
     def name(self) -> str:
@@ -259,7 +259,7 @@ class OpenCodeSharer(TextSharer):
                 id=session_id,
             )
 
-        except httpx.HTTPStatusError as e:
+        except self._httpx.HTTPStatusError as e:
             if e.response.status_code == 404:  # noqa: PLR2004
                 msg = "OpenCode API endpoint not found - service may be unavailable"
                 raise RuntimeError(msg) from e
@@ -268,7 +268,7 @@ class OpenCodeSharer(TextSharer):
                 raise RuntimeError(msg) from e
             msg = f"OpenCode API error (HTTP {e.response.status_code}): {e.response.text}"
             raise RuntimeError(msg) from e
-        except httpx.RequestError as e:
+        except self._httpx.RequestError as e:
             msg = f"Failed to connect to OpenCode API: {e}"
             raise RuntimeError(msg) from e
 
@@ -404,7 +404,7 @@ class OpenCodeSharer(TextSharer):
                 id=session_id,
             )
 
-        except httpx.HTTPStatusError as e:
+        except self._httpx.HTTPStatusError as e:
             if e.response.status_code == 404:  # noqa: PLR2004
                 msg = "OpenCode API endpoint not found - service may be unavailable"
                 raise RuntimeError(msg) from e
@@ -413,7 +413,7 @@ class OpenCodeSharer(TextSharer):
                 raise RuntimeError(msg) from e
             msg = f"OpenCode API error (HTTP {e.response.status_code}): {e.response.text}"
             raise RuntimeError(msg) from e
-        except httpx.RequestError as e:
+        except self._httpx.RequestError as e:
             msg = f"Failed to connect to OpenCode API: {e}"
             raise RuntimeError(msg) from e
 
@@ -441,7 +441,7 @@ class OpenCodeSharer(TextSharer):
                 },
             )
             resp.raise_for_status()
-        except httpx.HTTPError:
+        except self._httpx.HTTPError:
             return False
         else:
             return True

@@ -30,6 +30,18 @@ AnyEnv provides a unified interface for executing code across different environm
 
 ## Getting Started
 
+Install anyenv together with an HTTP backend. The recommended backend is
+[httpx2](https://github.com/pydantic/httpx2), pydantic's maintained fork of httpx:
+
+```bash
+pip install "anyenv[httpx2]"  # recommended
+pip install "anyenv[aiohttp]"  # alternative backend
+pip install "anyenv[httpx]"  # legacy: original httpx, kept for compatibility
+```
+
+When several backends are installed, `httpx2` is preferred, then `httpx`, then `aiohttp`.
+anyenv itself never needs the legacy `httpx` package once `httpx2` is installed.
+
 
 ## HTTP Downloads
 
@@ -179,7 +191,7 @@ from anyenv import get_backend, HttpBackend
 backend = get_backend()
 
 # Use specific backend
-backend = get_backend("httpx2")  # or "httpx", "aiohttp", "pyodide"
+backend = get_backend("httpx2")  # recommended; or "aiohttp", "pyodide", "httpx" (legacy)
 response = await backend.get("https://example.com")
 ```
 
@@ -188,7 +200,7 @@ response = await backend.get("https://example.com")
 All functionality automatically adapts to the execution environment:
 
 - **PyOdide**: Uses browser-compatible implementations
-- **Standard Python**: Uses optimal libraries (httpx2, httpx, aiohttp)
+- **Standard Python**: Uses optimal libraries (httpx2, then legacy httpx, then aiohttp)
 - **Limited environments**: Falls back to stdlib implementations
 - **Async contexts**: Provides async implementations
 - **Sync contexts**: Provides synchronous alternatives

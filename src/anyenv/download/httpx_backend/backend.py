@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from anyenv.download.base import HttpBackend, HttpResponse, Session
 from anyenv.download.exceptions import RequestError, ResponseError, check_response
+from anyenv.download.httpx_backend.module import HTTPX_MODULE_NAMES, get_httpx_module
 
 
 if TYPE_CHECKING:
@@ -16,7 +17,7 @@ if TYPE_CHECKING:
     from types import ModuleType
 
     import hishel
-    import httpx
+    import httpx2 as httpx
 
     from anyenv.download.base import Method, ProgressCallback, StrPath
     from anyenv.download.http_types import CacheType, FilesType, HeaderType, ParamsType
@@ -86,6 +87,15 @@ class HttpxResponse(HttpResponse):
         return self._response.content
 
 
+def _module_of_client(client: Any) -> ModuleType:
+    """Return the httpx flavour module a client instance belongs to."""
+    for klass in type(client).__mro__:
+        root = klass.__module__.partition(".")[0]
+        if root in HTTPX_MODULE_NAMES:
+            return importlib.import_module(root)
+    return get_httpx_module()
+
+
 class HttpxSession(Session):
     """HTTPX implementation of HTTP session."""
 
@@ -97,7 +107,7 @@ class HttpxSession(Session):
     ) -> None:
         self._client = client
         self._base_url = base_url
-        self._httpx = httpx_module or importlib.import_module("httpx")
+        self._httpx = httpx_module or _module_of_client(client)
 
     async def request(
         self,
