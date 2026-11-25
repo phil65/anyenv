@@ -114,6 +114,6 @@ async def hard_kill(
                 process.kill()
                 await asyncio.wait_for(process.wait(), timeout=force_timeout)
 
-    except (TimeoutError, ProcessLookupError, OSError):
+    except TimeoutError, ProcessLookupError, OSError:
         # Process already dead or force kill timed out
         pass

@@ -223,7 +223,7 @@ class WindowsListDirectoryCommand(ListDirectoryCommand):
                 # Parse size, handle non-numeric values
                 try:
                     size = int(length_str) if length_str.isdigit() else 0
-                except (ValueError, AttributeError):
+                except ValueError, AttributeError:
                     size = 0
 
             # Build full path
@@ -237,7 +237,7 @@ class WindowsListDirectoryCommand(ListDirectoryCommand):
                 timestamp=timestamp,
                 permissions=mode,
             )
-        except (ValueError, IndexError):
+        except ValueError, IndexError:
             return None
 
 

@@ -380,7 +380,7 @@ async def as_generated[T](
                         pending.remove(task)
                 await anyio.sleep(0.001)
 
-    except (asyncio.CancelledError, GeneratorExit):
+    except asyncio.CancelledError, GeneratorExit:
         pass
 
     finally:

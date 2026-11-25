@@ -79,7 +79,7 @@ class PackageJsonRunner(TaskRunner):
                     match match.group(1):
                         case "npm" | "pnpm" | "yarn" | "bun" as manager:
                             return manager
-        except (json.JSONDecodeError, OSError, Exception):  # noqa: BLE001
+        except json.JSONDecodeError, OSError, Exception:  # noqa: BLE001
             pass
 
         # Check what's available on the system (prefer faster ones)

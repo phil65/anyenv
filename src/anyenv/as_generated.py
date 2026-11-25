@@ -126,7 +126,7 @@ async def as_generated[T](
                                 raise
                 continue
 
-    except (asyncio.CancelledError, GeneratorExit):
+    except asyncio.CancelledError, GeneratorExit:
         pass
     finally:
         # Cancel all remaining tasks
