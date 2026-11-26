@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import abc
 from collections.abc import Callable
+import contextlib
 import inspect
 import os
 import pathlib
@@ -19,7 +20,9 @@ from typing import (
 
 if TYPE_CHECKING:
     import builtins
+    from collections.abc import Generator
     import types
+    from typing import BinaryIO
 
     from anyenv.download.http_types import (
         AuthType,
@@ -35,6 +38,24 @@ Method = Literal["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD"]
 BackendType = Literal["httpx2", "httpx", "aiohttp", "pyodide"]
 StrPath = str | os.PathLike[str]
 DEFAULT_TTL = 3600
+
+
+@contextlib.contextmanager
+def open_download_target(path: str | os.PathLike[str]) -> Generator[BinaryIO]:
+    """Open a download's target for writing, replacing it only on success.
+
+    Writes go to ``<path>.part``, renamed onto the path when the block completes;
+    on an error the part file is removed and an existing file stays as it was.
+    """
+    target = pathlib.Path(path)
+    part = target.with_name(f"{target.name}.part")
+    try:
+        with part.open("wb") as f:
+            yield f
+        part.replace(target)
+    except BaseException:
+        part.unlink(missing_ok=True)
+        raise
 
 
 class BaseRequestOptions(TypedDict):

@@ -6,7 +6,7 @@ import importlib
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from anyenv.download.base import HttpBackend, HttpResponse, Session
+from anyenv.download.base import HttpBackend, HttpResponse, Session, open_download_target
 from anyenv.download.exceptions import RequestError, ResponseError, check_response
 from anyenv.download.httpx_backend.module import HTTPX_MODULE_NAMES, get_httpx_module
 
@@ -266,7 +266,7 @@ class HttpxBackend(HttpBackend):
                     total = int(response.headers.get("content-length", "0"))
                     current = 0
 
-                    with Path(path).open("wb") as f:
+                    with open_download_target(path) as f:
                         async for chunk in response.aiter_bytes():
                             f.write(chunk)
                             current += len(chunk)

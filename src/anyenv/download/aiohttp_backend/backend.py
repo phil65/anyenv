@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, assert_never
 
 from anyenv import dump_json, load_json
-from anyenv.download.base import HttpBackend, HttpResponse, Session
+from anyenv.download.base import HttpBackend, HttpResponse, Session, open_download_target
 from anyenv.download.exceptions import RequestError, ResponseError, check_response
 
 
@@ -288,7 +288,7 @@ class AiohttpBackend(HttpBackend):
                     total = int(response.headers.get("content-length", "0"))
                     current = 0
 
-                    with Path(path).open("wb") as f:
+                    with open_download_target(path) as f:
                         async for chunk in response.content.iter_chunked(8192):
                             f.write(chunk)
                             current += len(chunk)

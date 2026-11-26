@@ -41,6 +41,14 @@ class _Handler(BaseHTTPRequestHandler):
                 self._send(200, json.dumps({"ok": True}).encode(), "application/json")
             case "/file":
                 self._send(200, PAYLOAD, "application/octet-stream")
+            case "/truncated":
+                # Promises more than it sends, then closes the connection.
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(PAYLOAD) * 2))
+                self.end_headers()
+                self.wfile.write(PAYLOAD)
+                self.wfile.flush()
+                self.close_connection = True
             case "/redirect":
                 self.send_response(302)
                 self.send_header("Location", "/json")
@@ -139,6 +147,19 @@ async def test_download(server_url: str, backend_type: BackendType, tmp_path: Pa
     )
     assert target.read_bytes() == PAYLOAD
     assert progress[-1] == (len(PAYLOAD), len(PAYLOAD))
+
+
+async def test_failed_download_leaves_target_alone(
+    server_url: str, backend_type: BackendType, tmp_path: Path
+) -> None:
+    """A download cut short neither leaves a partial file nor clobbers the old one."""
+    target = tmp_path / "file.bin"
+    target.write_bytes(b"old")
+    backend = functional.get_backend(backend_type)
+    with pytest.raises(RequestError):
+        await backend.download(f"{server_url}/truncated", target)
+    assert target.read_bytes() == b"old"
+    assert [p.name for p in tmp_path.iterdir()] == ["file.bin"]
 
 
 async def test_session(server_url: str, backend_type: BackendType) -> None:
