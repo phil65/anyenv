@@ -74,7 +74,11 @@ class MultiEventHandler[HandlerT: Callable[..., Any], Mode: ExecutionMode = Defa
         self._handler_mapping: dict[HandlerT, Callable[..., Awaitable[Any]]] = {}
         self._mode: Mode = mode
         self._debounce_delay = debounce_delay
+        # The round still in its delay (a new call replaces it), the callers waiting
+        # for that round, and every round task (asyncio keeps only weak references).
         self._debounce_task: asyncio.Task[Any] | None = None
+        self._debounce_waiters: list[asyncio.Future[Any]] = []
+        self._debounce_rounds: set[asyncio.Task[Any]] = set()
 
         if handlers is not None:
             match handlers:
@@ -125,19 +129,47 @@ class MultiEventHandler[HandlerT: Callable[..., Any], Mode: ExecutionMode = Defa
     async def _execute_debounced(
         self, mode: ExecutionMode, *args: Any, **kwargs: Any
     ) -> list[Any] | list[asyncio.Task[Any]]:
-        """Execute handlers with debouncing - cancels previous pending call."""
-        # Cancel previous debounced task if it exists
+        """Execute handlers with debouncing.
+
+        A call within the delay replaces the pending one. Callers of replaced
+        calls get the result of the call that runs (they are not cancelled).
+        """
         if self._debounce_task is not None and not self._debounce_task.done():
             self._debounce_task.cancel()
+        waiter: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
+        self._debounce_waiters.append(waiter)
+        task = asyncio.create_task(self._debounce_round(mode, args, kwargs))
+        self._debounce_task = task
+        self._debounce_rounds.add(task)
+        task.add_done_callback(self._debounce_rounds.discard)
+        return await waiter  # type: ignore[no-any-return]
 
-        # Create new debounced task
-        async def debounced_execution() -> list[Any] | list[asyncio.Task[Any]]:
-            if self._debounce_delay is not None:
-                await anyio.sleep(self._debounce_delay)
-            return await self._execute_handlers(mode, *args, **kwargs)
-
-        self._debounce_task = asyncio.create_task(debounced_execution())
-        return await self._debounce_task  # type: ignore[no-any-return]
+    async def _debounce_round(
+        self, mode: ExecutionMode, args: tuple[Any, ...], kwargs: dict[str, Any]
+    ) -> None:
+        if self._debounce_delay is not None:
+            await anyio.sleep(self._debounce_delay)
+        # Past the delay: this round runs for the callers so far; later calls start
+        # a new round instead of cancelling this one.
+        waiters, self._debounce_waiters = self._debounce_waiters, []
+        if self._debounce_task is asyncio.current_task():
+            self._debounce_task = None
+        try:
+            result = await self._execute_handlers(mode, *args, **kwargs)
+        except BaseException as exc:
+            for waiter in waiters:
+                if waiter.done():
+                    continue
+                if isinstance(exc, asyncio.CancelledError):
+                    waiter.cancel()
+                else:
+                    waiter.set_exception(exc)
+            if not isinstance(exc, Exception):
+                raise
+            return  # delivered to the callers; the round task itself ends cleanly
+        for waiter in waiters:
+            if not waiter.done():
+                waiter.set_result(result)
 
     async def _execute_handlers(
         self, mode: ExecutionMode, *args: Any, **kwargs: Any
