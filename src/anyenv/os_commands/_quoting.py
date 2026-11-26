@@ -10,6 +10,9 @@ import shlex
 
 
 POWERSHELL_PREFIX = "powershell -NoProfile -EncodedCommand "
+# An encoded command reports progress (e.g. "Preparing modules for first use") as
+# CLIXML on stderr, which a terminal merges into the output the commands parse.
+_QUIET = "$ProgressPreference = 'SilentlyContinue'; "
 # PowerShell treats the typographic single quotes like ' too.
 _PS_SINGLE_QUOTES = re.compile("['\u2018\u2019\u201a\u201b]")
 
@@ -33,9 +36,9 @@ def powershell(script: str) -> str:
     """Wrap a PowerShell script in a command line no outer shell can reinterpret.
 
     The script travels base64-encoded (UTF-16LE), so neither cmd.exe nor an outer
-    PowerShell expands `%VAR%`, `$(...)` or quotes in it.
+    PowerShell expands `%VAR%`, `$(...)` or quotes in it. Progress output is off.
     """
-    encoded = base64.b64encode(script.encode("utf-16-le")).decode("ascii")
+    encoded = base64.b64encode((_QUIET + script).encode("utf-16-le")).decode("ascii")
     return POWERSHELL_PREFIX + encoded
 
 
@@ -43,4 +46,5 @@ def powershell_script(command: str) -> str | None:
     """The script of a command made by `powershell`, else None."""
     if not command.startswith(POWERSHELL_PREFIX):
         return None
-    return base64.b64decode(command.removeprefix(POWERSHELL_PREFIX)).decode("utf-16-le")
+    script = base64.b64decode(command.removeprefix(POWERSHELL_PREFIX)).decode("utf-16-le")
+    return script.removeprefix(_QUIET)
