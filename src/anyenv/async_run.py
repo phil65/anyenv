@@ -6,6 +6,7 @@ import asyncio
 from collections.abc import AsyncGenerator, Sequence
 import contextvars
 from functools import partial
+import importlib
 import inspect
 import threading
 from typing import TYPE_CHECKING, Any, Literal, TypeVarTuple, cast, overload
@@ -24,10 +25,10 @@ PosArgsT = TypeVarTuple("PosArgsT")
 def run_sync[T](coro: Coroutine[Any, Any, T]) -> T:
     """Run a coroutine synchronously.
 
-    This function uses anyio to run a coroutine in a synchronous context.
-    It attempts the following strategies in order:
-    1. Tries to run using anyio's run function directly
-    2. If that fails (already in an async context), runs in a new thread
+    This function uses anyio to run a coroutine in a synchronous context:
+    outside an event loop with anyio's run function directly; inside one (an
+    async frame calling sync code) in a new thread. The latter blocks the calling
+    loop until the coroutine is done.
 
     Context variables are properly propagated between threads in all cases.
 
@@ -50,18 +51,30 @@ def run_sync[T](coro: Coroutine[Any, Any, T]) -> T:
     async def wrapper() -> T:
         return await coro
 
-    def run_wrapper() -> T:
-        return anyio.run(wrapper)
+    # Decided upfront: retrying after a failure could re-run a coroutine that
+    # already ran, and would misread the coroutine's own errors.
+    if _in_event_loop():
+        return run_sync_in_thread(coro)
+    return ctx.run(anyio.run, wrapper)
 
+
+def _in_event_loop() -> bool:
+    """Whether this thread runs an event loop (asyncio, or trio via sniffio)."""
     try:
-        # Try to run directly with anyio
-        return ctx.run(run_wrapper)
-    except RuntimeError as e:
-        if "already running" in str(e).lower():
-            return run_sync_in_thread(coro)
-        error_msg = str(e)
-        msg = f"Failed to run coroutine: {error_msg}"
-        raise RuntimeError(msg) from e
+        asyncio.get_running_loop()
+    except RuntimeError:
+        pass
+    else:
+        return True
+    try:
+        sniffio = importlib.import_module("sniffio")  # optional, like in anyio
+    except ImportError:
+        return False
+    try:
+        sniffio.current_async_library()
+    except sniffio.AsyncLibraryNotFoundError:
+        return False
+    return True
 
 
 def run_sync_in_thread[T](coro: Coroutine[Any, Any, T]) -> T:
