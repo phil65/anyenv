@@ -27,9 +27,9 @@ def _request_timeout(request: Any) -> float | None:
 def get_js_transport_class(httpx_name: str | None = None) -> type[Any]:
     """Return a Pyodide fetch transport class for given httpx flavour.
 
-    Targets Pyodide 314.x (Python 3.14). The options dict is converted with
-    ``dict_converter=js.Object.fromEntries``: ``to_js`` turns dicts into JS ``Map``s by
-    default, which ``fetch()`` would ignore.
+    Targets Pyodide 314.x (Python 3.14), where ``to_js`` already turns dicts into plain JS
+    objects (checked in a browser against 314.0.8); ``dict_converter=js.Object.fromEntries``
+    is kept explicitly because ``fetch()`` ignores options passed as a JS ``Map``.
 
     Args:
         httpx_name: Module name of the httpx flavour ("httpx2" or "httpx").
