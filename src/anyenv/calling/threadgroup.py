@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import concurrent.futures
 
 # Import from the defining module: on Python 3.15, `concurrent.futures` exposes its
@@ -99,18 +100,38 @@ class ThreadGroup[R = Any]:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
-        """Exit the context manager, collecting results from all futures."""
-        for future in concurrent.futures.as_completed(self.futures):
+        """Exit the context manager: wait for all tasks and shut the executor down.
+
+        Results are collected in spawn order. On the first failure (with
+        ``raise_exceptions``) tasks that haven't started are cancelled, the running
+        ones are waited for, then the first failure in spawn order is raised.
+        """
+        futures, self.futures = self.futures, []
+        try:
+            done, _ = concurrent.futures.wait(
+                futures, return_when=concurrent.futures.FIRST_EXCEPTION
+            )
+            if self.raise_exceptions and any(
+                not f.cancelled() and f.exception() is not None for f in done
+            ):
+                for future in futures:
+                    future.cancel()
+            concurrent.futures.wait(futures)
+        finally:
+            self.executor.shutdown(wait=True)
+
+        first_error: Exception | None = None
+        for future in futures:
+            if future.cancelled():
+                continue
             try:
-                result = future.result()
-                self._results.append(result)
+                self._results.append(future.result())
             except Exception as e:
                 self._exceptions.append(e)
                 self._logger.exception("Task error")
-                if self.raise_exceptions:
-                    raise
-
-        self.futures = []
+                first_error = first_error or e
+        if first_error is not None and self.raise_exceptions:
+            raise first_error
 
     async def __aenter__(self) -> ThreadGroup[R]:
         """Enter the async context manager."""
@@ -122,8 +143,8 @@ class ThreadGroup[R = Any]:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
-        """Exit the async context manager."""
-        self.__exit__(exc_type, exc_val, exc_tb)
+        """Exit the async context manager, waiting without blocking the event loop."""
+        await asyncio.to_thread(self.__exit__, exc_type, exc_val, exc_tb)
 
     def shutdown(self) -> None:
         """Shutdown the executor when done with the ThreadGroup."""
