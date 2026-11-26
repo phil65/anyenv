@@ -84,7 +84,10 @@ async def hard_kill(
 
     This function handles cross-platform process termination:
     - Windows: Uses terminate() then kill() as fallback
-    - Unix: Uses process group kill to terminate child processes too
+    - Unix: SIGTERM, then SIGKILL after `graceful_timeout`. When the process leads
+      its own process group (started with `start_new_session=True`), the signals go
+      to the whole group, so its children die too. Otherwise only the process itself
+      is signalled: its group is the caller's own.
     """
     if process.returncode is not None:
         # Process already terminated
@@ -102,18 +105,39 @@ async def hard_kill(
                 process.kill()
                 await asyncio.wait_for(process.wait(), timeout=force_timeout)
         else:
-            # On Unix-like systems, kill entire process group to handle children
-            import os
-            import signal
-
-            try:
-                os.killpg(os.getpgid(process.pid), signal.SIGKILL)
-                await asyncio.wait_for(process.wait(), timeout=force_timeout)
-            except ProcessLookupError:
-                # Process group doesn't exist, try direct kill
-                process.kill()
-                await asyncio.wait_for(process.wait(), timeout=force_timeout)
+            await _kill_unix(process, graceful_timeout, force_timeout)
 
     except TimeoutError, ProcessLookupError, OSError:
         # Process already dead or force kill timed out
         pass
+
+
+async def _kill_unix(process: Process, graceful_timeout: float, force_timeout: float) -> None:
+    import os
+    import signal
+
+    try:
+        pgid = os.getpgid(process.pid)
+    except ProcessLookupError:
+        pgid = None
+    # Signalling the group of a process that doesn't lead one would hit the caller.
+    group = pgid if pgid == process.pid and pgid != os.getpgid(0) else None
+
+    def send(sig: signal.Signals) -> None:
+        try:
+            if group is not None:
+                os.killpg(group, sig)
+            else:
+                process.send_signal(sig)
+        except ProcessLookupError:
+            pass
+
+    send(signal.SIGTERM)
+    try:
+        await asyncio.wait_for(process.wait(), timeout=graceful_timeout)
+    except TimeoutError:
+        send(signal.SIGKILL)
+        await asyncio.wait_for(process.wait(), timeout=force_timeout)
+    if group is not None:
+        # Children that survived the leader's exit (or ignored SIGTERM).
+        send(signal.SIGKILL)
