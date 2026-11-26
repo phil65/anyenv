@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections import defaultdict
 from concurrent.futures.thread import ThreadPoolExecutor  # not the lazy facade (3.15)
+import contextlib
 from functools import wraps
 import inspect
 import queue
@@ -26,7 +27,7 @@ from anyenv.calling.multieventhandler import MultiEventHandler
 
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Awaitable, Iterator
+    from collections.abc import AsyncIterator, Awaitable
 
     from anyenv.calling.multieventhandler import ExecutionMode
 
@@ -60,6 +61,140 @@ def _bound_cache(instance: Any) -> dict[int, Any]:
                 cache = {}
                 instance._async_executor_cache = cache  # noqa: SLF001
     return cache
+
+
+def _in_running_loop() -> bool:
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return False
+    return True
+
+
+class _Failure:
+    """An exception raised by the generator, passed to the consumer."""
+
+    __slots__ = ("error",)
+
+    def __init__(self, error: Exception) -> None:
+        self.error = error
+
+
+_END = object()
+_POLL_INTERVAL = 0.01
+
+
+class _Producer:
+    """Runs the generator in its own thread and loop; holds no reference to the iterator.
+
+    (Otherwise the running thread would keep a dropped iterator alive forever.)
+    """
+
+    def __init__(self, factory: Callable[[], AsyncIterator[Any]], maxsize: int) -> None:
+        self.factory = factory
+        self.queue: queue.Queue[Any] = queue.Queue(maxsize)
+        self.stop = threading.Event()
+        self.ready = threading.Event()
+        self.thread: threading.Thread | None = None
+        self.loop: asyncio.AbstractEventLoop | None = None
+        self.task: asyncio.Task[Any] | None = None
+
+    def start(self) -> None:
+        self.thread = threading.Thread(target=self._run, daemon=True)
+        self.thread.start()
+
+    async def _put(self, item: Any) -> bool:
+        """Queue an item without blocking the loop; False once stopped."""
+        while not self.stop.is_set():
+            try:
+                self.queue.put_nowait(item)
+            except queue.Full:
+                await asyncio.sleep(_POLL_INTERVAL)
+            else:
+                return True
+        return False
+
+    async def _produce(self) -> None:
+        self.loop = asyncio.get_running_loop()
+        self.task = asyncio.current_task()
+        self.ready.set()
+        if self.stop.is_set():
+            return
+        agen = self.factory()
+        try:
+            async for item in agen:
+                if not await self._put(item):
+                    break
+        except asyncio.CancelledError:
+            pass  # stopped while the generator was awaiting something
+        except Exception as e:  # noqa: BLE001
+            await self._put(_Failure(e))
+        finally:
+            if aclose := getattr(agen, "aclose", None):
+                with contextlib.suppress(Exception, asyncio.CancelledError):
+                    await aclose()
+            await self._put(_END)
+
+    def _run(self) -> None:
+        try:
+            asyncio.run(self._produce())
+        finally:
+            self.ready.set()
+
+    def signal_stop(self) -> None:
+        self.stop.set()
+        if self.thread is None:
+            return
+        self.ready.wait(5)
+        if self.loop is not None and self.task is not None:
+            with contextlib.suppress(RuntimeError):  # the loop has already finished
+                self.loop.call_soon_threadsafe(self.task.cancel)
+
+    def join(self) -> None:
+        if self.thread is not None and self.thread is not threading.current_thread():
+            self.thread.join()
+
+
+class LazyAsyncIterator[T]:
+    """Iterate an async generator synchronously, from a producer thread.
+
+    The producer runs the generator on its own event loop and stays at most
+    ``maxsize`` items ahead (a bounded queue). ``close()``, also called when the
+    iterator is garbage-collected, stops the producer and ``aclose()``s the generator.
+    """
+
+    def __init__(
+        self, async_iter_func: Callable[[], AsyncIterator[T]], *, maxsize: int = 16
+    ) -> None:
+        self._producer = _Producer(async_iter_func, maxsize)
+        self._finished = False
+
+    def __iter__(self) -> Self:
+        return self
+
+    def __next__(self) -> T:
+        if self._finished:
+            raise StopIteration
+        if self._producer.thread is None:
+            self._producer.start()
+        item = self._producer.queue.get()
+        if item is _END:
+            self._finished = True
+            raise StopIteration
+        if isinstance(item, _Failure):
+            raise item.error
+        return item  # type: ignore[no-any-return]
+
+    def close(self) -> None:
+        """Stop the producer and close the generator; returns once both are done."""
+        self._finished = True
+        self._producer.signal_stop()
+        self._producer.join()
+
+    def __del__(self) -> None:
+        # No join: a finalizer must not block (it may run in any thread).
+        with contextlib.suppress(Exception):
+            self._producer.signal_stop()
 
 
 class AsyncExecutor[**P, T]:
@@ -313,67 +448,30 @@ class AsyncIteratorExecutor[**P, T]:
         else:
             async_iter = self._func(*args, **kwargs)
 
-        async for item in async_iter:
-            # Emit each item to observers
-            if self._observers:
-                await self._observers.call_handlers(self._observer_mode, item)
-            yield item
+        try:
+            async for item in async_iter:
+                # Emit each item to observers
+                if self._observers:
+                    await self._observers.call_handlers(self._observer_mode, item)
+                yield item
+        finally:
+            # Closing this wrapper early closes the wrapped generator too.
+            if aclose := getattr(async_iter, "aclose", None):
+                await aclose()
 
-    def sync(self, *args: P.args, **kwargs: P.kwargs) -> Iterator[T]:
-        """Synchronous version that returns a truly lazy iterator."""
+    def sync(self, *args: P.args, **kwargs: P.kwargs) -> LazyAsyncIterator[T]:
+        """Synchronous version that returns a truly lazy iterator.
 
-        class LazyAsyncIterator:
-            def __init__(
-                self,
-                async_iter_func: Callable[..., AsyncIterator[Any]],
-            ) -> None:
-                self.async_iter_func = async_iter_func
-                self.q: queue.Queue[T | Exception | object] = queue.Queue()
-                self.thread: threading.Thread | None = None
-                self.started = False
-                self.sentinel = object()  # Unique sentinel for end
-
-            def _run_async(self) -> None:
-                async def collect() -> None:
-                    try:
-                        async for item in self.async_iter_func():
-                            self.q.put(item)
-                    except Exception as e:  # noqa: BLE001
-                        self.q.put(e)
-                    finally:
-                        self.q.put(self.sentinel)
-
-                try:
-                    # Check if we're already in an async context
-                    asyncio.get_running_loop()
-                    # In async context, run in thread pool
-                    warnings.warn(
-                        "Calling .sync() from async context - using thread pool. "
-                        "Consider using 'async for' instead for better performance.",
-                        UserWarning,
-                        stacklevel=3,
-                    )
-                    asyncio.run(collect())
-                except RuntimeError:
-                    # No running loop, safe to use asyncio.run
-                    asyncio.run(collect())
-
-            def __iter__(self) -> Self:
-                return self
-
-            def __next__(self) -> Any:
-                if not self.started:
-                    self.thread = threading.Thread(target=self._run_async, daemon=True)
-                    self.thread.start()
-                    self.started = True
-
-                item = self.q.get()
-                if item is self.sentinel:
-                    raise StopIteration
-                if isinstance(item, Exception):
-                    raise item
-                return item  # pyright: ignore[reportReturnType]
-
+        The generator runs in a thread with its own event loop, at most a few items
+        ahead of the consumer. ``close()`` (or dropping the iterator) stops it.
+        """
+        if _in_running_loop():
+            warnings.warn(
+                "Calling .sync() from async context - using a thread. "
+                "Consider using 'async for' instead for better performance.",
+                UserWarning,
+                stacklevel=2,
+            )
         return LazyAsyncIterator(lambda: self(*args, **kwargs))
 
     def task(self, *args: P.args, **kwargs: P.kwargs) -> asyncio.Task[list[T]]:
