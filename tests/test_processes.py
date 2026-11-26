@@ -2,6 +2,7 @@
 
 import asyncio
 import os
+import shlex
 import signal
 import subprocess
 import sys
@@ -98,13 +99,49 @@ async def _gone(pid: int) -> bool:
     return False
 
 
-async def test_hard_kill_kills_own_process_group():
-    """A group leader's children die with it, even if they ignore SIGTERM."""
-    child = f"{sys.executable} -c '{IGNORE_TERM}'"
+async def _start_group(child_script: str) -> tuple[asyncio.subprocess.Process, int]:
+    """A shell leading its own group, with a Python child that has printed "ready"."""
+    child = shlex.join([sys.executable, "-c", child_script])
     proc = await create_shell_process(
-        f"{child} & echo $!; wait", stdout="pipe", start_new_session=True
+        f"{child} & echo pid:$!; wait", stdout="pipe", start_new_session=True
     )
     assert proc.stdout
-    grandchild = int(await proc.stdout.readline())
+    pid, ready = None, False
+    # The shell's echo and the child's "ready" share the pipe in either order.
+    while pid is None or not ready:
+        raw = await asyncio.wait_for(proc.stdout.readline(), timeout=10)
+        assert raw, "the shell exited before its child was ready"
+        line = raw.decode().strip()
+        if line.startswith("pid:"):
+            pid = int(line.removeprefix("pid:"))
+        elif line == "ready":
+            ready = True
+    return proc, pid
+
+
+async def test_hard_kill_kills_own_process_group():
+    """A group leader's children die with it, even if they ignore SIGTERM."""
+    proc, grandchild = await _start_group(IGNORE_TERM)
     await hard_kill(proc, graceful_timeout=0.5)
     assert await _gone(grandchild)
+
+
+async def test_hard_kill_gives_group_children_the_graceful_timeout(tmp_path):
+    """The leader exiting on SIGTERM doesn't cut its children's cleanup short."""
+    marker = tmp_path / "cleaned"
+    script = textwrap.dedent(
+        f"""
+        import signal, sys, time
+        def on_term(*_):
+            time.sleep(0.5)
+            open({str(marker)!r}, "w").close()
+            sys.exit(0)
+        signal.signal(signal.SIGTERM, on_term)
+        print("ready", flush=True)
+        time.sleep(30)
+        """
+    )
+    proc, grandchild = await _start_group(script)
+    await hard_kill(proc, graceful_timeout=5)
+    assert await _gone(grandchild)
+    assert marker.exists()

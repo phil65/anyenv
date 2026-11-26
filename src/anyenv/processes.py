@@ -84,7 +84,8 @@ async def hard_kill(
     - Windows: Uses terminate() then kill() as fallback
     - Unix: SIGTERM, then SIGKILL after `graceful_timeout`. When the process leads
       its own process group (started with `start_new_session=True`), the signals go
-      to the whole group, so its children die too. Otherwise only the process itself
+      to the whole group, so its children die too; they get the whole
+      `graceful_timeout` even when the leader exits first. Otherwise only the process itself
       is signalled: its group is the caller's own.
     """
     if process.returncode is not None:
@@ -130,12 +131,27 @@ async def _kill_unix(process: Process, graceful_timeout: float, force_timeout: f
         except ProcessLookupError:
             pass
 
+    def group_alive() -> bool:
+        assert group is not None
+        try:
+            os.killpg(group, 0)
+        except ProcessLookupError:
+            return False
+        return True
+
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + graceful_timeout
     send(signal.SIGTERM)
     try:
         await asyncio.wait_for(process.wait(), timeout=graceful_timeout)
     except TimeoutError:
         send(signal.SIGKILL)
         await asyncio.wait_for(process.wait(), timeout=force_timeout)
-    if group is not None:
-        # Children that survived the leader's exit (or ignored SIGTERM).
+    if group is None:
+        return
+    # The leader is gone; its children get the rest of graceful_timeout to exit.
+    while group_alive() and loop.time() < deadline:
+        await asyncio.sleep(0.05)
+    # Only a group that still has members: an empty group's id can be reused.
+    if group_alive():
         send(signal.SIGKILL)
