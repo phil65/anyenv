@@ -1,7 +1,5 @@
 """Fire-and-forget submit keeps its task alive."""
 
-from __future__ import annotations
-
 import asyncio
 import gc
 from typing import Any

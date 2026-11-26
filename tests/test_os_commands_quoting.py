@@ -1,7 +1,5 @@
 """Hostile paths and names must reach os_commands as literals, never as shell syntax."""
 
-from __future__ import annotations
-
 import base64
 import os
 from pathlib import Path

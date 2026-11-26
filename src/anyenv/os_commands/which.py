@@ -1,7 +1,5 @@
 """Which command implementations for different operating systems."""
 
-from __future__ import annotations
-
 from ._quoting import powershell, ps_literal, sh_quote
 from .base import WhichCommand
 

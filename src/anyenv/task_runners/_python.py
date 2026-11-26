@@ -1,7 +1,5 @@
 """Python-based task runner implementations (duty, invoke, doit)."""
 
-from __future__ import annotations
-
 import ast
 from dataclasses import dataclass
 import posixpath

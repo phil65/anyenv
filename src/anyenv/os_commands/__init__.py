@@ -5,8 +5,6 @@ commands across Unix/Linux, macOS, and Windows platforms. Commands are grouped
 by OS and individual command types for better organization and maintainability.
 """
 
-from __future__ import annotations
-
 from .base import (
     Base64EncodeCommand,
     CopyPathCommand,

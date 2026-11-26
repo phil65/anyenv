@@ -1,7 +1,5 @@
 """Tests for the HTTP helpers and sessions against a local server."""
 
-from __future__ import annotations
-
 import asyncio
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json

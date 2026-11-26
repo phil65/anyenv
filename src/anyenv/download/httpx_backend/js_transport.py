@@ -1,7 +1,5 @@
 """Pyodide fetch-based transport for httpx (used when running under Pyodide)."""
 
-from __future__ import annotations
-
 import functools
 from typing import Any
 

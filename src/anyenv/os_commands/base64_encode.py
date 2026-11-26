@@ -1,7 +1,5 @@
 """Base64 encode command implementations for different operating systems."""
 
-from __future__ import annotations
-
 import base64
 
 from anyenv.os_commands._quoting import powershell, ps_literal, sh_path

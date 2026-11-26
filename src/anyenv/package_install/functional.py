@@ -1,7 +1,5 @@
 """Functional API for package installation."""
 
-from __future__ import annotations
-
 import importlib.util
 import sys
 from typing import TYPE_CHECKING

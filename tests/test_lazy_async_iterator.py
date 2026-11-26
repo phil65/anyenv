@@ -1,7 +1,5 @@
 """``.sync()`` on async generators: bounded, closable, stops its producer."""
 
-from __future__ import annotations
-
 import gc
 import threading
 import time

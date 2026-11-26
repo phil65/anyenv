@@ -1,7 +1,5 @@
 """Web-related formatters (JS/TS/HTML/CSS)."""
 
-from __future__ import annotations
-
 from typing import TYPE_CHECKING
 
 from anyenv.language_formatters._base import (

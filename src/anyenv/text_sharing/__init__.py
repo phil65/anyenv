@@ -1,7 +1,5 @@
 """Text sharing services for sharing content via paste services."""
 
-from __future__ import annotations
-
 from typing import Literal, assert_never, overload
 
 from anyenv.text_sharing.base import ShareResult, TextSharer, Visibility

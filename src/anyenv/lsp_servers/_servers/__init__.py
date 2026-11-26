@@ -1,7 +1,5 @@
 """LSP server definitions."""
 
-from __future__ import annotations
-
 from typing import TYPE_CHECKING
 
 from .js_ts_lsps import (

@@ -1,7 +1,5 @@
 """Core signal classes for type-safe async event handling."""
 
-from __future__ import annotations
-
 import asyncio
 from collections.abc import Callable, Coroutine
 import inspect

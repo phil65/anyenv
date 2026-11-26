@@ -6,8 +6,6 @@ module-level helpers (``anyenv.get_json`` and friends) use in the current contex
 it). Without a session every helper call creates and closes its own client.
 """
 
-from __future__ import annotations
-
 import asyncio
 import base64
 import contextlib

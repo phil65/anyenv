@@ -1,7 +1,5 @@
 """LSP server definitions for Swift / Objective-C."""
 
-from __future__ import annotations
-
 from anyenv.lsp_servers._base import LSPServerInfo, RootDetection
 
 

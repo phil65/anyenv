@@ -1,7 +1,5 @@
 """Find command implementations for different operating systems."""
 
-from __future__ import annotations
-
 from typing import Literal
 
 from ._quoting import powershell, ps_literal, sh_path, sh_quote

@@ -5,8 +5,6 @@ session's client (connection reuse); otherwise each call opens its own client.
 The ``*_sync`` helpers always use a client of their own.
 """
 
-from __future__ import annotations
-
 from typing import TYPE_CHECKING, Any, Unpack
 
 from anyenv.download.session import session_for, without_session

@@ -1,7 +1,5 @@
 """Pwd command implementations for different operating systems."""
 
-from __future__ import annotations
-
 from .base import PwdCommand
 
 

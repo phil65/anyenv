@@ -1,7 +1,5 @@
 """Tests for both as_generated implementations."""
 
-from __future__ import annotations
-
 import asyncio
 from typing import TYPE_CHECKING, Any
 

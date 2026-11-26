@@ -24,8 +24,6 @@ Example using bounded TypeVar for type-safe signals:
     ```
 """
 
-from __future__ import annotations
-
 from .core import BoundSignal, Signal, create_signal, get_global_signals, clear_global_registry
 
 __all__ = [

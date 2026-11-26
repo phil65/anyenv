@@ -4,8 +4,6 @@ Provides a unified interface for detecting, parsing, and running tasks
 from various task runners like Make, Just, Task, Duty, Invoke, doit, and npm.
 """
 
-from __future__ import annotations
-
 from anyenv.task_runners._base import TaskInfo, TaskRunner, TaskRunnerStr
 from anyenv.task_runners._cargo import CargoRunner
 from anyenv.task_runners._just import JustRunner

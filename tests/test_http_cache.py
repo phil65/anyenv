@@ -3,8 +3,6 @@
 All requests go to a local test server which counts how often each path was hit.
 """
 
-from __future__ import annotations
-
 from collections import Counter
 import gzip
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer

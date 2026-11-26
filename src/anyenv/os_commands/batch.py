@@ -1,7 +1,5 @@
 """Command batching for executing multiple commands in a single shell call."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass, field
 import platform
 from typing import TYPE_CHECKING, Any, Literal

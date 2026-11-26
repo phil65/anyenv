@@ -1,7 +1,5 @@
 """Tests for process management functionality."""
 
-from __future__ import annotations
-
 import sys
 import tempfile
 from typing import Any

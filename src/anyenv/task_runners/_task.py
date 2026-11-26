@@ -1,7 +1,5 @@
 """Task (taskfile.dev) task runner implementation."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, Literal
 

@@ -1,7 +1,5 @@
 """OS-specific command providers using the command classes."""
 
-from __future__ import annotations
-
 import platform
 from typing import TYPE_CHECKING, Literal, overload
 

@@ -1,7 +1,5 @@
 """Tests for async executor event filtering system."""
 
-from __future__ import annotations
-
 import asyncio
 from dataclasses import dataclass
 from typing import Any

@@ -1,7 +1,5 @@
 """Types and the response object of anyenv's HTTP functionality."""
 
-from __future__ import annotations
-
 from collections.abc import Callable
 import contextlib
 import os

@@ -5,8 +5,6 @@ hooks (e.g. PySide6/shiboken) hand those out unresolved, so subclassing
 `concurrent.futures.ThreadPoolExecutor` raised "cannot create 'lazy_import' instances".
 """
 
-from __future__ import annotations
-
 from concurrent.futures.thread import ThreadPoolExecutor
 
 from anyenv.calling import async_executor, threadgroup

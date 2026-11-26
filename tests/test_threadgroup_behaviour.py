@@ -1,7 +1,5 @@
 """ThreadGroup: result order, event loop, executor lifetime, errors."""
 
-from __future__ import annotations
-
 import asyncio
 import threading
 import time

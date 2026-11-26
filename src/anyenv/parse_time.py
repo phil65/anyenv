@@ -1,7 +1,5 @@
 """Time period parsing for CLI and API interfaces."""
 
-from __future__ import annotations
-
 from datetime import timedelta
 import re
 

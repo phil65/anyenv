@@ -4,8 +4,6 @@ Paths and names come from users and agents: they must reach the command as liter
 never as shell syntax (`$(...)`, quotes, `~`, a leading `-`).
 """
 
-from __future__ import annotations
-
 import base64
 import re
 import shlex

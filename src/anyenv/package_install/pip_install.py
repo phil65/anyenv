@@ -1,7 +1,5 @@
 """Pip package installer implementation."""
 
-from __future__ import annotations
-
 import importlib
 import importlib.metadata
 import sys

@@ -1,7 +1,5 @@
 """LSP server definitions for C#."""
 
-from __future__ import annotations
-
 from anyenv.lsp_servers._base import DotnetInstall, LSPServerInfo, RootDetection
 
 

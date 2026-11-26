@@ -1,7 +1,5 @@
 """Utilities for running async code in a synchronous context."""
 
-from __future__ import annotations
-
 import asyncio
 from collections.abc import AsyncGenerator, Sequence
 import contextvars

@@ -1,7 +1,5 @@
 """Process management for background command execution."""
 
-from __future__ import annotations
-
 from typing import TYPE_CHECKING, Any, Protocol
 
 from anyenv.log import get_logger

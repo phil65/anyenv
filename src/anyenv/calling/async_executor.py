@@ -1,7 +1,5 @@
 """Decorator to add sync() method to async functions."""
 
-from __future__ import annotations
-
 import asyncio
 from collections import defaultdict
 from concurrent.futures.thread import ThreadPoolExecutor  # not the lazy facade (3.15)

@@ -1,7 +1,5 @@
 """Tests for anyenv.run_sync."""
 
-from __future__ import annotations
-
 import asyncio
 
 import pytest

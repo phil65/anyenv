@@ -1,7 +1,5 @@
 """Tests for DiagnosticRunner."""
 
-from __future__ import annotations
-
 import shlex
 
 from anyenv.lsp_servers._runner import DiagnosticRunner, SimpleCommandResult

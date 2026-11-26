@@ -1,7 +1,5 @@
 """LSP server definitions for Rust."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 import posixpath
 from typing import TYPE_CHECKING

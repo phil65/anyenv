@@ -1,7 +1,5 @@
 """Elixir language formatter."""
 
-from __future__ import annotations
-
 from typing import TYPE_CHECKING
 
 from anyenv.language_formatters._base import FormatResult, LanguageFormatter, LintResult

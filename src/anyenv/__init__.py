@@ -4,8 +4,6 @@ Compatibility layer for some basic operations to allow painless operation in PyO
 and Python pre-releases.
 """
 
-from __future__ import annotations
-
 from importlib.metadata import version
 
 __version__ = version("anyenv")

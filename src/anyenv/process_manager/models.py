@@ -1,7 +1,5 @@
 """Misc process-related models."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 
 from anyenv.log import get_logger

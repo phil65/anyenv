@@ -18,8 +18,6 @@ The transports here wrap hishel's ``AsyncCacheTransport``:
   removed and fetched again instead of being returned (or raising).
 """
 
-from __future__ import annotations
-
 import functools
 import hashlib
 import logging

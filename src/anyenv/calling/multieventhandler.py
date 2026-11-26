@@ -1,7 +1,5 @@
 """Generic async callback manager for handling multiple event handlers."""
 
-from __future__ import annotations
-
 import asyncio
 from collections.abc import Callable, Sequence
 import contextlib

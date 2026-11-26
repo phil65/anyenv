@@ -1,7 +1,5 @@
 """LSP server definitions for various languages."""
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 import os
 import posixpath
