@@ -141,25 +141,17 @@ class DiagnosticRunner:
         Returns:
             Dict mapping server ID to DiagnosticsResult
         """
-        results: dict[str, DiagnosticsResult] = {}
+        # Each applicable server gets all the files it handles, whatever the extension.
+        files_by_server: dict[str, tuple[LSPServerInfo, list[str]]] = {}
+        for server in self._servers:
+            server_files = [f for f in files if server.can_handle(posixpath.splitext(f)[1])]
+            if server_files and server.id not in files_by_server:
+                files_by_server[server.id] = (server, server_files)
 
-        # Group files by extension
-        files_by_ext: dict[str, list[str]] = {}
-        for f in files:
-            ext = posixpath.splitext(f)[1].lower()
-            files_by_ext.setdefault(ext, []).append(f)
-
-        # Run each applicable server
-        seen_servers: set[str] = set()
-        for ext, ext_files in files_by_ext.items():
-            for server in self._servers:
-                if server.id in seen_servers:
-                    continue
-                if server.can_handle(ext):
-                    seen_servers.add(server.id)
-                    results[server.id] = await self.run(server, ext_files)
-
-        return results
+        return {
+            server_id: await self.run(server, server_files)
+            for server_id, (server, server_files) in files_by_server.items()
+        }
 
     async def run_for_file(self, path: str) -> list[Diagnostic]:
         """Run all applicable servers on a single file.
