@@ -29,6 +29,7 @@ class _Server(ThreadingHTTPServer):
         self.connections = 0
         self.requests: list[dict[str, str]] = []
         self.lock = threading.Lock()
+        self.release_hang = threading.Event()
 
 
 class _Handler(BaseHTTPRequestHandler):
@@ -84,6 +85,10 @@ class _Handler(BaseHTTPRequestHandler):
                 self.send_header("Location", "/json")
                 self.send_header("Content-Length", "0")
                 self.end_headers()
+            case "/hang":
+                # Accepts the request and never answers until teardown.
+                self.server.release_hang.wait(timeout=10.0)
+                self.close_connection = True
             case _:
                 self._send(404, b"not found")
 
@@ -99,6 +104,7 @@ def server() -> Iterator[_Server]:
     thread = threading.Thread(target=srv.serve_forever, args=(0.05,), daemon=True)
     thread.start()
     yield srv
+    srv.release_hang.set()
     srv.shutdown()
     srv.server_close()
 
@@ -232,6 +238,69 @@ async def test_timeout_raises_request_error(httpx_flavour: str) -> None:
         url = f"http://127.0.0.1:{sock.getsockname()[1]}/"
         with pytest.raises(RequestError):
             await anyenv.get(url, timeout=0.5)
+
+
+def test_default_timeout_configuration(httpx_flavour: str) -> None:
+    """Default client timeout is DEFAULT_TIMEOUT (30 s) with a 10 s connect limit."""
+    from anyenv.download.session import DEFAULT_TIMEOUT, CacheSettings, create_client
+
+    assert DEFAULT_TIMEOUT == 30.0  # noqa: PLR2004
+    client, mod = create_client(CacheSettings.create(False))
+    assert isinstance(client.timeout, mod.Timeout)
+    assert client.timeout.connect == 10.0  # noqa: PLR2004
+    assert client.timeout.read == 30.0  # noqa: PLR2004
+    assert client.timeout.write == 30.0  # noqa: PLR2004
+    assert client.timeout.pool == 30.0  # noqa: PLR2004
+
+
+async def test_default_timeout_applies_and_none_disables(
+    server_url: str, httpx_flavour: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Hanging server times out after DEFAULT_TIMEOUT; timeout=None waits past it."""
+    import time
+
+    from anyenv.download import session as session_mod
+
+    monkeypatch.setattr(session_mod, "DEFAULT_TIMEOUT", 0.3)
+
+    start = time.monotonic()
+    with pytest.raises(RequestError):
+        await anyenv.get(f"{server_url}/hang")
+    elapsed = time.monotonic() - start
+    assert elapsed < 2.0  # noqa: PLR2004
+
+    with pytest.raises(TimeoutError):
+        await asyncio.wait_for(anyenv.get(f"{server_url}/hang", timeout=None), timeout=0.6)
+
+
+async def test_session_timeout_and_per_call_override(
+    server_url: str, httpx_flavour: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Session timeout applies to helpers inside it; per-call timeout overrides it."""
+    from anyenv.download import session as session_mod
+
+    monkeypatch.setattr(session_mod, "DEFAULT_TIMEOUT", 0.25)
+
+    # Default http_session() uses DEFAULT_TIMEOUT for helpers inside it.
+    async with anyenv.http_session():
+        with pytest.raises(RequestError):
+            await anyenv.get(f"{server_url}/hang")
+
+    # Explicit session timeout applies to helpers; per-call number and None override it.
+    async with anyenv.http_session(timeout=0.25):
+        with pytest.raises(RequestError):
+            await anyenv.get(f"{server_url}/hang")
+        with pytest.raises(TimeoutError):
+            await asyncio.wait_for(anyenv.get(f"{server_url}/hang", timeout=5.0), timeout=0.5)
+        with pytest.raises(TimeoutError):
+            await asyncio.wait_for(anyenv.get(f"{server_url}/hang", timeout=None), timeout=0.5)
+
+    # Session with timeout=None waits past DEFAULT_TIMEOUT; per-call number overrides it.
+    async with anyenv.http_session(timeout=None):
+        with pytest.raises(TimeoutError):
+            await asyncio.wait_for(anyenv.get(f"{server_url}/hang"), timeout=0.5)
+        with pytest.raises(RequestError):
+            await anyenv.get(f"{server_url}/hang", timeout=0.25)
 
 
 @pytest.mark.parametrize(
@@ -593,6 +662,10 @@ async def test_pyodide_uses_fetch_transport(
     assert options["redirect"] == "follow"
     assert options["headers"]["x-a"] == "1"
     assert "body" not in options  # fetch() refuses a body on GET
+    assert options["signal"] == {"abort_timeout_ms": 10000}
+
+    await anyenv.get("https://example.com/data", timeout=None)
+    _, options = fake_pyodide[-1]
     assert "signal" not in options
 
     await anyenv.post("https://example.com/post", json={"a": 1})

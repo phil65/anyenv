@@ -7,7 +7,7 @@ The ``*_sync`` helpers always use a client of their own.
 
 from typing import TYPE_CHECKING, Any, Unpack
 
-from anyenv.download.session import session_for, without_session
+from anyenv.download.session import _UNSET, session_for, without_session
 
 
 if TYPE_CHECKING:
@@ -36,7 +36,7 @@ async def request(
     json: Any = None,
     data: Any = None,
     files: FilesType | None = None,
-    timeout: float | None = None,
+    timeout: float | None = _UNSET,
     cache: bool | None = None,
     cache_dir: StrPath | None = None,
     cache_ttl: int | str | None = None,
@@ -55,7 +55,9 @@ async def request(
         json: JSON body
         data: Form data or raw body
         files: Files to upload (multipart)
-        timeout: Timeout in seconds (default: the session's, else none)
+        timeout: Timeout in seconds. When omitted, uses the open session's timeout,
+            or `DEFAULT_TIMEOUT` (30 s per operation, 10 s connect) outside a
+            session. Pass `None` to disable timeouts.
         cache: Cache responses (default: as the open session does, else no)
         cache_dir: Directory of the cache database
         cache_ttl: How long cached responses are used: seconds or e.g. "1h", "2d"
@@ -69,6 +71,7 @@ async def request(
         ResponseError: The response has a 4xx / 5xx status
     """
     async with session_for(cache, cache_dir, cache_ttl, timeout) as session:
+        extra: dict[str, Any] = {} if timeout is _UNSET else {"timeout": timeout}
         return await session.request(
             method,
             url,
@@ -77,11 +80,11 @@ async def request(
             json=json,
             data=data,
             files=files,
-            timeout=timeout,
             api_key=api_key,
             auth_type=auth_type,
             auth_username=auth_username,
             auth_header_name=auth_header_name,
+            **extra,
         )
 
 
@@ -90,7 +93,7 @@ async def get(
     *,
     params: ParamsType | None = None,
     headers: HeaderType | None = None,
-    timeout: float | None = None,
+    timeout: float | None = _UNSET,
     cache: bool | None = None,
     cache_dir: StrPath | None = None,
     cache_ttl: int | str | None = None,
@@ -124,7 +127,7 @@ async def post(
     json: Any = None,
     data: Any = None,
     files: FilesType | None = None,
-    timeout: float | None = None,
+    timeout: float | None = _UNSET,
     cache: bool | None = None,
     cache_dir: StrPath | None = None,
     cache_ttl: int | str | None = None,
@@ -159,19 +162,24 @@ async def download(
     *,
     headers: HeaderType | None = None,
     progress_callback: ProgressCallback | None = None,
-    timeout: float | None = None,
+    timeout: float | None = _UNSET,
     cache: bool | None = None,
     cache_dir: StrPath | None = None,
     cache_ttl: int | str | None = None,
 ) -> None:
     """Download a file, written to ``<path>.part`` and renamed once complete.
 
+    In httpx the read timeout applies per read (not to the whole download), so
+    large downloads keep working as long as data keeps arriving.
+
     Args:
         url: URL to download
         path: Path where to save the file (an existing file stays if it fails)
         headers: Request headers
         progress_callback: Called (sync or async) with (bytes so far, total)
-        timeout: Timeout in seconds (default: the session's, else none)
+        timeout: Timeout in seconds. When omitted, uses the open session's timeout,
+            or `DEFAULT_TIMEOUT` (30 s per operation, 10 s connect) outside a
+            session. Pass `None` to disable timeouts.
         cache: Cache the response (default: as the open session does, else no)
         cache_dir: Directory of the cache database
         cache_ttl: How long cached responses are used: seconds or e.g. "1h", "2d"
@@ -280,7 +288,7 @@ def download_sync(
     *,
     headers: HeaderType | None = None,
     progress_callback: ProgressCallback | None = None,
-    timeout: float | None = None,
+    timeout: float | None = _UNSET,
     cache: bool | None = None,
     cache_dir: StrPath | None = None,
     cache_ttl: int | str | None = None,

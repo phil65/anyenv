@@ -53,12 +53,13 @@ from anyenv.testing import open_in_playground
 from anyenv.json_tools import load_json, JsonLoadError, dump_json, JsonDumpError
 from anyenv.toml_tools import load_toml, TomlLoadError, dump_toml, TomlDumpError
 from anyenv.download.base import HttpResponse
-from anyenv.download.session import HttpSession, http_session
+from anyenv.download.session import DEFAULT_TIMEOUT, HttpSession, http_session
 from anyenv.os_commands import get_os_command_provider
 from anyenv.process_manager import ProcessManager, ProcessOutput, RunningProcess
 from anyenv.processes import create_process, create_shell_process
 
 __all__ = [
+    "DEFAULT_TIMEOUT",
     "HttpError",
     "HttpResponse",
     "HttpSession",

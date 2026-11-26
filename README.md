@@ -73,6 +73,11 @@ data = await anyenv.get_json(url, api_key=token)
 data = await anyenv.get_json(url, api_key=key, auth_type="header", auth_header_name="X-Key")
 ```
 
+By default, every request and `http_session()` uses `DEFAULT_TIMEOUT` (30 s per operation,
+with connect limited to 10 s; for `download()`, the read timeout applies per read so large
+downloads keep working). Pass `timeout=<seconds>` to override or `timeout=None` to disable
+timeouts altogether; inside an `http_session()`, omitting `timeout` uses the session's timeout.
+
 ### Sessions: one client for many requests
 
 Without a session, every call opens (and closes) its own client: a new TCP and TLS

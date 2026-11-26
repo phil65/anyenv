@@ -41,6 +41,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_TIMEOUT: float = 30.0
+"""Default per-operation HTTP timeout in seconds (connect is capped at 10 s)."""
+
+_DEFAULT_CONNECT_TIMEOUT: float = 10.0
+_UNSET: Any = object()
+
 _current_session: ContextVar[HttpSession | None] = ContextVar("anyenv_http_session", default=None)
 
 
@@ -85,8 +91,16 @@ def _is_absolute(url: str) -> bool:
     return "://" in url.split("?", 1)[0]
 
 
+def _resolve_timeout(httpx_mod: ModuleType, timeout: float | None) -> Any:
+    if timeout is _UNSET:
+        return httpx_mod.Timeout(
+            DEFAULT_TIMEOUT, connect=min(DEFAULT_TIMEOUT, _DEFAULT_CONNECT_TIMEOUT)
+        )
+    return timeout
+
+
 def create_client(
-    cache: CacheSettings, timeout: float | None = None
+    cache: CacheSettings, timeout: float | None = _UNSET
 ) -> tuple[httpx.AsyncClient, ModuleType]:
     """Create an httpx client (httpx2 if installed, else httpx) and return its module.
 
@@ -97,7 +111,10 @@ def create_client(
     from anyenv.download.httpx_backend.module import get_httpx_module
 
     httpx_mod = get_httpx_module()
-    kwargs: dict[str, Any] = {"follow_redirects": True, "timeout": timeout}
+    kwargs: dict[str, Any] = {
+        "follow_redirects": True,
+        "timeout": _resolve_timeout(httpx_mod, timeout),
+    }
     if sys.platform == "emscripten":
         kwargs["transport"] = js_transport.get_js_transport_class(httpx_mod.__name__)()
     if not cache.enabled:
@@ -160,12 +177,13 @@ class HttpSession:
         base_url: str | None = None,
         headers: HeaderType | None = None,
         cache: CacheSettings | None = None,
-        timeout: float | None = None,
+        timeout: float | None = _UNSET,
     ) -> None:
         self.base_url = base_url
         self.headers: HeaderType = dict(headers or {})
         self.cache = cache or CacheSettings.create(False)
-        self.timeout = timeout
+        self.timeout: float | None = DEFAULT_TIMEOUT if timeout is _UNSET else timeout
+        self._timeout_arg: float | None = timeout
         self._client, self._httpx = create_client(self.cache, timeout)
         self._closed = False
         self._loop: asyncio.AbstractEventLoop | None = None
@@ -259,8 +277,8 @@ class HttpSession:
             auth_header_name=options.get("auth_header_name"),
         )
         extra: dict[str, Any] = {}
-        if (timeout := options.get("timeout")) is not None:
-            extra["timeout"] = timeout
+        if "timeout" in options and options["timeout"] is not _UNSET:
+            extra["timeout"] = options["timeout"]
         try:
             response = await self._client.request(
                 method,
@@ -334,11 +352,16 @@ class HttpSession:
         *,
         headers: HeaderType | None = None,
         progress_callback: ProgressCallback | None = None,
-        timeout: float | None = None,
+        timeout: float | None = _UNSET,
     ) -> None:
-        """Stream a URL into a file (``<path>.part`` until complete)."""
+        """Stream a URL into a file (``<path>.part`` until complete).
+
+        The read timeout applies per read (not to the whole download), so large
+        downloads keep working as long as data keeps arriving; pass
+        ``timeout=None`` to disable timeouts altogether.
+        """
         url = self.resolve(url)
-        extra: dict[str, Any] = {} if timeout is None else {"timeout": timeout}
+        extra: dict[str, Any] = {} if timeout is _UNSET else {"timeout": timeout}
         try:
             async with self._client.stream(
                 "GET", url, headers=self._headers_for(url, headers), **extra
@@ -371,7 +394,7 @@ async def http_session(
     cache_dir: StrPath | None = None,
     cache_ttl: int | str | None = None,
     cache_backend: CacheType = "file",
-    timeout: float | None = None,
+    timeout: float | None = _UNSET,
 ) -> AsyncGenerator[HttpSession]:
     """Open one HTTP client for many requests.
 
@@ -386,7 +409,8 @@ async def http_session(
         cache_dir: Directory of the cache database (default: the user cache dir)
         cache_ttl: How long cached responses are used: seconds or e.g. "1h", "2d"
         cache_backend: "file" (an SQLite file in `cache_dir`, also "sqlite") or "memory"
-        timeout: Default timeout per request in seconds (default: none)
+        timeout: Default timeout per request in seconds (default: `DEFAULT_TIMEOUT`,
+            30 s per operation with a 10 s connect limit; pass `None` to disable)
 
     Example:
         ```python
@@ -416,7 +440,7 @@ async def session_for(
     cache: bool | None = None,
     cache_dir: StrPath | None = None,
     cache_ttl: int | str | None = None,
-    timeout: float | None = None,
+    timeout: float | None = _UNSET,
 ) -> AsyncGenerator[HttpSession]:
     """The current session if it fits the cache options, else a client for one call."""
     session = current_session()
@@ -426,7 +450,12 @@ async def session_for(
             return
         logger.debug("Cache options differ from the open http_session: using an own client")
     settings = CacheSettings.create(cache, cache_dir, cache_ttl)
-    async with HttpSession(cache=settings, timeout=timeout) as own:
+    effective_timeout = (
+        session._timeout_arg  # noqa: SLF001
+        if (session is not None and timeout is _UNSET)
+        else timeout
+    )
+    async with HttpSession(cache=settings, timeout=effective_timeout) as own:
         yield own
 
 
@@ -442,4 +471,4 @@ async def without_session[T](coro: Any) -> T:
         _current_session.reset(token)
 
 
-__all__ = ["HttpSession", "current_session", "http_session"]
+__all__ = ["DEFAULT_TIMEOUT", "HttpSession", "current_session", "http_session"]
