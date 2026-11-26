@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
-import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING
 
 from anyenv.log import get_logger
 from anyenv.process_manager.models import ProcessOutput
+from anyenv.processes import hard_kill
 
 
 if TYPE_CHECKING:
+    import asyncio
     from pathlib import Path
 
 
@@ -50,33 +51,24 @@ class RunningProcess:
             self._truncated = True
 
     def _truncate_output(self) -> None:
-        """Truncate output from beginning to stay within limit."""
+        """Drop output from the beginning, keeping the combined tail within the limit.
+
+        The budget (90% of the limit, in bytes) is shared: a stream that needs less
+        than half keeps all of it, the other gets the rest.
+        """
         if not self.output_limit:
             return
 
-        # Combine all output to measure total size
-        all_stdout = "".join(self._stdout_buffer)
-        all_stderr = "".join(self._stderr_buffer)
-
-        # Calculate how much to keep
-        target_size = int(self.output_limit * 0.9)  # Keep 90% of limit
-
-        # Truncate stdout first, then stderr if needed
-        if len(all_stdout.encode()) > target_size:
-            # Find character boundary for truncation
-            truncated_stdout = all_stdout[-target_size:].lstrip()
-            self._stdout_buffer = [truncated_stdout]
-            self._stderr_buffer = [all_stderr]
-        else:
-            remaining = target_size - len(all_stdout.encode())
-            truncated_stderr = all_stderr[-remaining:].lstrip()
-            self._stdout_buffer = [all_stdout]
-            self._stderr_buffer = [truncated_stderr]
-
-        # Update size counter
-        self._output_size = sum(
-            len(chunk.encode()) for chunk in self._stdout_buffer + self._stderr_buffer
-        )
+        all_stdout = "".join(self._stdout_buffer).encode()
+        all_stderr = "".join(self._stderr_buffer).encode()
+        budget = int(self.output_limit * 0.9)  # Keep 90% of limit
+        stderr_budget = min(len(all_stderr), max(budget // 2, budget - len(all_stdout)))
+        stdout_budget = budget - stderr_budget
+        stdout = _tail(all_stdout, stdout_budget)
+        stderr = _tail(all_stderr, stderr_budget)
+        self._stdout_buffer = [stdout] if stdout else []
+        self._stderr_buffer = [stderr] if stderr else []
+        self._output_size = len(stdout.encode()) + len(stderr.encode())
 
     def get_output(self) -> ProcessOutput:
         """Get current process output."""
@@ -101,17 +93,13 @@ class RunningProcess:
         return await self.process.wait()
 
     async def kill(self) -> None:
-        """Terminate the process."""
+        """Terminate the process and its children (SIGTERM, then SIGKILL)."""
         if await self.is_running():
-            try:
-                self.process.terminate()
-                # Give it a moment to terminate gracefully
-                try:
-                    await asyncio.wait_for(self.process.wait(), timeout=5.0)
-                except TimeoutError:
-                    # Force kill if it doesn't terminate
-                    self.process.kill()
-                    await self.process.wait()
-            except ProcessLookupError:
-                # Process already dead
-                pass
+            await hard_kill(self.process)
+
+
+def _tail(data: bytes, size: int) -> str:
+    """The last `size` bytes of data, decoded; a character cut in half is dropped."""
+    if size <= 0:
+        return ""
+    return data[-size:].decode("utf-8", errors="ignore")

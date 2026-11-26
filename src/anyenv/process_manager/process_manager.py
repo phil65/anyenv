@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import codecs
 import contextlib
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -85,6 +86,8 @@ class ProcessManager(ProcessManagerProtocol):
                     env=proc_env,
                     stdout="pipe",
                     stderr="pipe",
+                    # Own process group: kill() reaches the children of a shell too.
+                    start_new_session=True,
                 )
             else:
                 # Shell execution for command strings (supports pipes, redirects, etc.)
@@ -94,6 +97,8 @@ class ProcessManager(ProcessManagerProtocol):
                     env=proc_env,
                     stdout="pipe",
                     stderr="pipe",
+                    # Own process group: kill() reaches the children of a shell too.
+                    start_new_session=True,
                 )
             args = args or []
 
@@ -120,61 +125,24 @@ class ProcessManager(ProcessManagerProtocol):
 
     async def _collect_output(self, proc: RunningProcess) -> None:
         """Collect output from process in background."""
+
+        async def pump(stream: asyncio.StreamReader | None, name: str) -> None:
+            if stream is None:
+                return
+            # Incremental: a character split across two reads decodes intact.
+            decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
+            while data := await stream.read(8192):
+                if text := decoder.decode(data):
+                    proc.add_output(**{name: text})
+            if text := decoder.decode(b"", final=True):
+                proc.add_output(**{name: text})
+
         try:
-            stdout_task = asyncio.create_task(self._read_stream(proc.process.stdout))
-            stderr_task = asyncio.create_task(self._read_stream(proc.process.stderr))
-            stdout_chunks = []
-            stderr_chunks = []
-            stdout_done = False
-            stderr_done = False
-            while not (stdout_done and stderr_done):
-                done, pending = await asyncio.wait(
-                    [stdout_task, stderr_task],
-                    return_when=asyncio.FIRST_COMPLETED,
-                    timeout=0.1,  # Check every 100ms
-                )
-
-                for task in done:
-                    if task == stdout_task and not stdout_done:
-                        chunk = task.result()
-                        if chunk is None:
-                            stdout_done = True
-                        else:
-                            stdout_chunks.append(chunk)
-                            proc.add_output(stdout=chunk)
-                            # Restart task for next chunk
-                            stdout_task = asyncio.create_task(
-                                self._read_stream(proc.process.stdout)
-                            )
-
-                    elif task == stderr_task and not stderr_done:
-                        chunk = task.result()
-                        if chunk is None:
-                            stderr_done = True
-                        else:
-                            stderr_chunks.append(chunk)
-                            proc.add_output(stderr=chunk)
-                            # Restart task for next chunk
-                            stderr_task = asyncio.create_task(
-                                self._read_stream(proc.process.stderr)
-                            )
-
-            # Cancel any remaining tasks
-            for task in pending:
-                task.cancel()
-
+            await asyncio.gather(
+                pump(proc.process.stdout, "stdout"), pump(proc.process.stderr, "stderr")
+            )
         except Exception:
             logger.exception("Error collecting output for %s", proc.process_id)
-
-    async def _read_stream(self, stream: asyncio.StreamReader | None) -> str | None:
-        """Read a chunk from a stream."""
-        if not stream:
-            return None
-        try:
-            data = await stream.read(8192)  # Read in 8KB chunks
-            return data.decode("utf-8", errors="replace") if data else None
-        except Exception:  # noqa: BLE001
-            return None
 
     async def get_output(self, process_id: str) -> ProcessOutput:
         """Get current output from a process.
@@ -299,24 +267,10 @@ class ProcessManager(ProcessManagerProtocol):
     async def cleanup(self) -> None:
         """Clean up all processes."""
         logger.info("Cleaning up %s processes", len(self._processes))
-        # Try graceful termination first
-        termination_tasks = []
-        for proc in self._processes.values():
-            if await proc.is_running():
-                proc.process.terminate()
-                termination_tasks.append(proc.wait_for_exit())
-
-        if termination_tasks:
-            try:
-                future = asyncio.gather(*termination_tasks, return_exceptions=True)
-                await asyncio.wait_for(future, timeout=5.0)  # Wait up to 5 seconds
-            except TimeoutError:
-                msg = "Some processes didn't terminate gracefully, force killing"
-                logger.warning(msg)
-                # Force kill remaining processes
-                for proc in self._processes.values():
-                    if await proc.is_running():
-                        proc.process.kill()
+        # Concurrently: each gets SIGTERM, then SIGKILL after the grace period.
+        await asyncio.gather(
+            *(proc.kill() for proc in self._processes.values()), return_exceptions=True
+        )
 
         if self._output_tasks:
             for task in self._output_tasks.values():

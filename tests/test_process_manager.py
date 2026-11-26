@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 import tempfile
+from typing import Any
 
 import anyio
 import pytest
@@ -274,3 +275,70 @@ class TestProcessOutput:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-vv"])
+
+
+async def _wait_for_output(manager: ProcessManager, process_id: str) -> str:
+    for _ in range(100):
+        if out := (await manager.get_output(process_id)).stdout:
+            return out
+        await anyio.sleep(0.05)
+    pytest.fail("no output")
+
+
+async def _gone(pid: int) -> bool:
+    import os
+
+    for _ in range(50):
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return True
+        await anyio.sleep(0.05)
+    return False
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="process groups are Unix")
+async def test_kill_shell_process_kills_its_children(process_manager: ProcessManager):
+    """Killing a shell command kills the workload too, not just the shell."""
+    script = "import os, time; print(os.getpid(), flush=True); time.sleep(30)"
+    process_id = await process_manager.start_process(f'{sys.executable} -c "{script}"; echo done')
+    child = int(await _wait_for_output(process_manager, process_id))
+    await process_manager.kill_process(process_id)
+    assert await _gone(child)
+    await process_manager.cleanup()
+
+
+async def test_utf8_split_across_chunks(process_manager: ProcessManager):
+    """Multi-byte characters across an 8 KiB read boundary decode intact."""
+    text = "a" * 8191 + "ä" * 10
+    script = f"import sys; sys.stdout.buffer.write({text.encode()!r}); sys.stdout.flush()"
+    process_id = await process_manager.start_process(sys.executable, ["-c", script])
+    await process_manager.wait_for_exit(process_id)
+    assert (await process_manager.get_output(process_id)).stdout == text
+    await process_manager.cleanup()
+
+
+def _running(limit: int):
+    from types import SimpleNamespace
+
+    from anyenv.process_manager.process import RunningProcess
+
+    process: Any = SimpleNamespace(returncode=None)
+    return RunningProcess("p", "cmd", [], process=process, output_limit=limit)
+
+
+@pytest.mark.parametrize(
+    ("stdout", "stderr"),
+    [("o" * 90, "e" * 50), ("o" * 200, "e" * 200), ("o" * 10, "e" * 200), ("ö" * 100, "")],
+)
+def test_truncation_keeps_output_within_limit(stdout: str, stderr: str):
+    """Truncation keeps the combined output (in bytes) within the limit."""
+    proc = _running(100)
+    proc.add_output(stdout=stdout, stderr=stderr)
+    out = proc.get_output()
+    assert out.truncated
+    assert len(out.stdout.encode()) + len(out.stderr.encode()) <= 100  # noqa: PLR2004
+    assert stdout.endswith(out.stdout)
+    assert stderr.endswith(out.stderr)
+    if stderr:
+        assert out.stderr  # the tail of stderr survives
