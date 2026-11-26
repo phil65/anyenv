@@ -428,9 +428,23 @@ async def test_session_with_other_cache_options_uses_own_client(
 # Pyodide
 
 
+class _FakeJsError(Exception):
+    def __init__(self, message: str, *, name: str = "Error") -> None:
+        super().__init__(message)
+        self.name = name
+
+
 class _FakeJsResponse:
-    def __init__(self, status: int, headers: dict[str, str], body: bytes) -> None:
+    def __init__(
+        self,
+        status: int,
+        headers: dict[str, str],
+        body: bytes,
+        *,
+        status_text: str = "",
+    ) -> None:
         self.status = status
+        self.statusText = status_text
         self.headers = _FakeHeaders(headers)
         self._body = body
 
@@ -454,7 +468,7 @@ class _FakeHeaders:
 
 @pytest.fixture
 def fake_pyodide(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, dict[str, Any]]]:
-    """Pretend to run under Pyodide, with a `js.fetch` that records its calls."""
+    """Pretend to run under Pyodide 314.x, with a `js.fetch` that records its calls."""
     import types
 
     calls: list[tuple[str, dict[str, Any]]] = []
@@ -462,19 +476,45 @@ def fake_pyodide(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, dict[str, A
     async def fetch(url: str, options: dict[str, Any]) -> _FakeJsResponse:
         calls.append((url, options))
         if url.endswith("/fail"):
-            raise RuntimeError("TypeError: Failed to fetch")  # noqa: TRY003
+            msg = "TypeError: Failed to fetch"
+            raise _FakeJsError(msg, name="TypeError")
+        if url.endswith("/timeout"):
+            msg = "TimeoutError: signal timed out"
+            raise _FakeJsError(msg, name="TimeoutError")
+        if url.endswith("/not-found"):
+            return _FakeJsResponse(
+                404,
+                {"content-type": "text/plain"},
+                b"missing",
+                status_text="Not Found",
+            )
+        if url.endswith("/custom-reason"):
+            return _FakeJsResponse(
+                200,
+                {"content-type": "text/plain"},
+                b"ok",
+                status_text="All Good",
+            )
         # The browser has decoded the gzip body already.
         return _FakeJsResponse(
             200,
-            {"content-type": "application/json", "content-encoding": "gzip", "content-length": "1"},
+            {
+                "content-type": "application/json",
+                "content-encoding": "gzip",
+                "content-length": "1",
+                "transfer-encoding": "chunked",
+            },
             b'{"via": "fetch"}',
         )
 
     js = types.ModuleType("js")
     js.fetch = fetch  # type: ignore[attr-defined]
-    js.Object = types.SimpleNamespace(fromEntries=dict)  # type: ignore[attr-defined]
+    js.AbortSignal = types.SimpleNamespace(  # type: ignore[attr-defined]
+        timeout=lambda ms: {"abort_timeout_ms": ms}
+    )
     ffi = types.ModuleType("pyodide.ffi")
     ffi.to_js = lambda value, **kwargs: value  # type: ignore[attr-defined]
+    js.Object = types.SimpleNamespace(fromEntries=dict)  # type: ignore[attr-defined]
     pyodide = types.ModuleType("pyodide")
     pyodide.ffi = ffi  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "js", js)
@@ -488,14 +528,18 @@ async def test_pyodide_uses_fetch_transport(
     fake_pyodide: list[tuple[str, dict[str, Any]]], httpx_flavour: str
 ) -> None:
     """Pyodide uses fetch transport."""
-    assert await anyenv.get_json("https://example.com/data", headers={"X-A": "1"}) == {
-        "via": "fetch"
-    }
+    resp = await anyenv.get("https://example.com/data", headers={"X-A": "1"})
+    assert resp.json() == {"via": "fetch"}
+    assert "content-encoding" not in resp.headers
+    assert "transfer-encoding" not in resp.headers
     url, options = fake_pyodide[-1]
     assert url == "https://example.com/data"
     assert options["method"] == "GET"
+    assert options["mode"] == "cors"
+    assert options["redirect"] == "follow"
     assert options["headers"]["x-a"] == "1"
     assert "body" not in options  # fetch() refuses a body on GET
+    assert "signal" not in options
 
     await anyenv.post("https://example.com/post", json={"a": 1})
     _, options = fake_pyodide[-1]
@@ -504,6 +548,32 @@ async def test_pyodide_uses_fetch_transport(
     async with anyenv.http_session(base_url="https://example.com") as s:
         assert await s.get_json("/x") == {"via": "fetch"}
     assert fake_pyodide[-1][0] == "https://example.com/x"
+
+
+async def test_pyodide_timeout_signal_and_error(
+    fake_pyodide: list[tuple[str, dict[str, Any]]], httpx_flavour: str
+) -> None:
+    """Pyodide forwards request timeout via AbortSignal.timeout and maps TimeoutError."""
+    await anyenv.get("https://example.com/data", timeout=2.5)
+    _, options = fake_pyodide[-1]
+    assert options["signal"] == {"abort_timeout_ms": 2500}
+
+    with pytest.raises(RequestError) as exc_info:
+        await anyenv.get("https://example.com/timeout", timeout=0.1)
+    assert type(exc_info.value.__cause__).__name__ == "TimeoutException"
+
+
+async def test_pyodide_status_text_and_http_error(
+    fake_pyodide: list[tuple[str, dict[str, Any]]], httpx_flavour: str
+) -> None:
+    """Pyodide preserves statusText and raises ResponseError on 4xx/5xx."""
+    resp = await anyenv.get("https://example.com/custom-reason")
+    assert resp.reason == "All Good"
+
+    with pytest.raises(ResponseError) as exc_info:
+        await anyenv.get("https://example.com/not-found")
+    assert exc_info.value.status_code == 404  # noqa: PLR2004
+    assert exc_info.value.response.text == "missing"
 
 
 async def test_pyodide_fetch_failure_is_request_error(

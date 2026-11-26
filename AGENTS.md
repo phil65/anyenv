@@ -29,6 +29,24 @@ uv build
 - Tests run against local servers; `httpx_flavour` (tests/conftest.py) runs a test per
   installed flavour.
 
+## Pyodide
+
+- Supported Pyodide version: **314.x** (Python 3.14; checked against 314.0.8). Older 0.x
+  releases are not supported (`requires-python = ">=3.14"`).
+- Detection uses `sys.platform == "emscripten"`; HTTP goes through `httpx_backend/js_transport.py`
+  (`js.fetch`, `js.AbortSignal.timeout`, `pyodide.ffi.to_js`), and package installation uses
+  `micropip`.
+- Try it in a browser using the Pyodide console (<https://pyodide.org/en/stable/console.html>):
+
+  ```python
+  import micropip
+
+  await micropip.install(["anyenv", "httpx2"])
+  import anyenv
+
+  await anyenv.get_json("https://httpbin.org/get")
+  ```
+
 ## Specs
 
 Protocols / APIs this project implements (keep the Targets column up to date when touching
