@@ -115,6 +115,28 @@ def decode(command: str) -> str:
     return script
 
 
+@pytest.mark.skipif(sys.platform != "win32", reason="PowerShell")
+@pytest.mark.parametrize("name", ["plain.bin", "it's", "with space"])
+def test_windows_commands_parse_their_merged_output(tmp_path: Path, name: str):
+    """Run through cmd.exe with stderr merged into stdout, as a terminal does."""
+    provider = get_os_command_provider("Windows")
+    path = str(tmp_path / name)
+    Path(path).write_bytes(bytes(range(256)))
+
+    def run(command: str) -> tuple[str, int]:
+        cmd = provider.get_command(command).create_command(path)  # type: ignore[call-overload]
+        out = subprocess.run(
+            cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=60
+        )
+        return out.stdout.decode(errors="replace"), out.returncode
+
+    output, code = run("base64_encode")
+    assert base64.b64decode(output.strip()) == bytes(range(256)), output
+    for command in ("exists", "is_file"):
+        output, code = run(command)
+        assert provider.get_command(command).parse_command(output, code) is True, output
+
+
 @pytest.mark.parametrize("name", [*HOSTILE, "a\u2019b"])
 def test_windows_commands_use_verbatim_literals(name: str):
     """PowerShell gets single-quoted literals with their quotes doubled."""
