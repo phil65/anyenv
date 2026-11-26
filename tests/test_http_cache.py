@@ -42,6 +42,8 @@ class _Handler(BaseHTTPRequestHandler):
         with _LOCK:
             HITS[self.path] += 1
         body = BODY
+        if path == "/echo":
+            body = f"{self.headers.get('Authorization')} {self.headers.get('X-API-Key')}".encode()
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         # Like many APIs: tell clients not to cache. anyenv caches anyway.
@@ -286,3 +288,28 @@ async def test_session_requests_hit_cache(server_url: str, tmp_path: Path) -> No
             response = await session.request("GET", path)
             assert await response.bytes() == BODY
     assert HITS[path] == 1
+
+
+@pytest.mark.parametrize("backend", [*BACKENDS, "aiohttp"])
+@pytest.mark.parametrize("auth_type", ["bearer", "header"])
+async def test_cache_is_keyed_by_credentials(
+    backend: BackendType, auth_type: str, server_url: str, tmp_path: Path
+) -> None:
+    """One API key's cached response is never served for another."""
+    url = f"{server_url}/echo?test={backend}_{auth_type}"
+
+    async def get(key: str) -> str:
+        return await anyenv.get_text(
+            url,
+            cache=True,
+            cache_dir=tmp_path,
+            api_key=key,
+            auth_type=auth_type,  # type: ignore[arg-type]
+            backend=backend,
+        )
+
+    alice, bob = await get("alice"), await get("bob")
+    assert "alice" in alice
+    assert "bob" in bob
+    assert await get("alice") == alice
+    assert _hits(url) == 2  # noqa: PLR2004

@@ -26,7 +26,11 @@ def get_storage(
     cache_dir: StrPath,
     cache_ttl: int,
 ) -> CacheBackend:
-    """Get storage backend."""
+    """Get storage backend.
+
+    Request headers are part of the cache key, so responses for one set of
+    credentials are never served for another.
+    """
     from aiohttp_client_cache import (  # type: ignore[attr-defined]
         CacheBackend,
         FileBackend,
@@ -36,11 +40,13 @@ def get_storage(
     match cache_backend:
         case "sqlite":
             path = str(Path(cache_dir) / "http_cache.db")
-            return SQLiteBackend(cache_name=path, expire_after=cache_ttl)
+            return SQLiteBackend(cache_name=path, expire_after=cache_ttl, include_headers=True)
         case "file":
-            return FileBackend(cache_name=str(cache_dir), expire_after=cache_ttl)
+            return FileBackend(
+                cache_name=str(cache_dir), expire_after=cache_ttl, include_headers=True
+            )
         case "memory":
-            return CacheBackend(expire_after=cache_ttl)
+            return CacheBackend(expire_after=cache_ttl, include_headers=True)
         case _ as unreachable:
             assert_never(unreachable)
 

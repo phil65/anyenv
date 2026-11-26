@@ -28,7 +28,7 @@ from typing import TYPE_CHECKING, Any
 
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterable
     from types import ModuleType
 
     import hishel
@@ -44,9 +44,38 @@ CACHEABLE_METHODS = frozenset({"GET", "HEAD"})
 _HOP_HEADERS = frozenset({"content-encoding", "content-length", "transfer-encoding"})
 
 
-def cache_key(method: str, url: str) -> str:
-    """Return the storage key for a request (same scheme as hishel's default)."""
-    return hashlib.sha256(f"{method} {url}".encode()).hexdigest()
+# Request headers that don't select a different response (or change per request).
+# Every other header, credentials and custom API-key headers included, is part of
+# the key: one identity's response must never be served to another.
+_KEY_IGNORED_HEADERS = frozenset({
+    "accept-encoding",  # bodies are stored decoded
+    "baggage",
+    "connection",
+    "content-length",
+    "host",  # part of the URL
+    "keep-alive",
+    "sentry-trace",
+    "te",
+    "traceparent",
+    "tracestate",
+    "user-agent",
+    "x-request-id",
+})
+
+
+def cache_key(method: str, url: str, headers: Iterable[tuple[str, str]] = ()) -> str:
+    """Return the storage key for a request.
+
+    Without headers that select the response, it's hishel's default scheme.
+    """
+    selecting = sorted(
+        (name.lower(), value)
+        for name, value in headers
+        if name.lower() not in _KEY_IGNORED_HEADERS
+        and not (name.lower() == "accept" and value == "*/*")
+    )
+    parts = [f"{method} {url}", *(f"{name}: {value}" for name, value in selecting)]
+    return hashlib.sha256("\n".join(parts).encode()).hexdigest()
 
 
 def _content_codings(headers: httpx.Headers) -> list[str]:
@@ -120,7 +149,7 @@ def get_cache_client_class(httpx_name: str, hishel_name: str) -> Callable[..., h
         async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
             if request.method not in CACHEABLE_METHODS:
                 return await self.cache_transport.handle_async_request(request)
-            key = cache_key(request.method, str(request.url))
+            key = cache_key(request.method, str(request.url), request.headers.multi_items())
             overrides = dict(request.extensions.get("caching", {}))
             overrides.setdefault("key", key)
             overrides.setdefault("ttl", self.ttl)
