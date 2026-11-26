@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from ._quoting import powershell, ps_literal, sh_path
 from .base import IsFileCommand
 
 
@@ -17,7 +18,7 @@ class UnixIsFileCommand(IsFileCommand):
         Returns:
             The test command string
         """
-        return f'test -f "{path}"'
+        return f"test -f {sh_path(path)}"
 
     def parse_command(
         self,
@@ -48,7 +49,7 @@ class MacOSIsFileCommand(IsFileCommand):
         Returns:
             The test command string
         """
-        return f'test -f "{path}"'
+        return f"test -f {sh_path(path)}"
 
     def parse_command(
         self,
@@ -79,11 +80,9 @@ class WindowsIsFileCommand(IsFileCommand):
         Returns:
             The PowerShell command string
         """
-        return (
-            f'powershell -c "'
-            f'$item = Get-Item \\"{path}\\" -ErrorAction SilentlyContinue; '
-            f"$item -ne $null -and -not $item.PSIsContainer"
-            f'"'
+        return powershell(
+            f"$item = Get-Item -LiteralPath {ps_literal(path)} -ErrorAction SilentlyContinue; "
+            "$item -ne $null -and -not $item.PSIsContainer"
         )
 
     def parse_command(

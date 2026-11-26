@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from ._quoting import powershell, ps_literal, sh_path
 from .base import CreateDirectoryCommand
 
 
@@ -18,7 +19,7 @@ class UnixCreateDirectoryCommand(CreateDirectoryCommand):
         Returns:
             The mkdir command string
         """
-        return f'mkdir -p "{path}"' if parents else f'mkdir "{path}"'
+        return f"mkdir -p {sh_path(path)}" if parents else f"mkdir {sh_path(path)}"
 
     def parse_command(
         self,
@@ -50,7 +51,7 @@ class MacOSCreateDirectoryCommand(CreateDirectoryCommand):
         Returns:
             The mkdir command string
         """
-        return f'mkdir -p "{path}"' if parents else f'mkdir "{path}"'
+        return f"mkdir -p {sh_path(path)}" if parents else f"mkdir {sh_path(path)}"
 
     def parse_command(
         self,
@@ -82,9 +83,8 @@ class WindowsCreateDirectoryCommand(CreateDirectoryCommand):
         Returns:
             The directory creation command string
         """
-        if parents:
-            return f'powershell -c "New-Item -ItemType Directory -Path \\"{path}\\" -Force"'
-        return f'mkdir "{path}"'
+        script = f"New-Item -ItemType Directory -Path {ps_literal(path)}"
+        return powershell(f"{script} -Force" if parents else script)
 
     def parse_command(
         self,

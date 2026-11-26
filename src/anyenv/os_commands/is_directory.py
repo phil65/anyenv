@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from ._quoting import powershell, ps_literal, sh_path
 from .base import IsDirectoryCommand
 
 
@@ -17,7 +18,7 @@ class UnixIsDirectoryCommand(IsDirectoryCommand):
         Returns:
             The test command string
         """
-        return f'test -d "{path}"'
+        return f"test -d {sh_path(path)}"
 
     def parse_command(
         self,
@@ -48,7 +49,7 @@ class MacOSIsDirectoryCommand(IsDirectoryCommand):
         Returns:
             The test command string
         """
-        return f'test -d "{path}"'
+        return f"test -d {sh_path(path)}"
 
     def parse_command(
         self,
@@ -79,8 +80,9 @@ class WindowsIsDirectoryCommand(IsDirectoryCommand):
         Returns:
             The PowerShell command string
         """
-        return (
-            f'powershell -c "(Get-Item \\"{path}\\" -ErrorAction SilentlyContinue).PSIsContainer"'
+        return powershell(
+            f"(Get-Item -LiteralPath {ps_literal(path)} -ErrorAction SilentlyContinue)"
+            ".PSIsContainer"
         )
 
     def parse_command(

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from ._quoting import powershell, ps_literal, sh_path
 from .base import ExistsCommand
 
 
@@ -17,7 +18,7 @@ class UnixExistsCommand(ExistsCommand):
         Returns:
             The test command string
         """
-        return f'test -e "{path}"'
+        return f"test -e {sh_path(path)}"
 
     def parse_command(
         self,
@@ -48,7 +49,7 @@ class MacOSExistsCommand(ExistsCommand):
         Returns:
             The test command string
         """
-        return f'test -e "{path}"'
+        return f"test -e {sh_path(path)}"
 
     def parse_command(
         self,
@@ -79,7 +80,7 @@ class WindowsExistsCommand(ExistsCommand):
         Returns:
             The PowerShell command string
         """
-        return f'powershell -c "Test-Path \\"{path}\\""'
+        return powershell(f"Test-Path -LiteralPath {ps_literal(path)}")
 
     def parse_command(
         self,

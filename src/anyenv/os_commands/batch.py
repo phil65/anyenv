@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 import platform
 from typing import TYPE_CHECKING, Any, Literal
 
+from ._quoting import powershell, powershell_script
+
 
 if TYPE_CHECKING:
     from .base import CommandProtocol
@@ -97,10 +99,8 @@ class CommandBatch:
         parts = []
         for cmd in self._commands:
             # Extract the actual command from powershell -c "..." wrapper if present
-            inner_cmd = cmd.command_str
-            if inner_cmd.startswith('powershell -c "') and inner_cmd.endswith('"'):
-                # Extract inner command, will be re-wrapped
-                inner_cmd = inner_cmd[15:-1]
+            # Unwrap PowerShell commands; the batch re-wraps them as one script.
+            inner_cmd = powershell_script(cmd.command_str) or cmd.command_str
 
             # Build PowerShell script block that captures exit code
             # Use try/catch to handle command failures gracefully
@@ -114,7 +114,7 @@ class CommandBatch:
         # Join with delimiter output between commands
         delimiter_cmd = f"Write-Host '{DELIMITER}'"
         script = f"; {delimiter_cmd}; ".join(parts)
-        return f'powershell -c "{script}"'
+        return powershell(script)
 
     def parse_batch_output(self, output: str) -> list[Any]:
         """Parse the combined output back to individual command results.

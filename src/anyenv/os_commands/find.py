@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
+from ._quoting import powershell, ps_literal, sh_path, sh_quote
 from .base import FindCommand
 from .models import DirectoryEntry
 
@@ -34,10 +35,10 @@ class UnixFindCommand(FindCommand):
         Returns:
             The find command string
         """
-        parts = ["find", f'"{path}"']
+        parts = ["find", sh_path(path)]
 
         if maxdepth is not None:
-            parts.append(f"-maxdepth {maxdepth}")
+            parts.append(f"-maxdepth {int(maxdepth)}")
 
         if file_type == "file":
             parts.append("-type f")
@@ -46,7 +47,7 @@ class UnixFindCommand(FindCommand):
         # "all" doesn't add a type filter
 
         if pattern:
-            parts.append(f'-name "{pattern}"')
+            parts.append(f"-name {sh_quote(pattern)}")
 
         if with_stats:
             # Use -printf to get file stats in tab-separated format:
@@ -163,10 +164,10 @@ class MacOSFindCommand(FindCommand):
         Returns:
             The find command string
         """
-        parts = ["find", f'"{path}"']
+        parts = ["find", sh_path(path)]
 
         if maxdepth is not None:
-            parts.append(f"-maxdepth {maxdepth}")
+            parts.append(f"-maxdepth {int(maxdepth)}")
 
         if file_type == "file":
             parts.append("-type f")
@@ -174,7 +175,7 @@ class MacOSFindCommand(FindCommand):
             parts.append("-type d")
 
         if pattern:
-            parts.append(f'-name "{pattern}"')
+            parts.append(f"-name {sh_quote(pattern)}")
 
         if with_stats:
             # BSD stat format: path\tsize\tmtime\ttype\tpermissions
@@ -287,16 +288,16 @@ class WindowsFindCommand(FindCommand):
             The PowerShell command string
         """
         # Build Get-ChildItem command
-        parts = [f'Get-ChildItem -Path \\"{path}\\" -Recurse']
+        parts = [f"Get-ChildItem -LiteralPath {ps_literal(path)} -Recurse"]
 
         if maxdepth is not None:
             # PowerShell -Depth is 0-indexed (0 = immediate children only)
             # To match find behavior where maxdepth 1 = immediate children
             depth = maxdepth - 1 if maxdepth > 0 else 0
-            parts.append(f"-Depth {depth}")
+            parts.append(f"-Depth {int(depth)}")
 
         if pattern:
-            parts.append(f'-Filter \\"{pattern}\\"')
+            parts.append(f"-Filter {ps_literal(pattern)}")
 
         if file_type == "file":
             parts.append("-File")
@@ -304,9 +305,9 @@ class WindowsFindCommand(FindCommand):
             parts.append("-Directory")
 
         # Output format: FullName|Length|Mode (pipe-separated for easy parsing)
-        parts.append('| ForEach-Object { \\"$($_.FullName)|$($_.Length)|$($_.Mode)\\" }')
+        parts.append('| ForEach-Object { "$($_.FullName)|$($_.Length)|$($_.Mode)" }')
 
-        return f'powershell -c "{" ".join(parts)}"'
+        return powershell(" ".join(parts))
 
     def parse_command(self, output: str, base_path: str = "") -> list[DirectoryEntry]:
         """Parse Windows PowerShell Get-ChildItem output.

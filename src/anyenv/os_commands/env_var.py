@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from ._quoting import powershell, ps_literal, sh_quote
 from .base import EnvVarCommand
 
 
@@ -17,7 +18,7 @@ class UnixEnvVarCommand(EnvVarCommand):
         Returns:
             The printenv command string
         """
-        return f'printenv "{name}"'
+        return f"printenv {sh_quote(name)}"
 
     def parse_command(self, output: str, exit_code: int = 0) -> str | None:
         """Parse Unix printenv result.
@@ -47,7 +48,7 @@ class MacOSEnvVarCommand(EnvVarCommand):
         Returns:
             The printenv command string
         """
-        return f'printenv "{name}"'
+        return f"printenv {sh_quote(name)}"
 
     def parse_command(self, output: str, exit_code: int = 0) -> str | None:
         """Parse printenv result (same as Unix).
@@ -76,7 +77,7 @@ class WindowsEnvVarCommand(EnvVarCommand):
         Returns:
             The PowerShell command string
         """
-        return f'powershell -c "$env:{name}"'
+        return powershell(f"[Environment]::GetEnvironmentVariable({ps_literal(name)})")
 
     def parse_command(self, output: str, exit_code: int = 0) -> str | None:
         """Parse PowerShell environment variable result.

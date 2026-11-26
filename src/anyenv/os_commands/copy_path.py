@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from ._quoting import powershell, ps_literal, sh_path
 from .base import CopyPathCommand
 
 
@@ -20,8 +21,8 @@ class UnixCopyPathCommand(CopyPathCommand):
             The cp command string
         """
         if recursive:
-            return f'cp -r "{source}" "{destination}"'
-        return f'cp "{source}" "{destination}"'
+            return f"cp -r {sh_path(source)} {sh_path(destination)}"
+        return f"cp {sh_path(source)} {sh_path(destination)}"
 
     def parse_command(self, output: str, exit_code: int = 0) -> bool:
         """Parse Unix cp result based on exit code.
@@ -51,8 +52,8 @@ class MacOSCopyPathCommand(CopyPathCommand):
             The cp command string
         """
         if recursive:
-            return f'cp -r "{source}" "{destination}"'
-        return f'cp "{source}" "{destination}"'
+            return f"cp -r {sh_path(source)} {sh_path(destination)}"
+        return f"cp {sh_path(source)} {sh_path(destination)}"
 
     def parse_command(self, output: str, exit_code: int = 0) -> bool:
         """Parse cp result based on exit code (same as Unix).
@@ -81,9 +82,8 @@ class WindowsCopyPathCommand(CopyPathCommand):
         Returns:
             The copy command string
         """
-        if recursive:
-            return f'powershell -c "Copy-Item \\"{source}\\" \\"{destination}\\" -Recurse -Force"'
-        return f'powershell -c "Copy-Item \\"{source}\\" \\"{destination}\\" -Force"'
+        script = f"Copy-Item -LiteralPath {ps_literal(source)} {ps_literal(destination)} -Force"
+        return powershell(f"{script} -Recurse" if recursive else script)
 
     def parse_command(self, output: str, exit_code: int = 0) -> bool:
         """Parse Windows copy result.

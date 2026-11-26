@@ -5,6 +5,7 @@ from __future__ import annotations
 from abc import abstractmethod
 from dataclasses import dataclass, field
 import posixpath
+import shlex
 import shutil
 from typing import TYPE_CHECKING, ClassVar, Literal
 
@@ -124,9 +125,9 @@ class TaskRunner:
             Tuple of (success, stdout, stderr)
         """
         cmd = self.get_run_command(task_name, *args)
-        command_str = " ".join(cmd)
+        command_str = shlex.join(cmd)
         if cwd:
-            command_str = f"cd {cwd} && {command_str}"
+            command_str = f"cd {shlex.quote(cwd)} && {command_str}"
 
         result = await env.execute_command(command_str)
         return (
@@ -152,9 +153,9 @@ class TaskRunner:
         Returns:
             Raw output from the help command
         """
-        command_str = " ".join(self.help_cmd)
+        command_str = shlex.join(self.help_cmd)
         if cwd:
-            command_str = f"cd {cwd} && {command_str}"
+            command_str = f"cd {shlex.quote(cwd)} && {command_str}"
 
         result = await env.execute_command(command_str)
         return result.stdout or ""

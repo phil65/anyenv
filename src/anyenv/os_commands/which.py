@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from ._quoting import powershell, ps_literal, sh_quote
 from .base import WhichCommand
 
 
@@ -17,7 +18,7 @@ class UnixWhichCommand(WhichCommand):
         Returns:
             The which command string
         """
-        return f'which "{executable}"'
+        return f"which {sh_quote(executable)}"
 
     def parse_command(self, output: str, exit_code: int = 0) -> str | None:
         """Parse Unix which result.
@@ -47,7 +48,7 @@ class MacOSWhichCommand(WhichCommand):
         Returns:
             The which command string
         """
-        return f'which "{executable}"'
+        return f"which {sh_quote(executable)}"
 
     def parse_command(self, output: str, exit_code: int = 0) -> str | None:
         """Parse which result (same as Unix).
@@ -77,7 +78,7 @@ class WindowsWhichCommand(WhichCommand):
         Returns:
             The where command string
         """
-        return f'where "{executable}"'
+        return powershell(f"where.exe {ps_literal(executable)}")
 
     def parse_command(self, output: str, exit_code: int = 0) -> str | None:
         """Parse Windows where result.

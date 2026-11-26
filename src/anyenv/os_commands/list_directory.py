@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
+from ._quoting import powershell, ps_literal, sh_path
 from .base import ListDirectoryCommand
 from .models import DirectoryEntry
 
@@ -28,7 +29,7 @@ class UnixListDirectoryCommand(ListDirectoryCommand):
             The ls command string
         """
         cmd = "ls -la"
-        return f'{cmd} "{path}"' if path else cmd
+        return f"{cmd} {sh_path(path)}" if path else cmd
 
     def parse_command(
         self,
@@ -124,7 +125,7 @@ class MacOSListDirectoryCommand(ListDirectoryCommand):
             The ls command string
         """
         cmd = "ls -la"
-        return f'{cmd} "{path}"' if path else cmd
+        return f"{cmd} {sh_path(path)}" if path else cmd
 
     def parse_command(
         self,
@@ -157,9 +158,10 @@ class WindowsListDirectoryCommand(ListDirectoryCommand):
         Returns:
             The PowerShell command string
         """
-        if path:
-            return f'powershell -c "Get-ChildItem -Path \\"{path}\\" | Format-Table -AutoSize Name, Mode, Length, LastWriteTime"'  # noqa: E501
-        return 'powershell -c "Get-ChildItem | Format-Table -AutoSize Name, Mode, Length, LastWriteTime"'  # noqa: E501
+        target = f" -LiteralPath {ps_literal(path)}" if path else ""
+        return powershell(
+            f"Get-ChildItem{target} | Format-Table -AutoSize Name, Mode, Length, LastWriteTime"
+        )
 
     def parse_command(
         self,

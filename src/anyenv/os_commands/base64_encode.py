@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 
+from anyenv.os_commands._quoting import powershell, ps_literal, sh_path
 from anyenv.os_commands.base import Base64EncodeCommand
 
 
@@ -19,7 +20,7 @@ class UnixBase64EncodeCommand(Base64EncodeCommand):
         Returns:
             The base64 command string
         """
-        return f'base64 "{path}"'
+        return f"base64 {sh_path(path)}"
 
     def parse_command(self, output: str) -> bytes:
         """Parse Unix base64 output.
@@ -48,7 +49,7 @@ class MacOSBase64EncodeCommand(Base64EncodeCommand):
             The base64 command string
         """
         # macOS base64 uses -i for input file
-        return f'base64 -i "{path}"'
+        return f"base64 -i {sh_path(path)}"
 
     def parse_command(self, output: str) -> bytes:
         """Parse macOS base64 output.
@@ -76,7 +77,8 @@ class WindowsBase64EncodeCommand(Base64EncodeCommand):
             The PowerShell command string
         """
         # Use PowerShell to read file and convert to base64
-        return f'powershell -c "[Convert]::ToBase64String([IO.File]::ReadAllBytes(\\"{path}\\"))"'
+        path_expr = f"(Resolve-Path -LiteralPath {ps_literal(path)}).ProviderPath"
+        return powershell(f"[Convert]::ToBase64String([IO.File]::ReadAllBytes({path_expr}))")
 
     def parse_command(self, output: str) -> bytes:
         """Parse PowerShell base64 output.

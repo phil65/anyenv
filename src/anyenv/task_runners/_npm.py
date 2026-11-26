@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 import json
 import posixpath
 import re
+import shlex
 import shutil
 from typing import TYPE_CHECKING, ClassVar, Literal
 
@@ -162,9 +163,9 @@ class PackageJsonRunner(TaskRunner):
             package_manager = await self.detect_package_manager(fs, detect_cwd)
 
         cmd = self.get_run_command(task_name, *args, package_manager=package_manager)
-        command_str = " ".join(cmd)
+        command_str = shlex.join(cmd)
         if cwd:
-            command_str = f"cd {cwd} && {command_str}"
+            command_str = f"cd {shlex.quote(cwd)} && {command_str}"
 
         result = await env.execute_command(command_str)
         return (

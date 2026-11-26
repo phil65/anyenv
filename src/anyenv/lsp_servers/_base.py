@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import posixpath
+import shlex
 from typing import TYPE_CHECKING, Any, Literal
 
 
@@ -318,9 +319,13 @@ class LSPServerInfo:
             msg = f"No CLI diagnostics configured for {self.id}"
             raise ValueError(msg)
 
-        file_str = " ".join(files)
-        args = [arg.replace("{files}", file_str) for arg in self.cli_diagnostics.args]
-        return " ".join([self.cli_diagnostics.command, *args])
+        argv = [self.cli_diagnostics.command]
+        for arg in self.cli_diagnostics.args:
+            if arg == "{files}":
+                argv.extend(files)
+            else:
+                argv.append(arg.replace("{files}", " ".join(files)))
+        return shlex.join(argv)
 
     def parse_diagnostics(self, stdout: str, stderr: str) -> list[Diagnostic]:
         """Parse CLI output into diagnostics.

@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
+from ._quoting import powershell, ps_literal, sh_path
 from .base import FileInfoCommand
 from .models import FileInfo
 
@@ -30,7 +31,7 @@ class UnixFileInfoCommand(FileInfoCommand):
         Returns:
             The ls command string
         """
-        return f'ls -lad "{path}"'
+        return f"ls -lad {sh_path(path)}"
 
     def parse_command(self, output: str, path: str) -> FileInfo:
         """Parse ls -la output for a single file/directory.
@@ -103,7 +104,7 @@ class MacOSFileInfoCommand(FileInfoCommand):
         Returns:
             The ls command string
         """
-        return f'ls -lad "{path}"'
+        return f"ls -lad {sh_path(path)}"
 
     def parse_command(self, output: str, path: str) -> FileInfo:
         """Parse ls -la output for a single file/directory.
@@ -134,13 +135,11 @@ class WindowsFileInfoCommand(FileInfoCommand):
         Returns:
             The PowerShell command string
         """
-        return (
-            f'powershell -c "'
-            f'$item = Get-Item \\"{path}\\" -ErrorAction Stop; '
-            f'$item.Name + \\"||\\" + $item.Length + \\"||\\" + '
-            f'($item.GetType().Name) + \\"||\\" + '
-            f'[int][double]::Parse($item.LastWriteTime.ToString(\\"yyyyMMddHHmmss\\"))'
-            f'"'
+        return powershell(
+            f"$item = Get-Item -LiteralPath {ps_literal(path)} -ErrorAction Stop; "
+            "$item.Name + '||' + $item.Length + '||' + "
+            "($item.GetType().Name) + '||' + "
+            "[int][double]::Parse($item.LastWriteTime.ToString('yyyyMMddHHmmss'))"
         )
 
     def parse_command(self, output: str, path: str) -> FileInfo:

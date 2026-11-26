@@ -5,6 +5,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from pathlib import Path
+import shlex
 import shutil
 import tempfile
 from typing import TYPE_CHECKING
@@ -82,7 +83,7 @@ class LanguageFormatter(ABC):
     async def _execute_command(self, cmd: list[str]) -> tuple[bool, str, str, float, str | None]:
         """Execute command and return rich result information."""
         async with self._execution_env as env:
-            result = await env.execute_command(" ".join(cmd))
+            result = await env.execute_command(shlex.join(cmd))
             return (
                 result.success,
                 result.stdout or str(result.result) if result.result else "",
