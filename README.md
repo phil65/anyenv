@@ -50,7 +50,7 @@ import anyenv
 
 # GET: the response's body is read already, its accessors are plain attributes
 response = await anyenv.get("https://api.example.com/data")
-print(response.status_code, response.reason, response.headers["content-type"])
+print(response.status_code, response.reason, response.headers["Content-Type"])  # case-insensitive
 print(response.text)  # str
 print(response.content)  # bytes
 print(response.json())  # parsed JSON

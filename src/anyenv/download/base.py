@@ -1,6 +1,6 @@
 """Types and the response object of anyenv's HTTP functionality."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 import contextlib
 import os
 import pathlib
@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any, Literal, NotRequired, TypedDict
 
 
 if TYPE_CHECKING:
-    from collections.abc import Generator
+    from collections.abc import Generator, Iterator
     from typing import BinaryIO
 
     import httpx2 as httpx
@@ -64,6 +64,36 @@ class DataRetrievalOptions(RequestOptions):
     cache_ttl: NotRequired[int | str | None]
 
 
+class ResponseHeaders(Mapping[str, str]):
+    """Read-only, case-insensitive mapping of HTTP response headers.
+
+    Lookups, membership tests, and ``.get()`` ignore case; iteration yields
+    lower-case header names in insertion order.
+    """
+
+    __slots__ = ("_data",)
+
+    def __init__(self, headers: Mapping[str, str]) -> None:
+        self._data: dict[str, str] = {k.lower(): v for k, v in headers.items()}
+
+    def __getitem__(self, key: str) -> str:
+        if not isinstance(key, str):
+            raise KeyError(key)
+        return self._data[key.lower()]
+
+    def __contains__(self, key: object) -> bool:
+        return isinstance(key, str) and key.lower() in self._data
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._data)
+
+    def __len__(self) -> int:
+        return len(self._data)
+
+    def __repr__(self) -> str:
+        return f"{type(self).__name__}({self._data!r})"
+
+
 class HttpResponse:
     """An HTTP response with its body already read.
 
@@ -95,9 +125,9 @@ class HttpResponse:
         return str(self._response.url)
 
     @property
-    def headers(self) -> dict[str, str]:
-        """Response headers (lower-case names; repeated headers joined by commas)."""
-        return dict(self._response.headers)
+    def headers(self) -> Mapping[str, str]:
+        """Response headers (case-insensitive, read-only; repeated headers joined by commas)."""
+        return ResponseHeaders(self._response.headers)
 
     @property
     def content(self) -> bytes:

@@ -60,6 +60,15 @@ class _Handler(BaseHTTPRequestHandler):
                 self._send(200, "grüße".encode(), "text/plain; charset=utf-8")
             case "/headers":
                 self._send(200, json.dumps(dict(self.headers)).encode(), "application/json")
+            case "/response-headers":
+                self.send_response(200)
+                self.send_header("X-Title", "Hello")
+                self.send_header("X-Multi", "first")
+                self.send_header("X-Multi", "second")
+                self.send_header("Content-Type", "text/plain")
+                self.send_header("Content-Length", "2")
+                self.end_headers()
+                self.wfile.write(b"ok")
             case "/file":
                 self._send(200, PAYLOAD, "application/octet-stream")
             case "/truncated":
@@ -138,6 +147,51 @@ async def test_response_accessors_are_sync(server_url: str, httpx_flavour: str) 
     response = await anyenv.get(f"{server_url}/json")
     assert response.json() == {"ok": True}
     assert response.validated_json(dict) == {"ok": True}
+
+
+async def test_response_headers(server_url: str, httpx_flavour: str) -> None:
+    """Response headers are case-insensitive, read-only, and preserve lower-case iteration."""
+    from collections.abc import Mapping
+
+    response = await anyenv.get(f"{server_url}/response-headers")
+    headers = response.headers
+    assert isinstance(headers, Mapping)
+
+    # Mixed-case lookup
+    assert headers["X-Title"] == "Hello"
+    assert headers["x-title"] == "Hello"
+    assert headers["X-TITLE"] == "Hello"
+    assert headers["Content-Type"] == "text/plain"
+    with pytest.raises(KeyError):
+        _ = headers["X-Missing"]
+
+    # Repeated headers stay joined by commas
+    assert headers["X-Multi"] == "first, second"
+    assert headers["x-multi"] == "first, second"
+
+    # Membership ('in')
+    assert "X-Title" in headers
+    assert "x-title" in headers
+    assert "X-TITLE" in headers
+    assert "X-Missing" not in headers
+    assert None not in headers  # type: ignore[operator]
+
+    # .get()
+    assert headers.get("X-Title") == "Hello"
+    assert headers.get("x-title") == "Hello"
+    assert headers.get("X-TITLE") == "Hello"
+    assert headers.get("X-Missing") is None
+    assert headers.get("X-Missing", "fallback") == "fallback"
+
+    # Iteration yields lower-case names in order
+    names = list(headers)
+    assert len(headers) == len(names)
+    assert all(name == name.lower() for name in names)
+    assert names.index("x-title") < names.index("x-multi") < names.index("content-type")
+
+    # Read-only
+    with pytest.raises(TypeError):
+        headers["X-Title"] = "changed"  # type: ignore[index]
 
 
 async def test_follows_redirects(server_url: str, httpx_flavour: str) -> None:
