@@ -61,7 +61,7 @@ def assert_untouched(work: Path) -> None:
 @pytest.mark.parametrize("name", HOSTILE)
 def test_unix_commands_treat_names_as_literals(sandbox: Path, name: str):
     """Every path builder works on a file with a hostile name and runs nothing."""
-    provider = get_os_command_provider("Linux")
+    provider = get_os_command_provider()  # GNU or BSD tools, as installed
     (sandbox / name).write_text("data")
 
     def run(command: str, *args, **kwargs) -> subprocess.CompletedProcess[str]:

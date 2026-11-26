@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from anyenv.os_commands._quoting import powershell_script
 from anyenv.os_commands.providers import get_os_command_provider
 
 
@@ -45,6 +46,11 @@ def test_subdir(temp_dir):
     return subdir
 
 
+def script_of(cmd: str) -> str:
+    """The command line, or the script of an encoded PowerShell command."""
+    return powershell_script(cmd) or cmd
+
+
 def run_command(cmd: str) -> tuple[str, int]:
     """Run a command and return output and exit code."""
     try:
@@ -65,7 +71,7 @@ def test_list_directory_command(
     # Create command
     cmd = provider.get_command("list_directory").create_command(str(temp_dir))
     assert isinstance(cmd, str)
-    assert str(temp_dir) in cmd
+    assert str(temp_dir) in script_of(cmd)
 
     # Execute command
     output, exit_code = run_command(cmd)
@@ -87,7 +93,7 @@ def test_exists_command(provider: OSCommandProvider, test_file: Path, temp_dir: 
     # Test existing file
     cmd = provider.get_command("exists").create_command(str(test_file))
     assert isinstance(cmd, str)
-    assert str(test_file) in cmd
+    assert str(test_file) in script_of(cmd)
 
     output, exit_code = run_command(cmd)
     result = provider.get_command("exists").parse_command(output, exit_code)
@@ -96,7 +102,7 @@ def test_exists_command(provider: OSCommandProvider, test_file: Path, temp_dir: 
     # Test non-existing file
     non_existing = temp_dir / "nonexistent.txt"
     cmd = provider.get_command("exists").create_command(str(non_existing))
-    assert str(non_existing) in cmd
+    assert str(non_existing) in script_of(cmd)
 
     output, exit_code = run_command(cmd)
     result = provider.get_command("exists").parse_command(output, exit_code)
@@ -108,7 +114,7 @@ def test_is_file_command(provider: OSCommandProvider, test_file: Path, test_subd
     # Test actual file
     cmd = provider.get_command("is_file").create_command(str(test_file))
     assert isinstance(cmd, str)
-    assert str(test_file) in cmd
+    assert str(test_file) in script_of(cmd)
 
     output, exit_code = run_command(cmd)
     result = provider.get_command("is_file").parse_command(output, exit_code)
@@ -116,7 +122,7 @@ def test_is_file_command(provider: OSCommandProvider, test_file: Path, test_subd
 
     # Test directory (should be False)
     cmd = provider.get_command("is_file").create_command(str(test_subdir))
-    assert str(test_subdir) in cmd
+    assert str(test_subdir) in script_of(cmd)
 
     output, exit_code = run_command(cmd)
     result = provider.get_command("is_file").parse_command(output, exit_code)
@@ -132,7 +138,7 @@ def test_is_directory_command(
     # Test actual directory
     cmd = provider.get_command("is_directory").create_command(str(test_subdir))
     assert isinstance(cmd, str)
-    assert str(test_subdir) in cmd
+    assert str(test_subdir) in script_of(cmd)
 
     output, exit_code = run_command(cmd)
     result = provider.get_command("is_directory").parse_command(output, exit_code)
@@ -140,7 +146,7 @@ def test_is_directory_command(
 
     # Test file (should be False)
     cmd = provider.get_command("is_directory").create_command(str(test_file))
-    assert str(test_file) in cmd
+    assert str(test_file) in script_of(cmd)
 
     output, exit_code = run_command(cmd)
     result = provider.get_command("is_directory").parse_command(output, exit_code)
@@ -155,7 +161,7 @@ def test_create_directory_command(provider: OSCommandProvider, temp_dir: Path):
     # Create command
     cmd = provider.get_command("create_directory").create_command(str(new_dir), parents=True)
     assert isinstance(cmd, str)
-    assert str(new_dir) in cmd
+    assert str(new_dir) in script_of(cmd)
 
     # Execute command
     output, exit_code = run_command(cmd)
@@ -182,7 +188,7 @@ def test_file_info_command(provider: OSCommandProvider, test_file: Path):
     # Create command
     cmd = provider.get_command("file_info").create_command(str(test_file))
     assert isinstance(cmd, str)
-    assert str(test_file) in cmd
+    assert str(test_file) in script_of(cmd)
 
     # Execute command
     output, exit_code = run_command(cmd)
@@ -205,7 +211,7 @@ def test_remove_path_command(provider: OSCommandProvider, temp_dir: Path):
 
     cmd = provider.get_command("remove_path").create_command(str(test_file), recursive=False)
     assert isinstance(cmd, str)
-    assert str(test_file) in cmd
+    assert str(test_file) in script_of(cmd)
 
     output, exit_code = run_command(cmd)
     result = provider.get_command("remove_path").parse_command(output, exit_code)
@@ -219,7 +225,7 @@ def test_remove_path_command(provider: OSCommandProvider, temp_dir: Path):
     assert test_dir.exists()
 
     cmd = provider.get_command("remove_path").create_command(str(test_dir), recursive=True)
-    assert str(test_dir) in cmd
+    assert str(test_dir) in script_of(cmd)
 
     output, exit_code = run_command(cmd)
     result = provider.get_command("remove_path").parse_command(output, exit_code)
