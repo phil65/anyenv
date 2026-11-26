@@ -523,3 +523,20 @@ def test_pyodide_transport_is_not_used_elsewhere() -> None:
 
     client, mod = create_client(CacheSettings.create(False))
     assert not isinstance(client._transport, get_js_transport_class(mod.__name__))  # noqa: SLF001
+
+
+async def test_session_is_not_used_from_another_event_loop(
+    server: _Server, server_url: str
+) -> None:
+    """Code running on another loop (run_sync copies the context) gets its own client."""
+    from anyenv.download.session import current_session
+
+    async def elsewhere() -> Any:
+        return current_session(), await anyenv.get_json(f"{server_url}/json")
+
+    async with anyenv.http_session() as session:
+        await session.get(f"{server_url}/json")
+        other, data = await asyncio.to_thread(anyenv.run_sync, elsewhere())
+    assert other is None
+    assert data == {"ok": True}
+    assert server.connections == 2  # noqa: PLR2004

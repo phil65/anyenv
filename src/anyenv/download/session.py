@@ -8,6 +8,7 @@ it). Without a session every helper call creates and closes its own client.
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import contextlib
 from contextvars import ContextVar
@@ -169,6 +170,7 @@ class HttpSession:
         self.timeout = timeout
         self._client, self._httpx = create_client(self.cache, timeout)
         self._closed = False
+        self._loop: asyncio.AbstractEventLoop | None = None
 
     @property
     def closed(self) -> bool:
@@ -181,10 +183,25 @@ class HttpSession:
         await self._client.aclose()
 
     async def __aenter__(self) -> Self:
+        self._loop = asyncio.get_running_loop()
         return self
 
     async def __aexit__(self, *exc_info: object) -> None:
         await self.aclose()
+
+    def usable_here(self) -> bool:
+        """Whether this context can use the client: it's open and on its event loop.
+
+        (Another loop may see the session through a copied context, e.g. in
+        ``run_sync``; a client can't be shared between loops.)
+        """
+        if self._closed:
+            return False
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return False
+        return self._loop is None or self._loop is loop
 
     def accepts(
         self,
@@ -193,8 +210,6 @@ class HttpSession:
         cache_ttl: int | str | None,
     ) -> bool:
         """Whether a helper call with these cache options can go through this session."""
-        if self._closed:
-            return False
         if cache is not None and cache != self.cache.enabled:
             return False
         if cache_dir is not None and pathlib.Path(cache_dir) != self.cache.directory:
@@ -390,9 +405,9 @@ async def http_session(
 
 
 def current_session() -> HttpSession | None:
-    """The innermost open `http_session` of the current context, if any."""
+    """The innermost open `http_session` of this context and event loop, if any."""
     session = _current_session.get()
-    return None if session is None or session.closed else session
+    return session if session is not None and session.usable_here() else None
 
 
 @contextlib.asynccontextmanager
