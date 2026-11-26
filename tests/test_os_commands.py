@@ -51,12 +51,13 @@ def script_of(cmd: str) -> str:
 
 def run_command(cmd: str) -> tuple[str, int]:
     """Run a command and return output and exit code."""
+    # A cold PowerShell start on a CI runner ("Preparing modules for first use")
+    # can take well over 10 s; a timeout fails loudly instead of as exit code 1.
     try:
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=10)
+        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=60)
     except subprocess.TimeoutExpired:
-        return "", 1
-    else:
-        return result.stdout, result.returncode
+        pytest.fail(f"command timed out after 60 s: {cmd[:80]}")
+    return result.stdout, result.returncode
 
 
 def test_list_directory_command(
