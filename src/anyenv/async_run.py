@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncGenerator, Sequence
-import contextlib
 import contextvars
 from functools import partial
 import inspect
@@ -316,11 +315,14 @@ async def call_and_gather[T](
     return await gather(*coros, return_exceptions=False)
 
 
+_ITEM, _ERROR, _DONE = range(3)
+
+
 async def as_generated[T](
     iterables: Iterable[AsyncIterable[T]],
     *,
     return_exceptions: bool = False,
-) -> AsyncIterable[T]:
+) -> AsyncGenerator[T]:
     """Yield results from one or more async iterables, in the order they are produced.
 
     Like :func:`as_completed`, but for async iterators or generators instead of futures.
@@ -330,6 +332,7 @@ async def as_generated[T](
     pending iterables and tasks will be cancelled, and async generators will be closed.
     If ``return_exceptions`` is ``True``, any exceptions will be yielded as results,
     and execution will continue until all iterables have been fully consumed.
+    Cancelling the consumer cancels the sources and propagates.
 
     Example::
 
@@ -343,51 +346,36 @@ async def as_generated[T](
         async for value in as_generated([gen1, gen2]):
             ...  # intermixed values yielded from gen1 and gen2
     """
-    exc_queue: asyncio.Queue[Exception] = asyncio.Queue()
-    queue: asyncio.Queue[T] = asyncio.Queue()
+    # (kind, payload): values, a source's error and its end share one queue, in order.
+    queue: asyncio.Queue[tuple[int, Any]] = asyncio.Queue()
 
     async def tailer(iterable: AsyncIterable[T]) -> None:
         try:
             async for item in iterable:
-                await queue.put(item)
+                queue.put_nowait((_ITEM, item))
         except asyncio.CancelledError:
-            if isinstance(iterable, AsyncGenerator):  # pragma:nocover
+            if isinstance(iterable, AsyncGenerator):
                 await iterable.aclose()
             raise
         except Exception as e:  # noqa: BLE001
-            await exc_queue.put(e)
+            queue.put_nowait((_ERROR, e))
+        finally:
+            queue.put_nowait((_DONE, None))
 
     tasks = [asyncio.ensure_future(tailer(i)) for i in iterables]
-    pending = set(tasks)
-
+    remaining = len(tasks)
     try:
-        while pending:
-            try:
-                exc = exc_queue.get_nowait()
-                if return_exceptions:
-                    yield exc
-                else:
-                    raise exc
-            except asyncio.QueueEmpty:
-                pass
-
-            try:
-                value = queue.get_nowait()
-                yield value
-            except asyncio.QueueEmpty:
-                for task in list(pending):
-                    if task.done():
-                        pending.remove(task)
-                await anyio.sleep(0.001)
-
-    except asyncio.CancelledError, GeneratorExit:
-        pass
-
+        while remaining:
+            kind, payload = await queue.get()
+            if kind == _DONE:
+                remaining -= 1
+            elif kind == _ERROR and not return_exceptions:
+                raise payload
+            else:
+                yield payload
     finally:
         for task in tasks:
-            if not task.done():
-                task.cancel()
-
-        for task in tasks:
-            with contextlib.suppress(asyncio.CancelledError):
-                await task
+            task.cancel()
+        if tasks:
+            # wait() neither raises the tasks' cancellation nor swallows our own.
+            await asyncio.wait(tasks)
