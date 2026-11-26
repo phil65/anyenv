@@ -1,157 +1,32 @@
-"""High-level interface for HTTP requests and downloads."""
+"""High-level interface for HTTP requests and downloads.
+
+Inside an ``async with anyenv.http_session(...)`` block the async helpers use the
+session's client (connection reuse); otherwise each call opens its own client.
+The ``*_sync`` helpers always use a client of their own.
+"""
 
 from __future__ import annotations
 
-import base64
-import functools
-import importlib.util
-import os
-from typing import TYPE_CHECKING, Any, Unpack, assert_never
+from typing import TYPE_CHECKING, Any, Unpack
 
-from anyenv.download.http_types import SecretStr
-from anyenv.download.middleware import header_middlewares
-
-
-StrPath = str | os.PathLike[str]
+from anyenv.download.session import session_for, without_session
 
 
 if TYPE_CHECKING:
     from anyenv.download.base import (
-        BackendType,
         DataRetrievalOptions,
-        HttpBackend,
         HttpResponse,
         Method,
         ProgressCallback,
+        StrPath,
     )
-    from anyenv.download.http_types import AuthType, FilesType, HeaderType, ParamsType
-
-
-def _default_backend_type() -> BackendType:
-    """Return the best available backend type."""
-    if importlib.util.find_spec("httpx2"):
-        return "httpx2"
-    if importlib.util.find_spec("httpx"):
-        return "httpx"
-    if importlib.util.find_spec("aiohttp"):
-        return "aiohttp"
-    # Fall back to pyodide if in browser environment
-    if importlib.util.find_spec("pyodide"):
-        return "pyodide"
-    msg = (
-        "No HTTP backend available. Please install one of: "
-        "httpx2+hishel, httpx+hishel, aiohttp+aiohttp_client_cache"
+    from anyenv.download.http_types import (
+        AuthType,
+        FilesType,
+        HeaderType,
+        ParamsType,
+        SecretStr,
     )
-    raise ImportError(msg)
-
-
-def _create_backend(
-    backend_type: BackendType,
-    cache_dir: StrPath | None = None,
-    cache_ttl: int | str | None = None,
-    *,
-    require_cache: bool = True,
-) -> HttpBackend:
-    """Instantiate given backend type with given cache settings.
-
-    Args:
-        backend_type: The backend type to create
-        cache_dir: Optional path to use for caching
-        cache_ttl: Optional TTL for cached responses
-        require_cache: Whether the cache library of the backend must be installed
-    """
-    match backend_type:
-        case "httpx2" | "httpx":
-            cache_lib = "hishel"
-            available = importlib.util.find_spec(backend_type) and (
-                not require_cache or importlib.util.find_spec(cache_lib)
-            )
-            if not available:
-                msg = f"{backend_type} backend requested but {backend_type} or hishel not installed"
-                raise ImportError(msg)
-            from anyenv.download.httpx_backend import Httpx2Backend, HttpxBackend
-
-            cls = Httpx2Backend if backend_type == "httpx2" else HttpxBackend
-            return cls(cache_dir=cache_dir, cache_ttl=cache_ttl)
-        case "aiohttp":
-            available = importlib.util.find_spec("aiohttp") and (
-                not require_cache or importlib.util.find_spec("aiohttp_client_cache")
-            )
-            if not available:
-                msg = "aiohttp backend requested but aiohttp or aiohttp_client_cache not installed"
-                raise ImportError(msg)
-            from anyenv.download.aiohttp_backend import AiohttpBackend
-
-            return AiohttpBackend(cache_dir=cache_dir, cache_ttl=cache_ttl)
-        case "pyodide":
-            if importlib.util.find_spec("pyodide"):
-                from anyenv.download.pyodide_backend import PyodideBackend
-
-                return PyodideBackend()
-            msg = "pyodide backend requested but pyodide not installed"
-            raise ImportError(msg)
-        case _:
-            msg = f"Unknown backend type: {backend_type}"
-            raise ValueError(msg)
-
-
-def get_default_backend(
-    cache_dir: StrPath | None = None,
-    cache_ttl: int | str | None = None,
-) -> HttpBackend:
-    """Get the best available HTTP backend.
-
-    Args:
-        cache_dir: Optional path to use for caching. If None, uses a default path.
-        cache_ttl: Optional TTL for cached responses. If None, uses a default TTL.
-    """
-    backend_type = _default_backend_type()
-    return _create_backend(backend_type, cache_dir, cache_ttl, require_cache=False)
-
-
-def get_backend(
-    backend_type: BackendType | None = None,
-    cache_dir: StrPath | None = None,
-    cache_ttl: int | str | None = None,
-) -> HttpBackend:
-    """Get a specific HTTP backend or the best available one.
-
-    Args:
-        backend_type: Optional backend type to use. If None, uses the best available.
-        cache_dir: Optional path to use for caching. If None, uses a default path.
-        cache_ttl: Optional TTL for cached responses. If None, uses a default TTL.
-
-    Returns:
-        An instance of the selected HTTP backend.
-
-    Raises:
-        ImportError: If the requested backend is not available.
-    """
-    if backend_type is None:
-        return get_default_backend(cache_dir=cache_dir, cache_ttl=cache_ttl)
-    return _create_backend(backend_type, cache_dir, cache_ttl)
-
-
-@functools.lru_cache(maxsize=64)
-def _get_shared_backend(
-    backend_type: BackendType | None,
-    cache_dir: str | None,
-    cache_ttl: int | str | None,
-) -> HttpBackend:
-    return get_backend(backend_type, cache_dir=cache_dir, cache_ttl=cache_ttl)
-
-
-def _backend_for_request(
-    backend_type: BackendType | None,
-    cache_dir: StrPath | None,
-    cache_ttl: int | str | None,
-) -> HttpBackend:
-    """Return a backend for given cache config, reusing instances across requests."""
-    dir_ = os.fspath(cache_dir) if cache_dir is not None else None
-    return _get_shared_backend(backend_type, dir_, cache_ttl)
-
-
-# High-level API functions
 
 
 async def request(
@@ -164,8 +39,7 @@ async def request(
     data: Any = None,
     files: FilesType | None = None,
     timeout: float | None = None,
-    cache: bool = False,
-    backend: BackendType | None = None,
+    cache: bool | None = None,
     cache_dir: StrPath | None = None,
     cache_ttl: int | str | None = None,
     api_key: str | SecretStr | None = None,
@@ -173,86 +47,44 @@ async def request(
     auth_username: str | None = None,
     auth_header_name: str | None = None,
 ) -> HttpResponse:
-    """Make an HTTP request.
+    """Make an HTTP request; the response's body is read already.
 
     Args:
         method: HTTP method to use
-        url: URL to request
-        params: Optional query parameters
-        headers: Optional request headers
-        json: Optional JSON body
-        data: Optional request body
-        files: Optional files to upload
-        timeout: Optional request timeout in seconds
-        cache: Whether to use cached responses
-        backend: Optional specific backend to use
-        cache_dir: Optional directory to store cached responses
-        cache_ttl: Optional TTL for cached responses. Can be specified as seconds (int)
-                   or as a time period string (e.g. "1h", "2d", "1w 2d").
-        api_key: Optional API key or token for authentication
-        auth_type: Authentication type to use with the api_key:
-                   - "bearer": Authorization: Bearer {api_key}
-                   - "basic": Authorization: Basic {base64(auth_username:api_key)}
-                   - "header": Uses auth_header_name: {api_key}
-                   - "query": Adds api_key as query parameter
-        auth_username: Username for basic authentication (only used with auth_type basic)
-        auth_header_name: Header name to use when auth_type="header"
-                          Defaults to "X-API-Key"
+        url: URL to request (relative URLs resolve against the session's base_url)
+        params: Query parameters
+        headers: Request headers
+        json: JSON body
+        data: Form data or raw body
+        files: Files to upload (multipart)
+        timeout: Timeout in seconds (default: the session's, else none)
+        cache: Cache responses (default: as the open session does, else no)
+        cache_dir: Directory of the cache database
+        cache_ttl: How long cached responses are used: seconds or e.g. "1h", "2d"
+        api_key: API key or token for authentication
+        auth_type: How the api_key is sent ("bearer", "basic", "header", "query")
+        auth_username: Username for basic authentication
+        auth_header_name: Header name for auth_type="header" (default: X-API-Key)
 
-    Returns:
-        An HttpResponse object
+    Raises:
+        RequestError: The request failed (connection, timeout)
+        ResponseError: The response has a 4xx / 5xx status
     """
-    if auth_header_name is None:
-        auth_header_name = "X-API-Key"
-
-    http_backend = _backend_for_request(backend, cache_dir, cache_ttl)
-
-    # Apply header middlewares first
-    processed_headers = header_middlewares.apply(url, headers)
-
-    # Apply authentication if api_key is provided
-    processed_params = params
-
-    if api_key is not None:
-        key_value = api_key.get_secret_value() if isinstance(api_key, SecretStr) else api_key
-
-        match auth_type:
-            case "bearer":
-                processed_headers = dict(processed_headers)
-                processed_headers["Authorization"] = f"Bearer {key_value}"
-
-            case "basic":
-                if auth_username is None:
-                    msg = "auth_username is required for basic authentication"
-                    raise ValueError(msg)
-
-                auth_str = f"{auth_username}:{key_value}"
-                encoded = base64.b64encode(auth_str.encode()).decode()
-                processed_headers = dict(processed_headers)
-                processed_headers["Authorization"] = f"Basic {encoded}"
-
-            case "header":
-                processed_headers = dict(processed_headers)
-                processed_headers[auth_header_name] = key_value
-
-            case "query":
-                processed_params = dict(params or {})
-                processed_params["api_key"] = key_value
-
-            case _ as unreachable:
-                assert_never(unreachable)
-
-    return await http_backend.request(
-        method,
-        url,
-        params=processed_params,
-        headers=processed_headers,
-        json=json,
-        data=data,
-        files=files,
-        timeout=timeout,
-        cache=cache,
-    )
+    async with session_for(cache, cache_dir, cache_ttl, timeout) as session:
+        return await session.request(
+            method,
+            url,
+            params=params,
+            headers=headers,
+            json=json,
+            data=data,
+            files=files,
+            timeout=timeout,
+            api_key=api_key,
+            auth_type=auth_type,
+            auth_username=auth_username,
+            auth_header_name=auth_header_name,
+        )
 
 
 async def get(
@@ -261,8 +93,7 @@ async def get(
     params: ParamsType | None = None,
     headers: HeaderType | None = None,
     timeout: float | None = None,
-    cache: bool = False,
-    backend: BackendType | None = None,
+    cache: bool | None = None,
     cache_dir: StrPath | None = None,
     cache_ttl: int | str | None = None,
     api_key: str | SecretStr | None = None,
@@ -270,26 +101,7 @@ async def get(
     auth_username: str | None = None,
     auth_header_name: str | None = None,
 ) -> HttpResponse:
-    """Make a GET request.
-
-    Args:
-        url: URL to request
-        params: Optional query parameters
-        headers: Optional request headers
-        timeout: Optional request timeout in seconds
-        cache: Whether to use cached responses
-        backend: Optional specific backend to use
-        cache_dir: Optional directory to store cached responses
-        cache_ttl: Optional TTL for cached responses. Can be specified as seconds (int)
-                   or as a time period string (e.g. "1h", "2d", "1w 2d").
-        api_key: Optional API key for authentication
-        auth_type: Type of authentication to use (bearer, basic, header, query)
-        auth_username: Username for basic authentication
-        auth_header_name: Header name for header authentication
-
-    Returns:
-        An HttpResponse object
-    """
+    """Make a GET request (options as for `request`)."""
     return await request(
         "GET",
         url,
@@ -297,7 +109,6 @@ async def get(
         headers=headers,
         timeout=timeout,
         cache=cache,
-        backend=backend,
         cache_dir=cache_dir,
         cache_ttl=cache_ttl,
         api_key=api_key,
@@ -316,8 +127,7 @@ async def post(
     data: Any = None,
     files: FilesType | None = None,
     timeout: float | None = None,
-    cache: bool = False,
-    backend: BackendType | None = None,
+    cache: bool | None = None,
     cache_dir: StrPath | None = None,
     cache_ttl: int | str | None = None,
     api_key: str | SecretStr | None = None,
@@ -325,29 +135,7 @@ async def post(
     auth_username: str | None = None,
     auth_header_name: str | None = None,
 ) -> HttpResponse:
-    """Make a POST request.
-
-    Args:
-        url: URL to request
-        params: Optional query parameters
-        headers: Optional request headers
-        json: Optional JSON body
-        data: Optional request body
-        files: Optional files to upload
-        timeout: Optional request timeout in seconds
-        cache: Whether to use cached responses
-        backend: Optional specific backend to use
-        cache_dir: Optional path to use for caching
-        cache_ttl: Optional TTL for cached responses. Can be specified as seconds (int)
-                   or as a time period string (e.g. "1h", "2d", "1w 2d").
-        api_key: Optional API key for authentication
-        auth_type: Optional authentication type
-        auth_username: Optional username for authentication
-        auth_header_name: Optional header name for authentication
-
-    Returns:
-        An HttpResponse object
-    """
+    """Make a POST request (options as for `request`)."""
     return await request(
         "POST",
         url,
@@ -358,7 +146,6 @@ async def post(
         files=files,
         timeout=timeout,
         cache=cache,
-        backend=backend,
         cache_dir=cache_dir,
         cache_ttl=cache_ttl,
         api_key=api_key,
@@ -374,199 +161,85 @@ async def download(
     *,
     headers: HeaderType | None = None,
     progress_callback: ProgressCallback | None = None,
-    cache: bool = False,
-    backend: BackendType | None = None,
+    timeout: float | None = None,
+    cache: bool | None = None,
     cache_dir: StrPath | None = None,
     cache_ttl: int | str | None = None,
 ) -> None:
-    """Download a file with optional progress reporting.
+    """Download a file, written to ``<path>.part`` and renamed once complete.
 
     Args:
         url: URL to download
-        path: Path where to save the file
-        headers: Optional request headers
-        progress_callback: Optional callback for progress reporting
-        cache: Whether to use cached responses
-        backend: Optional specific backend to use
-        cache_dir: Optional directory to use for caching
-        cache_ttl: Optional TTL for cached responses. Can be specified as seconds (int)
-                   or as a time period string (e.g. "1h", "2d", "1w 2d").
+        path: Path where to save the file (an existing file stays if it fails)
+        headers: Request headers
+        progress_callback: Called (sync or async) with (bytes so far, total)
+        timeout: Timeout in seconds (default: the session's, else none)
+        cache: Cache the response (default: as the open session does, else no)
+        cache_dir: Directory of the cache database
+        cache_ttl: How long cached responses are used: seconds or e.g. "1h", "2d"
     """
-    http_backend = _backend_for_request(backend, cache_dir, cache_ttl)
-    await http_backend.download(
-        url,
-        path,
-        headers=headers,
-        progress_callback=progress_callback,
-        cache=cache,
-    )
+    async with session_for(cache, cache_dir, cache_ttl, timeout) as session:
+        await session.download(
+            url, path, headers=headers, progress_callback=progress_callback, timeout=timeout
+        )
 
 
-# Convenience methods for direct data retrieval
+async def get_text(url: str, **kwargs: Unpack[DataRetrievalOptions]) -> str:
+    """GET a URL and return the body as text (options as for `request`)."""
+    return (await get(url, **kwargs)).text
 
 
-async def get_text(
-    url: str,
-    *,
-    params: ParamsType | None = None,
-    headers: HeaderType | None = None,
-    timeout: float | None = None,
-    cache: bool = False,
-    backend: BackendType | None = None,
-    cache_dir: StrPath | None = None,
-    cache_ttl: int | str | None = None,
-    api_key: str | SecretStr | None = None,
-    auth_type: AuthType = "bearer",
-    auth_username: str | None = None,
-    auth_header_name: str | None = None,
-) -> str:
-    """Make a GET request and return the response text.
-
-    Args:
-        url: URL to request
-        params: Optional query parameters
-        headers: Optional request headers
-        timeout: Optional request timeout in seconds
-        cache: Whether to use cached responses
-        backend: Optional specific backend to use
-        cache_dir: Optional directory to store cached responses
-        cache_ttl: Optional TTL for cached responses. Can be specified as seconds (int)
-                   or as a time period string (e.g. "1h", "2d", "1w 2d").
-        api_key: Optional API key for authentication
-        auth_type: Authentication type ("bearer", "basic", etc.)
-        auth_username: Optional username for authentication
-        auth_header_name: Optional header name for authentication
-
-    Returns:
-        The response body as text
-    """
-    response = await get(
-        url,
-        params=params,
-        headers=headers,
-        timeout=timeout,
-        cache=cache,
-        backend=backend,
-        cache_dir=cache_dir,
-        cache_ttl=cache_ttl,
-        api_key=api_key,
-        auth_type=auth_type,
-        auth_username=auth_username,
-        auth_header_name=auth_header_name,
-    )
-    return await response.text()
+async def get_bytes(url: str, **kwargs: Unpack[DataRetrievalOptions]) -> bytes:
+    """GET a URL and return the body as bytes (options as for `request`)."""
+    return (await get(url, **kwargs)).content
 
 
 async def get_json[T](
     url: str,
     *,
     return_type: type[T] | None = None,
-    params: ParamsType | None = None,
-    headers: HeaderType | None = None,
-    timeout: float | None = None,
-    cache: bool = False,
-    backend: BackendType | None = None,
-    cache_dir: StrPath | None = None,
-    cache_ttl: int | str | None = None,
-    api_key: str | SecretStr | None = None,
-    auth_type: AuthType = "bearer",
-    auth_username: str | None = None,
-    auth_header_name: str | None = None,
+    **kwargs: Unpack[DataRetrievalOptions],
 ) -> T:
-    """Make a GET request and return the response as JSON.
+    """GET a URL and return the body parsed as JSON (options as for `request`).
 
     Args:
         url: URL to request
-        return_type: Optional type to validate the response against
-        params: Optional query parameters
-        headers: Optional request headers
-        timeout: Optional request timeout in seconds
-        cache: Whether to use cached responses
-        backend: Optional specific backend to use
-        cache_dir: Optional directory to store cached responses
-        cache_ttl: Optional TTL for cached responses. Can be specified as seconds (int)
-                   or as a time period string (e.g. "1h", "2d", "1w 2d").
-        api_key: Optional API key for authentication
-        auth_type: Authentication type (default: "bearer")
-        auth_username: Optional username for basic authentication
-        auth_header_name: Optional header name for custom authentication
-
-    Returns:
-        The response body parsed as JSON
+        return_type: Type to validate the data against (pydantic models, dataclasses,
+            TypedDicts, ...); without it the data is returned as parsed
+        kwargs: Options as for `request`
     """
     from anyenv.validate import validate_json_data
 
-    response = await get(
-        url,
-        params=params,
-        headers=headers,
-        timeout=timeout,
-        cache=cache,
-        backend=backend,
-        cache_dir=cache_dir,
-        cache_ttl=cache_ttl,
-        api_key=api_key,
-        auth_type=auth_type,
-        auth_username=auth_username,
-        auth_header_name=auth_header_name,
-    )
-    data = await response.json()
-    return validate_json_data(data, return_type)
+    return validate_json_data((await get(url, **kwargs)).json(), return_type)
 
 
-async def get_bytes(
+async def post_json[T](
     url: str,
+    json_data: Any,
     *,
-    params: ParamsType | None = None,
-    headers: HeaderType | None = None,
-    timeout: float | None = None,
-    cache: bool = False,
-    backend: BackendType | None = None,
-    cache_dir: StrPath | None = None,
-    cache_ttl: int | str | None = None,
-    api_key: str | SecretStr | None = None,
-    auth_type: AuthType = "bearer",
-    auth_username: str | None = None,
-    auth_header_name: str | None = None,
-) -> bytes:
-    """Make a GET request and return the response as bytes.
+    files: FilesType | None = None,
+    return_type: type[T] | None = None,
+    **kwargs: Unpack[DataRetrievalOptions],
+) -> T:
+    """POST JSON and return the response parsed as JSON (options as for `request`).
 
     Args:
         url: URL to request
-        params: Optional query parameters
-        headers: Optional request headers
-        timeout: Optional request timeout in seconds
-        cache: Whether to use cached responses
-        backend: Optional specific backend to use
-        cache_dir: Optional directory to store cached responses
-        cache_ttl: Optional TTL for cached responses. Can be specified as seconds (int)
-                   or as a time period string (e.g. "1h", "2d", "1w 2d").
-        api_key: Optional API key for authentication
-        auth_type: Authentication type (default: "bearer")
-        auth_username: Optional username for authentication
-        auth_header_name: Optional header name for authentication
-
-    Returns:
-        The response body as bytes
+        json_data: Data sent as JSON body (as form fields when `files` are given)
+        files: Files to upload (multipart)
+        return_type: Type to validate the response against
+        kwargs: Options as for `request`
     """
-    response = await get(
-        url,
-        params=params,
-        headers=headers,
-        timeout=timeout,
-        cache=cache,
-        backend=backend,
-        cache_dir=cache_dir,
-        cache_ttl=cache_ttl,
-        api_key=api_key,
-        auth_type=auth_type,
-        auth_username=auth_username,
-        auth_header_name=auth_header_name,
-    )
-    return await response.bytes()
+    from anyenv.validate import validate_json_data
+
+    if files:
+        response = await post(url, data=json_data, files=files, **kwargs)
+    else:
+        response = await post(url, json=json_data, **kwargs)
+    return validate_json_data(response.json(), return_type)
 
 
-# Synchronous versions of the API functions
+# Synchronous versions: each call runs on an event loop of its own, with its own client.
 
 
 def request_sync(
@@ -576,70 +249,18 @@ def request_sync(
     json: Any = None,
     data: Any = None,
     files: FilesType | None = None,
-    params: ParamsType | None = None,
-    headers: HeaderType | None = None,
-    timeout: float | None = None,
-    cache: bool = False,
-    backend: BackendType | None = None,
-    cache_dir: StrPath | None = None,
-    cache_ttl: int | str | None = None,
-    api_key: str | SecretStr | None = None,
-    auth_type: AuthType = "bearer",
-    auth_username: str | None = None,
-    auth_header_name: str | None = None,
+    **kwargs: Unpack[DataRetrievalOptions],
 ) -> HttpResponse:
-    """Synchronous version of request."""
-    if auth_header_name is None:
-        auth_header_name = "X-API-Key"
+    """Synchronous version of `request`."""
+    from anyenv.async_run import run_sync
 
-    http_backend = _backend_for_request(backend, cache_dir, cache_ttl)
-    processed_params = params
-    processed_headers = headers or {}
-
-    if api_key is not None:
-        key_value = api_key.get_secret_value() if isinstance(api_key, SecretStr) else api_key
-
-        match auth_type:
-            case "bearer":
-                processed_headers = dict(processed_headers)
-                processed_headers["Authorization"] = f"Bearer {key_value}"
-
-            case "basic":
-                if auth_username is None:
-                    msg = "auth_username is required for basic authentication"
-                    raise ValueError(msg)
-
-                auth_str = f"{auth_username}:{key_value}"
-                encoded = base64.b64encode(auth_str.encode()).decode()
-                processed_headers = dict(processed_headers)
-                processed_headers["Authorization"] = f"Basic {encoded}"
-
-            case "header":
-                processed_headers = dict(processed_headers)
-                processed_headers[auth_header_name] = key_value
-
-            case "query":
-                processed_params = dict(params or {})
-                processed_params["api_key"] = key_value
-
-            case _ as unreachable:
-                assert_never(unreachable)
-
-    return http_backend.request_sync(
-        method,
-        url,
-        params=processed_params,
-        headers=processed_headers,
-        json=json,
-        data=data,
-        files=files,
-        timeout=timeout,
-        cache=cache,
+    return run_sync(
+        without_session(request(method, url, json=json, data=data, files=files, **kwargs))
     )
 
 
 def get_sync(url: str, **kwargs: Unpack[DataRetrievalOptions]) -> HttpResponse:
-    """Synchronous version of get."""
+    """Synchronous version of `get`."""
     return request_sync("GET", url, **kwargs)
 
 
@@ -651,15 +272,8 @@ def post_sync(
     files: FilesType | None = None,
     **kwargs: Unpack[DataRetrievalOptions],
 ) -> HttpResponse:
-    """Synchronous version of post."""
-    return request_sync(
-        "POST",
-        url,
-        json=json,
-        data=data,
-        files=files,
-        **kwargs,
-    )
+    """Synchronous version of `post`."""
+    return request_sync("POST", url, json=json, data=data, files=files, **kwargs)
 
 
 def download_sync(
@@ -668,27 +282,39 @@ def download_sync(
     *,
     headers: HeaderType | None = None,
     progress_callback: ProgressCallback | None = None,
-    cache: bool = False,
-    backend: BackendType | None = None,
+    timeout: float | None = None,
+    cache: bool | None = None,
     cache_dir: StrPath | None = None,
     cache_ttl: int | str | None = None,
 ) -> None:
-    """Synchronous version of download."""
-    http_backend = _backend_for_request(backend, cache_dir, cache_ttl)
-    http_backend.download_sync(
+    """Synchronous version of `download`."""
+    from anyenv.async_run import run_sync
+
+    coro = download(
         url,
         path,
         headers=headers,
         progress_callback=progress_callback,
+        timeout=timeout,
         cache=cache,
+        cache_dir=cache_dir,
+        cache_ttl=cache_ttl,
     )
+    run_sync(without_session(coro))
 
 
 def get_text_sync(url: str, **kwargs: Unpack[DataRetrievalOptions]) -> str:
-    """Synchronous version of get_text."""
+    """Synchronous version of `get_text`."""
     from anyenv.async_run import run_sync
 
-    return run_sync(get_text(url, **kwargs))
+    return run_sync(without_session(get_text(url, **kwargs)))
+
+
+def get_bytes_sync(url: str, **kwargs: Unpack[DataRetrievalOptions]) -> bytes:
+    """Synchronous version of `get_bytes`."""
+    from anyenv.async_run import run_sync
+
+    return run_sync(without_session(get_bytes(url, **kwargs)))
 
 
 def get_json_sync[T](
@@ -697,58 +323,10 @@ def get_json_sync[T](
     return_type: type[T] | None = None,
     **kwargs: Unpack[DataRetrievalOptions],
 ) -> T:
-    """Synchronous version of get_json."""
+    """Synchronous version of `get_json`."""
     from anyenv.async_run import run_sync
 
-    return run_sync(get_json(url, return_type=return_type, **kwargs))
-
-
-def get_bytes_sync(url: str, **kwargs: Unpack[DataRetrievalOptions]) -> bytes:
-    """Synchronous version of get_bytes."""
-    from anyenv.async_run import run_sync
-
-    return run_sync(get_bytes(url, **kwargs))
-
-
-async def post_json[T](
-    url: str,
-    json_data: Any,
-    *,
-    files: FilesType | None = None,
-    return_type: type[T] | None = None,
-    **kwargs: Unpack[DataRetrievalOptions],
-) -> T:
-    """Make a POST request with JSON data and return the response as JSON.
-
-    Args:
-        url: URL to request
-        json_data: Data to send as JSON in the request body
-        files: Optional files to send in the request body
-        params: Optional query parameters
-        headers: Optional request headers
-        timeout: Optional request timeout in seconds
-        cache: Whether to use cached responses
-        backend: Optional specific backend to use
-        cache_dir: Optional directory to store cached responses
-        cache_ttl: Optional TTL for cached responses. Can be specified as seconds (int)
-                   or as a time period string (e.g. "1h", "2d", "1w 2d").
-        return_type: Optional type to validate the response against
-        api_key: Optional API key for authentication
-        auth_type: Authentication type (default: "bearer")
-        auth_username: Optional username for authentication
-        auth_header_name: Optional header name for authentication
-
-    Returns:
-        The response body parsed as JSON
-    """
-    from anyenv.validate import validate_json_data
-
-    if files:
-        response = await post(url, data=json_data, files=files, **kwargs)
-    else:
-        response = await post(url, json=json_data, **kwargs)
-    data = await response.json()
-    return validate_json_data(data, return_type)
+    return run_sync(without_session(get_json(url, return_type=return_type, **kwargs)))
 
 
 def post_json_sync[T](
@@ -759,13 +337,8 @@ def post_json_sync[T](
     return_type: type[T] | None = None,
     **kwargs: Unpack[DataRetrievalOptions],
 ) -> T:
-    """Synchronous version of post_json."""
+    """Synchronous version of `post_json`."""
     from anyenv.async_run import run_sync
 
-    return run_sync(post_json(url, json_data, files=files, return_type=return_type, **kwargs))
-
-
-if __name__ == "__main__":
-    import asyncio
-
-    asyncio.run(post_json("https://example.com", {"key": "value"}))
+    coro = post_json(url, json_data, files=files, return_type=return_type, **kwargs)
+    return run_sync(without_session(coro))

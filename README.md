@@ -30,75 +30,120 @@ AnyEnv provides a unified interface for executing code across different environm
 
 ## Getting Started
 
-Install anyenv together with an HTTP backend. The recommended backend is
+Install anyenv with its HTTP extra. HTTP goes through
 [httpx2](https://github.com/pydantic/httpx2), pydantic's maintained fork of httpx:
 
 ```bash
 pip install "anyenv[httpx2]"  # recommended
-pip install "anyenv[aiohttp]"  # alternative backend
 pip install "anyenv[httpx]"  # legacy: original httpx, kept for compatibility
 ```
 
-When several backends are installed, `httpx2` is preferred, then `httpx`, then `aiohttp`.
-anyenv itself never needs the legacy `httpx` package once `httpx2` is installed.
+When both are installed, `httpx2` is used. anyenv itself never needs the legacy `httpx`
+package once `httpx2` is installed. Under Pyodide (`sys.platform == "emscripten"`), the
+client sends its requests through the browser's `fetch`.
 
 
-## HTTP Downloads
-
-AnyEnv provides a unified interface for HTTP requests that works across different environments (including PyOdide):
+## HTTP
 
 ```python
-from anyenv import get, post, download, get_json, get_text, get_bytes
+import anyenv
 
-# Simple GET request
-response = await get("https://api.example.com/data")
-print(response.status_code, response.text)
+# GET: the response's body is read already, its accessors are plain attributes
+response = await anyenv.get("https://api.example.com/data")
+print(response.status_code, response.reason, response.headers["content-type"])
+print(response.text)  # str
+print(response.content)  # bytes
+print(response.json())  # parsed JSON
+user = response.validated_json(User)  # validated (pydantic models, dataclasses, ...)
 
-# Get JSON data directly
-data = await get_json("https://api.example.com/users")
-print(data)  # Parsed JSON object
+# The body directly
+data = await anyenv.get_json("https://api.example.com/users")
+text = await anyenv.get_text("https://example.com/page.html")
+blob = await anyenv.get_bytes("https://example.com/image.png")
 
-# Get text content
-text = await get_text("https://example.com/page.html")
+# POST
+response = await anyenv.post("https://api.example.com/create", json={"name": "test"})
+result = await anyenv.post_json("https://api.example.com/api", {"key": "value"})
 
-# Get binary data
-data = await get_bytes("https://example.com/image.png")
+# Downloads (written to <path>.part, renamed when complete)
+await anyenv.download("https://example.com/file.zip", "file.zip", progress_callback=print)
 
-# Download files
-await download("https://example.com/file.zip", "local_file.zip")
-
-# POST requests
-response = await post("https://api.example.com/create", json={"name": "test"})
-
-# POST JSON data directly
-result = await post_json("https://api.example.com/api", {"key": "value"})
+# Authentication: bearer (default), basic, a header or a query parameter
+data = await anyenv.get_json(url, api_key=token)
+data = await anyenv.get_json(url, api_key=key, auth_type="header", auth_header_name="X-Key")
 ```
 
-### Synchronous Versions
-All async functions have synchronous counterparts:
+### Sessions: one client for many requests
+
+Without a session, every call opens (and closes) its own client: a new TCP and TLS
+connection per request. `http_session()` keeps one client open; while it is, the helpers
+above use it too, also when a library you call uses them:
 
 ```python
-from anyenv import get_sync, get_json_sync, download_sync
-
-# Synchronous versions (useful in non-async contexts)
-response = get_sync("https://api.example.com/data")
-data = get_json_sync("https://api.example.com/users")
-download_sync("https://example.com/file.zip", "local_file.zip")
+async with anyenv.http_session(base_url="https://api.github.com", timeout=30) as s:
+    repo = await s.get_json("/repos/phil65/anyenv")  # relative to base_url
+    issues = await anyenv.get_json("/repos/phil65/anyenv/issues")  # same client
 ```
 
-### Error Handling
+- `base_url` resolves relative URLs; `headers` go with every request to `base_url`
+  (without a `base_url`: with every request through the session).
+- Sessions nest: the innermost open one is used; leaving it restores the outer one.
+  Tasks started inside a session inherit it (a `ContextVar`); other tasks don't see it.
+- A helper call asking for other cache settings than the session's (`cache=`,
+  `cache_dir=`, `cache_ttl=`) uses a client of its own.
+- The session object has the same methods: `request`, `get`, `post`, `get_json`,
+  `get_text`, `get_bytes`, `post_json`, `download`.
+
+### Caching
+
+Responses can be cached with [hishel](https://github.com/karpetrosyan/hishel), for a TTL
+anyenv sets (servers' `Cache-Control: max-age=0` is ignored). Entries are keyed by URL and
+request headers, credentials included: one API key's response is never served for another.
+
 ```python
-from anyenv import get, HttpError, RequestError, ResponseError
+data = await anyenv.get_json(url, cache=True, cache_ttl="1d")  # SQLite file in the user cache dir
+async with anyenv.http_session(cache=True, cache_backend="memory"):  # for the session only
+    ...
+```
+
+### Synchronous versions
+
+Every helper has a `*_sync` counterpart (`get_sync`, `get_json_sync`, `download_sync`, ...)
+with the same options. Each call runs on an event loop of its own, with its own client
+(also inside an `http_session` block).
+
+### Error handling
+
+```python
+from anyenv import HttpError, RequestError, ResponseError
 
 try:
-    response = await get("https://api.example.com/data")
-except RequestError as e:
+    response = await anyenv.get("https://api.example.com/data")
+except RequestError as e:  # connection failed, timeout
     print(f"Request failed: {e}")
-except ResponseError as e:
-    print(f"Server error: {e}")
-except HttpError as e:
-    print(f"HTTP error: {e}")
+except ResponseError as e:  # 4xx / 5xx; e.response has the body
+    print(f"Server error {e.status_code}: {e.response.text}")
 ```
+
+### Migrating from 2.x
+
+anyenv 3.0 has one HTTP stack (httpx) and synchronous response accessors:
+
+| 2.x | 3.0 |
+|---|---|
+| `await r.text()`, `await r.json()`, `await r.bytes()` | `r.text`, `r.json()`, `r.content` |
+| `await r.validated_json(T)` | `r.validated_json(T)` |
+| `backend=...`, `get_backend()`, `HttpBackend`, `BackendType` | gone: httpx2 (or httpx) only |
+| `anyenv[aiohttp]`, the pyodide backend | gone: `anyenv[httpx2]`; Pyodide uses `fetch` through httpx |
+| `Session`, `backend.create_session()` | `async with anyenv.http_session(...) as s:` |
+
+The body helpers (`get_json`, `get_text`, `post_json`, ...) and their `*_sync` versions
+keep their API.
+
+## LSP diagnostics
+
+`DiagnosticRunner` runs the CLI diagnostics of language servers (pyright, mypy, ty, ...);
+`run_all(files, concurrency=n)` runs up to `n` servers at once (default: one after another).
 
 ## Package Installation
 
@@ -180,27 +225,12 @@ from anyenv import open_in_playground
 await open_in_playground(locals())
 ```
 
-## Backend Selection
-
-Choose HTTP backends based on environment:
-
-```python
-from anyenv import get_backend, HttpBackend
-
-# Get the best available backend for current environment
-backend = get_backend()
-
-# Use specific backend
-backend = get_backend("httpx2")  # recommended; or "aiohttp", "pyodide", "httpx" (legacy)
-response = await backend.get("https://example.com")
-```
-
 ## Environment Compatibility
 
 All functionality automatically adapts to the execution environment:
 
-- **PyOdide**: Uses browser-compatible implementations
-- **Standard Python**: Uses optimal libraries (httpx2, then legacy httpx, then aiohttp)
+- **PyOdide**: Uses browser-compatible implementations (HTTP through `fetch`)
+- **Standard Python**: HTTP through httpx2 (or legacy httpx)
 - **Limited environments**: Falls back to stdlib implementations
 - **Async contexts**: Provides async implementations
 - **Sync contexts**: Provides synchronous alternatives

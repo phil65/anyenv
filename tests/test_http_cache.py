@@ -8,7 +8,6 @@ from __future__ import annotations
 from collections import Counter
 import gzip
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-import importlib.util
 import threading
 import time
 from typing import TYPE_CHECKING
@@ -17,15 +16,12 @@ from urllib.parse import urlsplit
 import pytest
 
 import anyenv
-from anyenv.download import functional
-from anyenv.download.httpx_backend.backend import CACHE_DB_NAME
+from anyenv.download.httpx_backend.cache import CACHE_DB_NAME
 
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
     from pathlib import Path
-
-    from anyenv.download.base import BackendType
 
 
 BODY = b'{"answer": 42}'
@@ -78,65 +74,34 @@ def _hits(url: str) -> int:
     return HITS[f"{parts.path}?{parts.query}"]
 
 
-BACKENDS = [
-    pytest.param(
-        name,
-        marks=pytest.mark.skipif(
-            not (importlib.util.find_spec(name) and importlib.util.find_spec("hishel")),
-            reason=f"{name} not installed",
-        ),
-    )
-    for name in ("httpx", "httpx2")
-]
-
-
 def _shift_time(monkeypatch: pytest.MonkeyPatch, seconds: float) -> None:
     real_time = time.time
     monkeypatch.setattr(time, "time", lambda: real_time() + seconds)
 
 
-def test_get_backend_honors_cache_settings(tmp_path: Path) -> None:
-    """Get backend honors cache settings."""
-    backend = functional.get_backend(None, cache_dir=tmp_path, cache_ttl="1w")
-    assert backend.cache_dir == tmp_path
-    assert backend.cache_ttl == 7 * 24 * 3600
+def test_cache_settings_parse_ttl_and_dir(tmp_path: Path) -> None:
+    """Cache settings take a directory and a TTL given as a period."""
+    from anyenv.download.session import CacheSettings
+
+    settings = CacheSettings.create(True, tmp_path, "1w")
+    assert settings.directory == tmp_path
+    assert settings.ttl == 7 * 24 * 3600
+    assert CacheSettings.create(True).ttl == 3600  # noqa: PLR2004
 
 
-def test_default_backend_without_settings_keeps_defaults() -> None:
-    """Default backend without settings keeps defaults."""
-    backend = functional.get_default_backend()
-    assert backend.cache_ttl == 3600  # noqa: PLR2004
-
-
-def test_backends_are_reused_per_cache_config(tmp_path: Path) -> None:
-    """Backends are reused per cache config."""
-    get = functional._backend_for_request  # noqa: SLF001
-    a = get(None, tmp_path, "1w")
-    b = get(None, str(tmp_path), "1w")
-    c = get(None, tmp_path, "1d")
-    assert a is b
-    assert a is not c
-
-
-@pytest.mark.parametrize("backend", BACKENDS)
-async def test_repeated_requests_hit_cache(backend: BackendType, url: str, tmp_path: Path) -> None:
+async def test_repeated_requests_hit_cache(httpx_flavour: str, url: str, tmp_path: Path) -> None:
     """Repeated requests hit cache."""
     for _ in range(4):
-        data = await anyenv.get_bytes(
-            url, cache=True, cache_ttl="1w", cache_dir=tmp_path, backend=backend
-        )
+        data = await anyenv.get_bytes(url, cache=True, cache_ttl="1w", cache_dir=tmp_path)
         assert data == BODY
     assert _hits(url) == 1
     assert (tmp_path / CACHE_DB_NAME).exists()
 
 
-@pytest.mark.parametrize("backend", BACKENDS)
-def test_repeated_sync_requests_hit_cache(backend: BackendType, url: str, tmp_path: Path) -> None:
+def test_repeated_sync_requests_hit_cache(httpx_flavour: str, url: str, tmp_path: Path) -> None:
     """Repeated sync requests hit cache."""
     for _ in range(4):
-        data = anyenv.get_json_sync(
-            url, cache=True, cache_ttl="1w", cache_dir=tmp_path, backend=backend
-        )
+        data = anyenv.get_json_sync(url, cache=True, cache_ttl="1w", cache_dir=tmp_path)
         assert data == {"answer": 42}
     assert _hits(url) == 1
 
@@ -164,12 +129,11 @@ async def test_cache_false_always_fetches(url: str, tmp_path: Path) -> None:
     assert _hits(url) == 2  # noqa: PLR2004
 
 
-@pytest.mark.parametrize("backend", BACKENDS)
 async def test_cache_ttl_is_honored(
-    backend: BackendType, url: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    httpx_flavour: str, url: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """Cache ttl is honored."""
-    opts = {"cache": True, "cache_dir": tmp_path, "backend": backend}
+    opts = {"cache": True, "cache_dir": tmp_path}
     await anyenv.get_bytes(url, cache_ttl="1w", **opts)  # type: ignore[arg-type]
     # Past the old hard-coded 1h default, but within the requested week.
     _shift_time(monkeypatch, 2 * 3600)
@@ -206,10 +170,9 @@ async def _stored_entries(tmp_path: Path, url: str) -> list[tuple[dict[str, str]
         await storage.close()
 
 
-@pytest.mark.parametrize("backend", BACKENDS)
-async def test_bodies_are_stored_decoded(backend: BackendType, url: str, tmp_path: Path) -> None:
+async def test_bodies_are_stored_decoded(httpx_flavour: str, url: str, tmp_path: Path) -> None:
     """Bodies are stored decoded."""
-    await anyenv.get_bytes(url, cache=True, cache_dir=tmp_path, backend=backend)
+    await anyenv.get_bytes(url, cache=True, cache_dir=tmp_path)
     [(headers, body)] = await _stored_entries(tmp_path, url)
     assert body == BODY
     assert "content-encoding" not in {k.lower() for k in headers}
@@ -241,26 +204,24 @@ async def _store_legacy_entry(tmp_path: Path, url: str, encoding: str, body: byt
     assert len(await _stored_entries(tmp_path, url)) == 1
 
 
-@pytest.mark.parametrize("backend", BACKENDS)
 async def test_entry_with_unsupported_encoding_is_refetched(
-    backend: BackendType, url: str, tmp_path: Path
+    httpx_flavour: str, url: str, tmp_path: Path
 ) -> None:
     """Entry with unsupported encoding is refetched."""
     # E.g. stored zstd-encoded by an environment that supports zstd.
     await _store_legacy_entry(tmp_path, url, "x-unsupported", b"\x28\xb5\x2f\xfd garbage")
-    data = await anyenv.get_json(url, cache=True, cache_dir=tmp_path, backend=backend)
+    data = await anyenv.get_json(url, cache=True, cache_dir=tmp_path)
     assert data == {"answer": 42}
     assert _hits(url) == 1
     # The refetched entry replaced the broken one and is served from now on.
-    assert await anyenv.get_json(url, cache=True, cache_dir=tmp_path, backend=backend) == data
+    assert await anyenv.get_json(url, cache=True, cache_dir=tmp_path) == data
     assert _hits(url) == 1
 
 
-@pytest.mark.parametrize("backend", BACKENDS)
-async def test_corrupt_entry_is_refetched(backend: BackendType, url: str, tmp_path: Path) -> None:
+async def test_corrupt_entry_is_refetched(httpx_flavour: str, url: str, tmp_path: Path) -> None:
     """Corrupt entry is refetched."""
     await _store_legacy_entry(tmp_path, url, "gzip", b"definitely not gzip")
-    data = await anyenv.get_bytes(url, cache=True, cache_dir=tmp_path, backend=backend)
+    data = await anyenv.get_bytes(url, cache=True, cache_dir=tmp_path)
     assert data == BODY
     assert _hits(url) == 1
 
@@ -279,24 +240,43 @@ def test_corrupt_database_is_a_cache_miss(url: str, tmp_path: Path) -> None:
     assert _hits(url) == 1
 
 
-async def test_session_requests_hit_cache(server_url: str, tmp_path: Path) -> None:
-    """Session requests hit cache."""
-    backend = functional.get_backend("httpx", cache_dir=tmp_path, cache_ttl="1d")
-    path = "/gzip?test=session"
-    async with await backend.create_session(base_url=server_url, cache=True) as session:
+async def test_session_requests_hit_cache(
+    httpx_flavour: str, server_url: str, tmp_path: Path
+) -> None:
+    """Session requests hit cache, also those of the module helpers inside it."""
+    path = f"/gzip?test=session_{httpx_flavour}"
+    async with anyenv.http_session(
+        base_url=server_url, cache=True, cache_dir=tmp_path, cache_ttl="1d"
+    ) as session:
         for _ in range(3):
-            response = await session.request("GET", path)
-            assert await response.bytes() == BODY
+            response = await session.get(path)
+            assert response.content == BODY
+        assert await anyenv.get_bytes(path) == BODY
     assert HITS[path] == 1
 
 
-@pytest.mark.parametrize("backend", [*BACKENDS, "aiohttp"])
+async def test_memory_cache_backend(
+    server_url: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """cache_backend="memory" caches for the session's lifetime only, in memory."""
+    monkeypatch.chdir(tmp_path)
+    path = "/gzip?test=memory"
+    for _ in range(2):
+        async with anyenv.http_session(
+            base_url=server_url, cache=True, cache_backend="memory"
+        ) as session:
+            await session.get(path)
+            await session.get(path)
+    assert HITS[path] == 2  # noqa: PLR2004
+    assert list(tmp_path.iterdir()) == []
+
+
 @pytest.mark.parametrize("auth_type", ["bearer", "header"])
 async def test_cache_is_keyed_by_credentials(
-    backend: BackendType, auth_type: str, server_url: str, tmp_path: Path
+    httpx_flavour: str, auth_type: str, server_url: str, tmp_path: Path
 ) -> None:
     """One API key's cached response is never served for another."""
-    url = f"{server_url}/echo?test={backend}_{auth_type}"
+    url = f"{server_url}/echo?test={httpx_flavour}_{auth_type}"
 
     async def get(key: str) -> str:
         return await anyenv.get_text(
@@ -305,7 +285,6 @@ async def test_cache_is_keyed_by_credentials(
             cache_dir=tmp_path,
             api_key=key,
             auth_type=auth_type,  # type: ignore[arg-type]
-            backend=backend,
         )
 
     alice, bob = await get("alice"), await get("bob")

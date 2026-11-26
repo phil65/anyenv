@@ -94,7 +94,7 @@ class PastebinSharer(TextSharer):
             data["api_paste_format"] = syntax
 
         response = await anyenv.post("https://pastebin.com/api/api_post.php", data=data)
-        url = (await response.text()).strip()
+        url = response.text.strip()
         if url.startswith("Bad API request"):
             msg = f"Pastebin API error: {url}"
             raise RuntimeError(msg)

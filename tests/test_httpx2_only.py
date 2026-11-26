@@ -51,13 +51,13 @@ _SCRIPT = textwrap.dedent(
     import anyenv
     import anyenv.text_sharing
     from anyenv.download import httpx_backend
-    from anyenv.download.functional import get_default_backend
+    from anyenv.download.session import CacheSettings, create_client
     from anyenv.text_sharing.opencode import OpenCodeSharer
 
-    assert type(get_default_backend()).__name__ == "Httpx2Backend"
+    assert create_client(CacheSettings.create(False))[1].__name__ == "httpx2"
     assert anyenv.get_json_sync(url) == {"ok": True}
     assert anyenv.get_json_sync(url, cache=True) == {"ok": True}
-    assert anyenv.get_bytes_sync(url, backend="httpx2") == b'{"ok": true}'
+    assert anyenv.get_bytes_sync(url) == b'{"ok": true}'
     assert httpx_backend.JSTransport.__mro__[1].__module__.startswith("httpx2")
     assert OpenCodeSharer()._httpx.__name__ == "httpx2"  # noqa: SLF001
     assert "httpx" not in sys.modules
@@ -82,14 +82,13 @@ def test_works_without_legacy_httpx(tmp_path) -> None:
     assert proc.stdout.strip() == "OK"
 
 
-@pytest.mark.parametrize("name", ["httpx2", "httpx"])
-def test_js_transport_and_session_follow_flavour(name: str) -> None:
-    """JSTransport and sessions are built on the requested httpx flavour."""
-    if not importlib.util.find_spec(name):
-        pytest.skip(f"{name} not installed")
-    from anyenv.download.httpx_backend import HttpxSession, get_js_transport_class
+def test_js_transport_and_client_follow_flavour(httpx_flavour: str) -> None:
+    """JSTransport and clients are built on the selected httpx flavour."""
+    from anyenv.download.httpx_backend import get_js_transport_class
+    from anyenv.download.session import CacheSettings, create_client
 
-    mod = importlib.import_module(name)
-    assert issubclass(get_js_transport_class(name), mod.AsyncBaseTransport)
-    session = HttpxSession(mod.AsyncClient())
-    assert session._httpx is mod  # noqa: SLF001
+    mod = importlib.import_module(httpx_flavour)
+    assert issubclass(get_js_transport_class(httpx_flavour), mod.AsyncBaseTransport)
+    client, client_mod = create_client(CacheSettings.create(False))
+    assert client_mod is mod
+    assert isinstance(client, mod.AsyncClient)

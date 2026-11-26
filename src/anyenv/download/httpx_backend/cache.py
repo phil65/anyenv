@@ -23,19 +23,26 @@ from __future__ import annotations
 import functools
 import hashlib
 import logging
+import pathlib
 import time
 from typing import TYPE_CHECKING, Any
 
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
+    import os
     from types import ModuleType
 
     import hishel
     import httpx2 as httpx
 
+    from anyenv.download.http_types import CacheType
+
 
 logger = logging.getLogger(__name__)
+
+# Versioned name: hishel 2 refuses to open databases created by hishel 1.x.
+CACHE_DB_NAME = "anyenv_cache_hishel2.db"
 
 STORED_AT_HEADER = "x-anyenv-stored-at"
 """Response header holding the UNIX time at which a cached response was fetched."""
@@ -76,6 +83,30 @@ def cache_key(method: str, url: str, headers: Iterable[tuple[str, str]] = ()) ->
     )
     parts = [f"{method} {url}", *(f"{name}: {value}" for name, value in selecting)]
     return hashlib.sha256("\n".join(parts).encode()).hexdigest()
+
+
+def get_storage(
+    cache_backend: CacheType, cache_dir: str | os.PathLike[str], cache_ttl: int
+) -> hishel.AsyncSqliteStorage:
+    """Return the hishel storage for a cache backend ("file" / "sqlite": on disk; "memory")."""
+    import hishel
+
+    match cache_backend:
+        case "sqlite" | "file":
+            path = pathlib.Path(cache_dir) / CACHE_DB_NAME
+            path.parent.mkdir(parents=True, exist_ok=True)
+            return hishel.AsyncSqliteStorage(database_path=str(path), default_ttl=cache_ttl)
+        case "memory":
+            # Given as a path, hishel would create a file named ":memory:" in ./.cache.
+            import sqlite3
+
+            import anysqlite
+
+            conn = anysqlite.Connection(sqlite3.connect(":memory:", check_same_thread=False))
+            return hishel.AsyncSqliteStorage(connection=conn, default_ttl=cache_ttl)
+        case _:
+            msg = f"Invalid cache backend: {cache_backend}"
+            raise ValueError(msg)
 
 
 def _content_codings(headers: httpx.Headers) -> list[str]:

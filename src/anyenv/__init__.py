@@ -29,7 +29,6 @@ from anyenv.download.functional import (
     download,
     download_sync,
     get,
-    get_backend,
     get_bytes,
     get_bytes_sync,
     get_json,
@@ -55,15 +54,16 @@ from anyenv.package_install.functional import install, install_sync
 from anyenv.testing import open_in_playground
 from anyenv.json_tools import load_json, JsonLoadError, dump_json, JsonDumpError
 from anyenv.toml_tools import load_toml, TomlLoadError, dump_toml, TomlDumpError
-from anyenv.download.base import HttpBackend, HttpResponse, Session
+from anyenv.download.base import HttpResponse
+from anyenv.download.session import HttpSession, http_session
 from anyenv.os_commands import get_os_command_provider
 from anyenv.process_manager import ProcessManager, ProcessOutput, RunningProcess
 from anyenv.processes import create_process, create_shell_process
 
 __all__ = [
-    "HttpBackend",
     "HttpError",
     "HttpResponse",
+    "HttpSession",
     "JsonDumpError",
     "JsonLoadError",
     "MultiEventHandler",
@@ -72,7 +72,6 @@ __all__ = [
     "RequestError",
     "ResponseError",
     "RunningProcess",
-    "Session",
     "ThreadGroup",
     "TomlDumpError",
     "TomlLoadError",
@@ -87,7 +86,6 @@ __all__ = [
     "function_spawner",
     "gather",
     "get",
-    "get_backend",
     "get_bytes",
     "get_bytes_sync",
     "get_json",
@@ -96,6 +94,7 @@ __all__ = [
     "get_sync",
     "get_text",
     "get_text_sync",
+    "http_session",
     "install",
     "install_sync",
     "load_json",

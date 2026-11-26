@@ -1,15 +1,9 @@
-"""HTTPX Backend (httpx2, plus legacy httpx)."""
+"""The httpx layer: flavour selection (httpx2 or legacy httpx), cache, Pyodide transport."""
 
 from typing import Any
 
 from anyenv.download.httpx_backend.js_transport import get_js_transport_class
 from anyenv.download.httpx_backend.module import get_httpx_module
-from anyenv.download.httpx_backend.backend import (
-    Httpx2Backend,
-    HttpxBackend,
-    HttpxResponse,
-    HttpxSession,
-)
 
 
 def __getattr__(name: str) -> Any:
@@ -21,10 +15,6 @@ def __getattr__(name: str) -> Any:
 
 
 __all__ = [
-    "Httpx2Backend",
-    "HttpxBackend",
-    "HttpxResponse",
-    "HttpxSession",
     "JSTransport",  # pyright: ignore[reportUnsupportedDunderAll]
     "get_httpx_module",
     "get_js_transport_class",
