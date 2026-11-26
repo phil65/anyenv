@@ -178,6 +178,7 @@ class HttpSession:
     async def aclose(self) -> None:
         """Close the client (and its connections)."""
         self._closed = True
+        self._loop = None  # no reference that keeps a finished loop alive
         await self._client.aclose()
 
     async def __aenter__(self) -> Self:
@@ -208,6 +209,8 @@ class HttpSession:
         cache_ttl: int | str | None,
     ) -> bool:
         """Whether a helper call with these cache options can go through this session."""
+        if self._closed:
+            return False
         if cache is not None and cache != self.cache.enabled:
             return False
         if cache_dir is not None and pathlib.Path(cache_dir) != self.cache.directory:

@@ -608,3 +608,11 @@ async def test_session_is_not_used_from_another_event_loop(
     assert other is None
     assert data == {"ok": True}
     assert server.connections == 2  # noqa: PLR2004
+
+
+async def test_closed_session_accepts_nothing_and_drops_its_loop() -> None:
+    """A closed session takes no more calls and doesn't keep its event loop alive."""
+    async with anyenv.http_session() as session:
+        assert session.accepts(None, None, None)
+    assert not session.accepts(None, None, None)
+    assert session._loop is None  # noqa: SLF001
