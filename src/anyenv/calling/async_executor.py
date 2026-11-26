@@ -33,6 +33,35 @@ if TYPE_CHECKING:
 from collections.abc import Callable
 
 
+# asyncio keeps only weak references to tasks: fire-and-forget ones live here.
+_background_tasks: set[asyncio.Task[Any]] = set()
+_cache_lock = threading.Lock()
+
+
+def _keep_alive[TaskT: asyncio.Task[Any]](task: TaskT) -> TaskT:
+    _background_tasks.add(task)
+
+    def done(t: asyncio.Task[Any]) -> None:
+        _background_tasks.discard(t)
+        if not t.cancelled():
+            t.exception()  # retrieved: no "exception was never retrieved" warning
+
+    task.add_done_callback(done)
+    return task
+
+
+def _bound_cache(instance: Any) -> dict[int, Any]:
+    """The instance's cache of bound executors, created once even across threads."""
+    cache = getattr(instance, "_async_executor_cache", None)
+    if cache is None:
+        with _cache_lock:
+            cache = getattr(instance, "_async_executor_cache", None)
+            if cache is None:
+                cache = {}
+                instance._async_executor_cache = cache  # noqa: SLF001
+    return cache
+
+
 class AsyncExecutor[**P, T]:
     """Wrapper that provides both async __call__ and sync() methods."""
 
@@ -57,20 +86,19 @@ class AsyncExecutor[**P, T]:
             return self
 
         # Cache bound instances per object instance to maintain observer state
-        if not hasattr(instance, "_async_executor_cache"):
-            instance._async_executor_cache = {}  # noqa: SLF001
-
+        cache = _bound_cache(instance)
         cache_key = id(self)
-        if cache_key not in instance._async_executor_cache:  # noqa: SLF001
+        if cache_key not in cache:
             # Create bound wrapper to track instance
             bound = type(self)(self._func, is_bound=self._is_bound)
             bound._instance = instance  # noqa: SLF001
             # Each bound instance gets its own isolated observer state
             # (observers, observer_mode, and filtered_handlers are
             # already initialized by __init__)
-            instance._async_executor_cache[cache_key] = bound  # noqa: SLF001
+            # setdefault: a thread that got here first wins, all callers share it.
+            cache.setdefault(cache_key, bound)
 
-        return instance._async_executor_cache[cache_key]  # type: ignore[no-any-return] # noqa: SLF001
+        return cache[cache_key]  # type: ignore[no-any-return]
 
     async def __call__(self, *args: P.args, **kwargs: P.kwargs) -> T:
         """Async call - normal behavior."""
@@ -117,10 +145,7 @@ class AsyncExecutor[**P, T]:
 
     def submit(self, *args: P.args, **kwargs: P.kwargs) -> asyncio.Task[T]:
         """Fire-and-forget execution, returns Task but doesn't need to be awaited."""
-        task = self.task(*args, **kwargs)
-        # Suppress task result retrieval warning
-        task.add_done_callback(lambda t: t.exception() if not t.cancelled() else None)
-        return task
+        return _keep_alive(self.task(*args, **kwargs))
 
     async def timeout(self, timeout_sec: float, *args: P.args, **kwargs: P.kwargs) -> T:
         """Call with timeout."""
@@ -266,20 +291,19 @@ class AsyncIteratorExecutor[**P, T]:
             return self
 
         # Cache bound instances per object instance to maintain observer state
-        if not hasattr(instance, "_async_executor_cache"):
-            instance._async_executor_cache = {}  # noqa: SLF001
-
+        cache = _bound_cache(instance)
         cache_key = id(self)
-        if cache_key not in instance._async_executor_cache:  # noqa: SLF001
+        if cache_key not in cache:
             # Create bound wrapper to track instance
             bound = type(self)(self._func, is_bound=self._is_bound)
             bound._instance = instance  # noqa: SLF001
             # Each bound instance gets its own isolated observer state
             # (observers, observer_mode, and filtered_handlers are already
             # initialized by __init__)
-            instance._async_executor_cache[cache_key] = bound  # noqa: SLF001
+            # setdefault: a thread that got here first wins, all callers share it.
+            cache.setdefault(cache_key, bound)
 
-        return instance._async_executor_cache[cache_key]  # type: ignore[no-any-return]  # noqa: SLF001
+        return cache[cache_key]  # type: ignore[no-any-return]
 
     async def __call__(self, *args: P.args, **kwargs: P.kwargs) -> AsyncIterator[T]:
         """Return the async iterator with observer emission."""
@@ -362,10 +386,7 @@ class AsyncIteratorExecutor[**P, T]:
 
     def submit(self, *args: P.args, **kwargs: P.kwargs) -> asyncio.Task[list[T]]:
         """Fire-and-forget execution that collects all values, returns Task."""
-        task = self.task(*args, **kwargs)
-        # Suppress task result retrieval warning
-        task.add_done_callback(lambda t: t.exception() if not t.cancelled() else None)
-        return task
+        return _keep_alive(self.task(*args, **kwargs))
 
     async def timeout(self, timeout_sec: float, *args: P.args, **kwargs: P.kwargs) -> list[T]:
         """Collect all values with timeout."""

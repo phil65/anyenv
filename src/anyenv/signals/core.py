@@ -88,9 +88,10 @@ class Signal[*Ts]:
             return BoundSignal()
         obj_id = id(obj)
         if obj_id not in self._bound_signals:
-            # Create the bound signal
-            bound = BoundSignal[*Ts]()
-            self._bound_signals[obj_id] = bound
+            # setdefault: if two threads get here, both use the one stored first.
+            new = BoundSignal[*Ts]()
+            if self._bound_signals.setdefault(obj_id, new) is not new:
+                return self._bound_signals[obj_id]
 
             # Set up cleanup callback when obj is garbage collected
             def cleanup(_: object) -> None:
