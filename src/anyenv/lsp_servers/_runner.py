@@ -132,15 +132,22 @@ class DiagnosticRunner:
         # Parsing succeeded, even if there are errors
         return DiagnosticsResult(diagnostics=diagnostics, success=True, duration=result.duration)
 
-    async def run_all(self, files: list[str]) -> dict[str, DiagnosticsResult]:
+    async def run_all(
+        self, files: list[str], *, concurrency: int = 1
+    ) -> dict[str, DiagnosticsResult]:
         """Run all applicable servers on the given files.
 
         Args:
             files: File paths to check
+            concurrency: How many servers may run at once. The default runs them one
+                after another (safe for remote executors and slow machines).
 
         Returns:
-            Dict mapping server ID to DiagnosticsResult
+            Dict mapping server ID to DiagnosticsResult, in registration order
         """
+        if concurrency < 1:
+            msg = f"concurrency must be at least 1, got {concurrency}"
+            raise ValueError(msg)
         # Each applicable server gets all the files it handles, whatever the extension.
         files_by_server: dict[str, tuple[LSPServerInfo, list[str]]] = {}
         for server in self._servers:
@@ -148,10 +155,14 @@ class DiagnosticRunner:
             if server_files and server.id not in files_by_server:
                 files_by_server[server.id] = (server, server_files)
 
-        return {
-            server_id: await self.run(server, server_files)
-            for server_id, (server, server_files) in files_by_server.items()
-        }
+        semaphore = asyncio.Semaphore(concurrency)
+
+        async def run_one(server: LSPServerInfo, server_files: list[str]) -> DiagnosticsResult:
+            async with semaphore:
+                return await self.run(server, server_files)
+
+        results = await asyncio.gather(*(run_one(s, f) for s, f in files_by_server.values()))
+        return dict(zip(files_by_server, results, strict=True))
 
     async def run_for_file(self, path: str) -> list[Diagnostic]:
         """Run all applicable servers on a single file.
