@@ -128,6 +128,10 @@ async def gather[T](
 ) -> Sequence[T | Exception]:
     """Run awaitables concurrently using anyio's task groups.
 
+    Like `asyncio.gather`, a failure raises the failing awaitable's own exception
+    (the first one, if several fail), not an ExceptionGroup; the others are
+    cancelled. Cancellation is never returned as a result.
+
     Args:
         *coros_or_futures: Awaitables (coroutines or futures) to run concurrently
         return_exceptions: If True, exceptions are returned instead of raised
@@ -136,21 +140,28 @@ async def gather[T](
         A list of results in the same order as the input awaitables
     """
     results: list[Any] = [None] * len(coros_or_futures)
+    error: BaseException | None = None
 
-    async with anyio.create_task_group() as tg:
-        for i, coro in enumerate(coros_or_futures):
+    try:
+        async with anyio.create_task_group() as tg:
+            for i, coro in enumerate(coros_or_futures):
 
-            async def run_and_store(idx: int = i, awaitable: Awaitable[T] = coro) -> None:
-                try:
-                    results[idx] = await awaitable
-                except BaseException as exc:
-                    if return_exceptions:
-                        results[idx] = exc
-                    else:
-                        raise
+                async def run_and_store(idx: int = i, awaitable: Awaitable[T] = coro) -> None:
+                    try:
+                        results[idx] = await awaitable
+                    except Exception as exc:
+                        if return_exceptions:
+                            results[idx] = exc
+                        else:
+                            raise
 
-            tg.start_soon(run_and_store)
-
+                tg.start_soon(run_and_store)
+    except BaseExceptionGroup as group:
+        # The task group's own wrapper: its members are the children's exceptions.
+        error = group.exceptions[0]
+    if error is not None:
+        # Raised outside the except block, so its __context__ stays its own.
+        raise error
     return results
 
 
